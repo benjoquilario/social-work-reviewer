@@ -2,6 +2,23 @@
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
+## Reviewer Learning Track
+
+This project now includes a reviewer question-and-answer app plus guided docs.
+
+- Quiz app screen: app/(tabs)/index.tsx
+- Learn screen: app/(tabs)/explore.tsx
+- Imports glossary modal: app/modal.tsx
+- Learning notes folder: learning/
+
+Numbered learning files:
+
+1. learning/1.foundation.md
+2. learning/2.imports-and-components.nd
+3. learning/3.routing-system.md
+4. learning/4.reviewer-app-code-walkthrough.md
+5. learning/5.run-and-practice.md
+
 ## Get started
 
 1. Install dependencies
