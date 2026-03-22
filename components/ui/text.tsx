@@ -1,89 +1,149 @@
-import { cn } from '@/lib/utils';
-import * as Slot from '@rn-primitives/slot';
-import { cva, type VariantProps } from 'class-variance-authority';
-import * as React from 'react';
-import { Platform, Text as RNText, type Role } from 'react-native';
+import * as React from "react"
+import * as Slot from "@rn-primitives/slot"
+import { cva, type VariantProps } from "class-variance-authority"
+import { Platform, Text as RNText, type Role } from "react-native"
+
+import { APP_FONTS } from "@/lib/fonts"
+import { cn } from "@/lib/utils"
 
 const textVariants = cva(
   cn(
-    'text-foreground text-base',
+    "text-base text-foreground",
     Platform.select({
-      web: 'select-text',
+      web: "select-text",
     })
   ),
   {
     variants: {
       variant: {
-        default: '',
+        default: "",
         h1: cn(
-          'text-center text-4xl font-extrabold tracking-tight',
-          Platform.select({ web: 'scroll-m-20 text-balance' })
+          "text-center text-4xl font-extrabold tracking-tight",
+          Platform.select({ web: "scroll-m-20 text-balance" })
         ),
         h2: cn(
-          'border-border border-b pb-2 text-3xl font-semibold tracking-tight',
-          Platform.select({ web: 'scroll-m-20 first:mt-0' })
+          "border-b border-border pb-2 text-3xl font-semibold tracking-tight",
+          Platform.select({ web: "scroll-m-20 first:mt-0" })
         ),
-        h3: cn('text-2xl font-semibold tracking-tight', Platform.select({ web: 'scroll-m-20' })),
-        h4: cn('text-xl font-semibold tracking-tight', Platform.select({ web: 'scroll-m-20' })),
-        p: 'mt-3 leading-7 sm:mt-6',
-        blockquote: 'mt-4 border-l-2 pl-3 italic sm:mt-6 sm:pl-6',
+        h3: cn(
+          "text-2xl font-semibold tracking-tight",
+          Platform.select({ web: "scroll-m-20" })
+        ),
+        h4: cn(
+          "text-xl font-semibold tracking-tight",
+          Platform.select({ web: "scroll-m-20" })
+        ),
+        p: "mt-3 leading-7 sm:mt-6",
+        blockquote: "mt-4 border-l-2 pl-3 italic sm:mt-6 sm:pl-6",
         code: cn(
-          'bg-muted relative rounded px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold'
+          "relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold"
         ),
-        lead: 'text-muted-foreground text-xl',
-        large: 'text-lg font-semibold',
-        small: 'text-sm font-medium leading-none',
-        muted: 'text-muted-foreground text-sm',
+        lead: "text-xl text-muted-foreground",
+        large: "text-lg font-semibold",
+        small: "text-sm font-medium leading-none",
+        muted: "text-sm text-muted-foreground",
       },
     },
     defaultVariants: {
-      variant: 'default',
+      variant: "default",
     },
   }
-);
+)
 
-type TextVariantProps = VariantProps<typeof textVariants>;
+type TextVariantProps = VariantProps<typeof textVariants>
 
-type TextVariant = NonNullable<TextVariantProps['variant']>;
+type TextVariant = NonNullable<TextVariantProps["variant"]>
 
 const ROLE: Partial<Record<TextVariant, Role>> = {
-  h1: 'heading',
-  h2: 'heading',
-  h3: 'heading',
-  h4: 'heading',
-  blockquote: Platform.select({ web: 'blockquote' as Role }),
-  code: Platform.select({ web: 'code' as Role }),
-};
+  h1: "heading",
+  h2: "heading",
+  h3: "heading",
+  h4: "heading",
+  blockquote: Platform.select({ web: "blockquote" as Role }),
+  code: Platform.select({ web: "code" as Role }),
+}
 
 const ARIA_LEVEL: Partial<Record<TextVariant, string>> = {
-  h1: '1',
-  h2: '2',
-  h3: '3',
-  h4: '4',
-};
+  h1: "1",
+  h2: "2",
+  h3: "3",
+  h4: "4",
+}
 
-const TextClassContext = React.createContext<string | undefined>(undefined);
+const TextClassContext = React.createContext<string | undefined>(undefined)
+
+function resolveFontFamily(className?: string) {
+  if (!className) {
+    return APP_FONTS.regular
+  }
+
+  if (className.includes("font-mono")) {
+    return undefined
+  }
+
+  if (
+    className.includes("font-black") ||
+    className.includes("font-extrabold")
+  ) {
+    return APP_FONTS.extraBold
+  }
+
+  if (className.includes("font-bold")) {
+    return APP_FONTS.bold
+  }
+
+  if (className.includes("font-semibold")) {
+    return APP_FONTS.semiBold
+  }
+
+  if (className.includes("font-medium")) {
+    return APP_FONTS.medium
+  }
+
+  return APP_FONTS.regular
+}
+
+function stripFontWeightClasses(className?: string) {
+  if (!className) {
+    return className
+  }
+
+  return className
+    .replace(/\bfont-black\b/g, "")
+    .replace(/\bfont-extrabold\b/g, "")
+    .replace(/\bfont-bold\b/g, "")
+    .replace(/\bfont-semibold\b/g, "")
+    .replace(/\bfont-medium\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+}
 
 function Text({
   className,
   asChild = false,
-  variant = 'default',
+  variant = "default",
+  style,
   ...props
 }: React.ComponentProps<typeof RNText> &
   TextVariantProps &
   React.RefAttributes<RNText> & {
-    asChild?: boolean;
+    asChild?: boolean
   }) {
-  const textClass = React.useContext(TextClassContext);
-  const Component = asChild ? Slot.Text : RNText;
+  const textClass = React.useContext(TextClassContext)
+  const Component = asChild ? Slot.Text : RNText
+  const mergedClassName = cn(textVariants({ variant }), textClass, className)
+  const fontFamily = resolveFontFamily(mergedClassName)
+  const normalizedClassName = stripFontWeightClasses(mergedClassName)
+
   return (
     <Component
-      className={cn(textVariants({ variant }), textClass, className)}
+      {...props}
+      className={normalizedClassName}
       role={variant ? ROLE[variant] : undefined}
       aria-level={variant ? ARIA_LEVEL[variant] : undefined}
-      {...props}
+      style={[fontFamily ? { fontFamily } : undefined, style]}
     />
-  );
+  )
 }
 
-export { Text, TextClassContext };
+export { Text, TextClassContext }
