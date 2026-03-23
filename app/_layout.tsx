@@ -4,12 +4,7 @@ import { useFonts } from "expo-font"
 import { Stack } from "expo-router"
 import * as SplashScreen from "expo-splash-screen"
 import { StatusBar } from "expo-status-bar"
-import {
-  BookOpenText,
-  GraduationCap,
-  ListChecks,
-  Timer,
-} from "lucide-react-native"
+import { BookOpenText, ListChecks, Timer } from "lucide-react-native"
 
 import "react-native-reanimated"
 
@@ -107,14 +102,19 @@ function RootNavigator() {
             <Stack.Screen
               name="learn/[lessonId]"
               options={{
-                title: "Learning Center",
-                headerRight: () => (
-                  <GraduationCap
-                    size={18}
-                    color={navTheme.colors.primary}
-                    strokeWidth={2.5}
-                  />
-                ),
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="dashboard"
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="review/[categoryId]"
+              options={{
+                headerShown: false,
               }}
             />
             <Stack.Screen

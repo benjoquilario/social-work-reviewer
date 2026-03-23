@@ -1,12 +1,10 @@
 import { NEWS_ITEMS, type NewsItemType } from "@/data/news-data"
-import { Megaphone } from "lucide-react-native"
 import { ScrollView, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import { THEME } from "@/lib/theme"
-import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Card, CardContent } from "@/components/ui/card"
 import { Text } from "@/components/ui/text"
+import { AppShellHeader } from "@/components/app-shell-header"
 
 const TYPE_LABELS: Record<NewsItemType, string> = {
   update: "Product Update",
@@ -15,28 +13,28 @@ const TYPE_LABELS: Record<NewsItemType, string> = {
 }
 
 export default function NewsScreen() {
-  const colorScheme = useColorScheme()
-  const primaryColor =
-    colorScheme === "dark" ? THEME.dark.primary : THEME.light.primary
-
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView contentContainerClassName="gap-4 px-5 pb-8 pt-5">
-        <View className="rounded-3xl border border-border bg-card px-5 py-5">
-          <View className="flex-row items-center gap-2">
-            <Megaphone size={16} color={primaryColor} />
-            <Text className="text-xs font-black uppercase tracking-[1.8px] text-primary">
-              What is New
-            </Text>
-          </View>
-          <Text className="mt-2 text-2xl font-black text-card-foreground">
-            News and Releases
-          </Text>
-          <Text className="mt-2 text-sm leading-6 text-muted-foreground">
-            Stay updated with new reviewer content, learning materials, and
-            question packs.
-          </Text>
-        </View>
+        <AppShellHeader
+          compact
+          eyebrow="What Is New"
+          title="News and Releases"
+          subtitle="Stay updated with new reviewer content, learning materials, and question packs."
+          stats={[
+            { label: "Items", value: String(NEWS_ITEMS.length) },
+            {
+              label: "New",
+              value: String(NEWS_ITEMS.filter((item) => item.isNew).length),
+            },
+            {
+              label: "Learning",
+              value: String(
+                NEWS_ITEMS.filter((item) => item.type === "learning").length
+              ),
+            },
+          ]}
+        />
 
         {NEWS_ITEMS.map((item) => (
           <Card key={item.id}>

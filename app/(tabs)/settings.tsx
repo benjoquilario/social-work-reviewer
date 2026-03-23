@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Text } from "@/components/ui/text"
+import { AppShellHeader } from "@/components/app-shell-header"
 
 const APPEARANCE_OPTIONS: {
   label: string
@@ -65,18 +66,26 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView contentContainerClassName="gap-4 px-5 pb-8 pt-5">
-        <View className="rounded-3xl border border-border bg-card px-5 py-5">
-          <Text className="text-xs font-black uppercase tracking-[1.8px] text-primary">
-            App Preferences
-          </Text>
-          <Text className="mt-2 text-2xl font-black text-card-foreground">
-            Settings
-          </Text>
-          <Text className="mt-2 text-sm leading-6 text-muted-foreground">
-            Configure your reviewer workflow for focus, consistency, and exam
-            readiness.
-          </Text>
-        </View>
+        <AppShellHeader
+          compact
+          eyebrow="App Preferences"
+          title="Settings"
+          subtitle="Configure your reviewer workflow for focus, consistency, and exam readiness."
+          stats={[
+            {
+              label: "Theme",
+              value: resolvedColorScheme === "dark" ? "Dark" : "Light",
+            },
+            {
+              label: "Explain",
+              value: preferences.showExplanations ? "On" : "Off",
+            },
+            {
+              label: "Haptics",
+              value: preferences.hapticsEnabled ? "On" : "Off",
+            },
+          ]}
+        />
 
         <Card>
           <CardContent className="gap-3 px-4 py-4">

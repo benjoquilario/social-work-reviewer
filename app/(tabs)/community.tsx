@@ -14,7 +14,6 @@ import {
   CornerDownRight,
   Eye,
   MessageSquare,
-  MessagesSquare,
   Pin,
   Plus,
   Send,
@@ -45,6 +44,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Text } from "@/components/ui/text"
+import { AppShellHeader } from "@/components/app-shell-header"
 
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -629,25 +629,20 @@ export default function CommunityScreen() {
   const header = useMemo(
     () => (
       <View className="gap-4 pb-4">
-        <View className="relative overflow-hidden rounded-3xl border border-border bg-card px-5 py-5">
-          <View className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary/10" />
-          <View className="bg-chart2/20 absolute -bottom-10 -left-6 h-24 w-24 rounded-full" />
-
-          <View className="flex-row items-center gap-2">
-            <MessagesSquare size={16} color={primaryColor} />
-            <Text className="text-xs font-black uppercase tracking-[1.8px] text-primary">
-              Reviewer Community
-            </Text>
-          </View>
-
-          <Text className="mt-2 text-2xl font-black leading-8 text-card-foreground">
-            Ask better questions. Get sharper answers.
-          </Text>
-          <Text className="mt-2 text-sm leading-6 text-muted-foreground">
-            A focused discussion space for reviewer strategies, confusing
-            topics, and peer support.
-          </Text>
-        </View>
+        <AppShellHeader
+          compact
+          eyebrow="Reviewer Community"
+          title="Ask Better Questions"
+          subtitle="A focused discussion space for reviewer strategies, confusing topics, and peer support."
+          stats={[
+            {
+              label: "Learners",
+              value: String(COMMUNITY_STATS.activeLearners),
+            },
+            { label: "Open", value: String(COMMUNITY_STATS.openTopics) },
+            { label: "Answered", value: String(COMMUNITY_STATS.answeredToday) },
+          ]}
+        />
 
         <View className="flex-row gap-3">
           <Card className="flex-1">
