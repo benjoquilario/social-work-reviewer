@@ -1,9 +1,12 @@
 import {
+  APPWRITE_CONFIG,
   COLLECTIONS,
   createAppwriteContentError,
   createAppwritePermissionMessage,
   databases,
   DB_ID,
+  ExecutionMethod,
+  functions,
   getAppwriteConfigurationError,
   isAppwriteContentError,
   isAppwriteUnauthorizedError,
@@ -73,6 +76,21 @@ export type LearningMaterialDetail = {
   subject: LearningSubject
   topic: LearningTopicSummary
   material: LearningMaterial
+}
+
+type PremiumMaterialFunctionResponse = {
+  ok: boolean
+  message?: string
+  material?: {
+    id: string
+    topicId: string
+    title: string
+    type: LearningMaterialType
+    fileUrl: string | null
+    content: string
+    isPremium: boolean
+    createdAt: string
+  }
 }
 
 function ensureLearningContentConfigured() {
@@ -151,6 +169,22 @@ function mapMaterialDocument(
   }
 }
 
+function mapPremiumMaterialPayload(
+  material: NonNullable<PremiumMaterialFunctionResponse["material"]>
+): LearningMaterial {
+  return {
+    id: material.id,
+    topicId: material.topicId,
+    title: material.title,
+    type: material.type,
+    fileUrl: material.fileUrl,
+    content: material.content,
+    isPremium: material.isPremium,
+    isLocked: false,
+    createdAt: material.createdAt,
+  }
+}
+
 type LearningAccessOptions = {
   viewerIsPremium?: boolean
 }
@@ -184,6 +218,55 @@ function getMaterialStats(
     premiumMaterialCount,
     visibleMaterialCount,
   }
+}
+
+async function resolvePremiumMaterialAccess(
+  materialId: string
+): Promise<LearningMaterial | null> {
+  const functionId = APPWRITE_CONFIG.premiumMaterialAccessFunctionId
+
+  if (!functionId) {
+    return null
+  }
+
+  const execution = await functions.createExecution({
+    functionId,
+    body: JSON.stringify({ materialId }),
+    async: false,
+    xpath: "/",
+    method: ExecutionMethod.POST,
+    headers: {
+      "content-type": "application/json",
+    },
+  })
+
+  const responseStatusCode = execution.responseStatusCode ?? 500
+  const responseBody = execution.responseBody ?? ""
+  let payload: PremiumMaterialFunctionResponse | null = null
+
+  if (responseBody) {
+    try {
+      payload = JSON.parse(responseBody) as PremiumMaterialFunctionResponse
+    } catch {
+      payload = null
+    }
+  }
+
+  if (responseStatusCode >= 400 || !payload?.ok || !payload.material) {
+    if (responseStatusCode === 401 || responseStatusCode === 403) {
+      throw createAppwriteContentError(
+        "request",
+        payload?.message ?? "Premium subscription required for this material."
+      )
+    }
+
+    throw createAppwriteContentError(
+      "request",
+      payload?.message ?? "Unable to resolve premium material access."
+    )
+  }
+
+  return mapPremiumMaterialPayload(payload.material)
 }
 
 async function getLearningSnapshot() {
@@ -514,6 +597,10 @@ export async function getLearningMaterialDetail(
     const visibleMaterials = viewerIsPremium
       ? orderedTopicMaterials
       : orderedTopicMaterials.filter((item) => !item.isPremium)
+    const premiumMaterial =
+      viewerIsPremium && material.isPremium
+        ? await resolvePremiumMaterialAccess(material.$id)
+        : null
 
     return {
       subject: mapSubjectDocument(
@@ -532,7 +619,8 @@ export async function getLearningMaterialDetail(
         viewerIsPremium,
         visibleMaterials[0]?.$id ?? null
       ),
-      material: mapMaterialDocument(material, viewerIsPremium),
+      material:
+        premiumMaterial ?? mapMaterialDocument(material, viewerIsPremium),
     }
   } catch (error) {
     throw toContentError(

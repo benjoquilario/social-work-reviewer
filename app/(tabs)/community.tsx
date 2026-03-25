@@ -9,6 +9,7 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
+  Tag,
   Users,
 } from "lucide-react-native"
 import {
@@ -50,16 +51,18 @@ import { Text } from "@/components/ui/text"
 import { AppShellHeader } from "@/components/app-shell-header"
 
 const COMMUNITY_CATEGORIES = ["question", "discussion", "tip"] as const
+const COMMUNITY_FEED_FILTERS = ["all", ...COMMUNITY_CATEGORIES] as const
 
 const CommunityLoading = memo(function CommunityLoading() {
   return (
     <View className="gap-4">
-      <Skeleton className="h-48 rounded-[26px]" />
+      <Skeleton className="h-56 rounded-[30px]" />
       <View className="flex-row gap-3">
         <Skeleton className="h-24 flex-1 rounded-2xl" />
         <Skeleton className="h-24 flex-1 rounded-2xl" />
         <Skeleton className="h-24 flex-1 rounded-2xl" />
       </View>
+      <Skeleton className="h-14 rounded-full" />
       <Skeleton className="h-56 rounded-2xl" />
       <Skeleton className="h-56 rounded-2xl" />
     </View>
@@ -120,7 +123,7 @@ const CommentRow = memo(function CommentRow({
   }, [comment.id, onSubmitReply, replyDraft])
 
   return (
-    <View className="gap-3 rounded-2xl border border-border bg-card px-3 py-3">
+    <View className="gap-3 rounded-[24px] border border-border bg-card px-3.5 py-3.5">
       <View className="flex-row items-start gap-3">
         <View className="h-10 w-10 items-center justify-center rounded-full bg-primary/10">
           <Text className="text-xs font-bold uppercase text-primary">
@@ -192,36 +195,43 @@ const ThreadCard = memo(function ThreadCard({
   onOpen: (postId: string) => void
 }) {
   return (
-    <Card>
+    <Card className="overflow-hidden rounded-[30px] border-border/80">
       <CardContent className="gap-4 px-4 py-4">
-        <View className="flex-row flex-wrap items-center gap-2">
-          <View className="rounded-full border border-border bg-background px-2.5 py-1">
-            <Text className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-              {post.category}
-            </Text>
-          </View>
-          {post.subjectName ? (
-            <View className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1">
-              <Text className="text-[10px] font-bold uppercase tracking-wide text-primary">
-                {post.subjectName}
+        <View className="gap-3 rounded-[24px] border border-primary/15 bg-primary/5 p-3.5">
+          <View className="flex-row flex-wrap items-center gap-2">
+            <View className="rounded-full border border-border bg-background px-2.5 py-1">
+              <Text className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                {post.category}
               </Text>
             </View>
-          ) : null}
+            {post.subjectName ? (
+              <View className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1">
+                <Text className="text-[10px] font-bold uppercase tracking-wide text-primary">
+                  {post.subjectName}
+                </Text>
+              </View>
+            ) : null}
+            <View className="ml-auto rounded-full bg-card px-2.5 py-1">
+              <Text className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                {post.createdAtLabel}
+              </Text>
+            </View>
+          </View>
+
+          <View className="gap-2">
+            <Text className="text-lg font-black leading-7 text-card-foreground">
+              {post.title}
+            </Text>
+            <Text
+              className="text-sm leading-6 text-muted-foreground"
+              numberOfLines={4}
+            >
+              {post.content}
+            </Text>
+          </View>
         </View>
 
-        <View className="gap-2">
-          <Text className="text-lg font-black leading-7 text-card-foreground">
-            {post.title}
-          </Text>
-          <Text
-            className="text-sm leading-6 text-muted-foreground"
-            numberOfLines={4}
-          >
-            {post.content}
-          </Text>
-        </View>
-
-        <View className="flex-row items-center gap-3">
+        <View className="flex-row items-center gap-3 rounded-[24px] border border-border bg-background px-3.5 py-3">
           <View className="h-11 w-11 items-center justify-center rounded-full bg-primary/10">
             <Text className="text-xs font-bold uppercase text-primary">
               {post.author.avatarSeed}
@@ -232,32 +242,30 @@ const ThreadCard = memo(function ThreadCard({
               {post.author.name}
             </Text>
             <Text className="text-xs text-muted-foreground">
-              {post.author.subtitle} · {post.createdAtLabel}
+              {post.author.subtitle}
             </Text>
           </View>
         </View>
 
-        <View className="flex-row gap-3 rounded-2xl border border-border bg-background px-3 py-3">
-          <View className="flex-1 gap-1">
-            <Text className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        <View className="flex-row gap-2.5">
+          <View className="flex-1 gap-1 rounded-[22px] border border-border bg-background px-3 py-3">
+            <Text className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               Comments
             </Text>
             <Text className="text-base font-black text-card-foreground">
               {post.commentsCount}
             </Text>
           </View>
-          <View className="h-full w-px bg-border" />
-          <View className="flex-1 gap-1">
-            <Text className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          <View className="flex-1 gap-1 rounded-[22px] border border-border bg-background px-3 py-3">
+            <Text className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               Replies
             </Text>
             <Text className="text-base font-black text-card-foreground">
               {post.repliesCount}
             </Text>
           </View>
-          <View className="h-full w-px bg-border" />
-          <View className="flex-1 gap-1">
-            <Text className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          <View className="flex-1 gap-1 rounded-[22px] border border-border bg-background px-3 py-3">
+            <Text className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               Likes
             </Text>
             <Text className="text-base font-black text-card-foreground">
@@ -309,6 +317,8 @@ export default function CommunityScreen() {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(
     null
   )
+  const [activeFeedFilter, setActiveFeedFilter] =
+    useState<(typeof COMMUNITY_FEED_FILTERS)[number]>("all")
   const [titleDraft, setTitleDraft] = useState("")
   const [contentDraft, setContentDraft] = useState("")
   const [commentDraft, setCommentDraft] = useState("")
@@ -360,6 +370,20 @@ export default function CommunityScreen() {
     () => feedQuery.data?.posts.find((post) => post.id === activePostId),
     [activePostId, feedQuery.data?.posts]
   )
+
+  const filteredPosts = useMemo(() => {
+    const posts = feedQuery.data?.posts ?? []
+
+    if (activeFeedFilter === "all") {
+      return posts
+    }
+
+    return posts.filter((post) => post.category === activeFeedFilter)
+  }, [activeFeedFilter, feedQuery.data?.posts])
+
+  const featuredSubjects = useMemo(() => {
+    return (subjectsQuery.data ?? []).slice(0, 6)
+  }, [subjectsQuery.data])
 
   const submitPost = useCallback(() => {
     if (!user?.$id) {
@@ -447,8 +471,8 @@ export default function CommunityScreen() {
         <AppShellHeader
           compact
           eyebrow="Reviewer Community"
-          title="Ask Better Questions"
-          subtitle="Appwrite-backed discussions, replies, and likes with cached loading and lightweight refreshes."
+          title="Study Threads That Stay Useful"
+          subtitle="Focused questions, cleaner replies, and Appwrite-backed discussions filtered for active review sessions."
           stats={[
             {
               label: "Learners",
@@ -464,6 +488,51 @@ export default function CommunityScreen() {
             },
           ]}
         />
+
+        <Card className="overflow-hidden rounded-[30px] border-primary/20 bg-primary/5">
+          <CardContent className="gap-4 px-4 py-4">
+            <View className="flex-row items-start justify-between gap-3">
+              <View className="flex-1 gap-2">
+                <View className="self-start rounded-full border border-primary/30 bg-background px-3 py-1">
+                  <Text className="text-[11px] font-black uppercase tracking-[1.2px] text-primary">
+                    Live review board
+                  </Text>
+                </View>
+                <Text className="text-[22px] font-black leading-8 text-card-foreground">
+                  Ask once. Leave with an answer you can actually review later.
+                </Text>
+                <Text className="text-[13px] leading-6 text-muted-foreground">
+                  Use subject-linked threads for precise questions, quick tips,
+                  and discussion prompts without losing the context of what you
+                  are studying.
+                </Text>
+              </View>
+              <View className="h-14 w-14 items-center justify-center rounded-[20px] bg-primary/10">
+                <Users size={24} color={primaryColor} />
+              </View>
+            </View>
+
+            <View className="flex-row gap-3">
+              <Button
+                className="h-11 flex-1"
+                onPress={() => setIsComposerOpen(true)}
+              >
+                <Plus size={16} color="#ffffff" />
+                <Text className="font-bold text-primary-foreground">
+                  Start a thread
+                </Text>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-11 flex-1"
+                onPress={() => feedQuery.refetch()}
+              >
+                <Sparkles size={16} color="#6b7280" />
+                <Text className="font-bold">Refresh board</Text>
+              </Button>
+            </View>
+          </CardContent>
+        </Card>
 
         <View className="flex-row gap-3">
           <Card className="flex-1">
@@ -501,28 +570,69 @@ export default function CommunityScreen() {
           </Card>
         </View>
 
-        <View className="flex-row gap-3">
-          <Button
-            className="h-11 flex-1"
-            onPress={() => setIsComposerOpen(true)}
-          >
-            <Plus size={16} color="#ffffff" />
-            <Text className="font-bold text-primary-foreground">
-              Write discussion
+        <View className="gap-3 rounded-[28px] border border-border bg-card px-4 py-4">
+          <View className="flex-row items-center gap-2">
+            <Tag size={16} color={primaryColor} />
+            <Text className="text-sm font-black text-card-foreground">
+              Filter the board
             </Text>
-          </Button>
-          <Button
-            variant="outline"
-            className="h-11 flex-1"
-            onPress={() => feedQuery.refetch()}
-          >
-            <Sparkles size={16} color="#6b7280" />
-            <Text className="font-bold">Refresh feed</Text>
-          </Button>
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View className="flex-row gap-2 pr-2">
+              {COMMUNITY_FEED_FILTERS.map((filter) => {
+                const isActive = activeFeedFilter === filter
+
+                return (
+                  <Pressable
+                    key={filter}
+                    className={
+                      isActive
+                        ? "rounded-full border border-primary bg-primary px-3 py-2"
+                        : "rounded-full border border-border bg-background px-3 py-2"
+                    }
+                    onPress={() => setActiveFeedFilter(filter)}
+                  >
+                    <Text
+                      className={
+                        isActive
+                          ? "text-xs font-bold uppercase tracking-wide text-primary-foreground"
+                          : "text-xs font-bold uppercase tracking-wide text-muted-foreground"
+                      }
+                    >
+                      {filter}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+            </View>
+          </ScrollView>
+
+          {featuredSubjects.length > 0 ? (
+            <View className="gap-2">
+              <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-muted-foreground">
+                Popular subject lanes
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View className="flex-row gap-2 pr-2">
+                  {featuredSubjects.map((subject) => (
+                    <View
+                      key={subject.id}
+                      className="rounded-full border border-border bg-background px-3 py-2"
+                    >
+                      <Text className="text-xs font-bold uppercase tracking-wide text-card-foreground">
+                        {subject.name}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          ) : null}
         </View>
       </View>
     ),
-    [feedQuery, primaryColor]
+    [activeFeedFilter, featuredSubjects, feedQuery, primaryColor]
   )
 
   const renderItem = useCallback(
@@ -561,19 +671,22 @@ export default function CommunityScreen() {
         </ScrollView>
       ) : (
         <FlatList
-          data={feedQuery.data?.posts ?? []}
+          data={filteredPosts}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           ListHeaderComponent={header}
           ListEmptyComponent={
-            <Card>
-              <CardContent className="gap-2 px-4 py-4">
-                <Text className="text-sm font-black text-card-foreground">
-                  No discussions yet
+            <Card className="rounded-[28px]">
+              <CardContent className="gap-2 px-4 py-5">
+                <Text className="text-base font-black text-card-foreground">
+                  {activeFeedFilter === "all"
+                    ? "No discussions yet"
+                    : `No ${activeFeedFilter} posts yet`}
                 </Text>
                 <Text className="text-[13px] leading-5 text-muted-foreground">
-                  Your Appwrite community collections are live, but there are no
-                  posts yet.
+                  {activeFeedFilter === "all"
+                    ? "Your Appwrite community collections are live, but there are no posts yet."
+                    : `Nothing in the ${activeFeedFilter} lane matches the current board. Try another filter or start the first thread.`}
                 </Text>
               </CardContent>
             </Card>
@@ -591,10 +704,10 @@ export default function CommunityScreen() {
       <Dialog open={isComposerOpen} onOpenChange={setIsComposerOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Write a discussion</DialogTitle>
+            <DialogTitle>Start a thread</DialogTitle>
             <DialogDescription>
-              Create a lightweight Appwrite-backed post. Keep one focused
-              question per thread.
+              Post one clear question, discussion, or study tip so replies stay
+              focused and useful.
             </DialogDescription>
           </DialogHeader>
 
@@ -679,7 +792,7 @@ export default function CommunityScreen() {
               <TextInput
                 value={titleDraft}
                 onChangeText={setTitleDraft}
-                placeholder="Title your question clearly"
+                placeholder="Write a precise thread title"
                 placeholderTextColor="#8b8b93"
                 className="text-base text-foreground"
               />
@@ -689,7 +802,7 @@ export default function CommunityScreen() {
               <TextInput
                 value={contentDraft}
                 onChangeText={setContentDraft}
-                placeholder="Explain the issue, what you already know, and what answer you need"
+                placeholder="Add the details, what you already checked, and the answer or feedback you need"
                 placeholderTextColor="#8b8b93"
                 className="min-h-[112px] text-sm text-foreground"
                 multiline

@@ -5,6 +5,8 @@ import {
   Avatars,
   Client,
   Databases,
+  ExecutionMethod,
+  Functions,
   ID,
   Permission,
   Query,
@@ -21,6 +23,9 @@ export const APPWRITE_CONFIG = {
   endpoint: process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT ?? FALLBACK_ENDPOINT,
   projectId: process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID ?? "",
   databaseId: process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID ?? "",
+  premiumMaterialAccessFunctionId:
+    process.env.EXPO_PUBLIC_APPWRITE_PREMIUM_MATERIAL_FUNCTION_ID ??
+    "69c35f750004ff04204f",
   platform: Platform.select({
     android:
       process.env.EXPO_PUBLIC_APPWRITE_ANDROID_PACKAGE ??
@@ -73,6 +78,7 @@ export const client = new Client()
 
 export const account = new Account(client)
 export const databases = new Databases(client)
+export const functions = new Functions(client)
 export const storage = new Storage(client)
 export const avatars = new Avatars(client)
 
@@ -151,4 +157,4 @@ export function createAppwritePermissionMessage(
 }
 
 // Re-export for convenience
-export { ID, Permission, Query, Role }
+export { ExecutionMethod, ID, Permission, Query, Role }

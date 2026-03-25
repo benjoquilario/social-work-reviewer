@@ -30,6 +30,37 @@ Use `POST` with a JSON body:
 
 The function expects Appwrite to pass the authenticated user id through the request headers.
 
+## Appwrite Console Settings
+
+- Trigger: `HTTP`
+- Execution method: `POST`
+- Path: `/`
+- Schedule: leave empty
+- Execute asynchronously: `false` for the mobile app flow, so the caller receives the material payload in the same request
+- Entrypoint: `main.js`
+
+The repository includes both `main.js` (root entrypoint) and `src/main.js` (implementation) so Appwrite deployments that expect a root entrypoint work without extra changes.
+
+This function is meant to be executed on demand from the app, not on a cron schedule. The app should trigger an execution against the deployed function ID, so there is no separate public route you need to hardcode beyond the Appwrite execution endpoint. In Appwrite SDK terms, the request goes through:
+
+```ts
+functions.createExecution({
+  functionId: "<YOUR_FUNCTION_ID>",
+  body: JSON.stringify({ materialId: "<MATERIAL_ID>" }),
+  async: false,
+  xpath: "/",
+  method: ExecutionMethod.POST,
+})
+```
+
+If you add your own internal routing later, then `xpath` can change. With the current `src/main.js`, keep it at `/`.
+
+## Mobile App Configuration
+
+Set this Expo public env var so the app can call the deployed function:
+
+- `EXPO_PUBLIC_APPWRITE_PREMIUM_MATERIAL_FUNCTION_ID`
+
 ## Suggested Next Step
 
-After deploying this function, the mobile app can stop reading premium material bodies directly from the collection and call this function instead.
+After deploying this function and setting `EXPO_PUBLIC_APPWRITE_PREMIUM_MATERIAL_FUNCTION_ID`, premium lesson detail reads can flow through the function instead of directly exposing premium material bodies from the collection.
