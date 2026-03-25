@@ -106,7 +106,7 @@ module.exports = async ({ req, res, log, error }) => {
       {
         ok: false,
         message:
-          "materialId is required. Provide it in JSON body {\"materialId\":\"...\"}, as a raw string body, or as ?materialId=...",
+          'materialId is required. Provide it in JSON body {"materialId":"..."}, as a raw string body, or as ?materialId=...',
         debug: {
           method: req.method,
           path: req.path || "/",
