@@ -4,10 +4,26 @@ const DATABASE_ID = process.env.APPWRITE_DATABASE_ID
 const API_ENDPOINT = process.env.APPWRITE_API_ENDPOINT
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID
 const API_KEY = process.env.APPWRITE_API_KEY
+const PREMIUM_ACCESS_DEBUG_MODE =
+  process.env.PREMIUM_ACCESS_DEBUG_MODE === "true"
 const USER_PROFILES_COLLECTION_ID =
   process.env.USER_PROFILES_COLLECTION_ID || "user_profiles"
 const LEARNING_MATERIALS_COLLECTION_ID =
   process.env.LEARNING_MATERIALS_COLLECTION_ID || "learning_materials"
+
+function withDebug(payload, debug) {
+  if (!PREMIUM_ACCESS_DEBUG_MODE) {
+    return payload
+  }
+
+  return {
+    ...payload,
+    debug: {
+      mode: "development",
+      ...debug,
+    },
+  }
+}
 
 function parseJsonBody(rawBody) {
   if (!rawBody) {
@@ -84,10 +100,18 @@ module.exports = async ({ req, res, log, error }) => {
 
   if (req.method !== "POST") {
     return res.json(
-      {
-        ok: false,
-        message: "Use POST with a JSON body containing materialId.",
-      },
+      withDebug(
+        {
+          ok: false,
+          message:
+            "Use POST with a JSON body containing materialId. In Appwrite execution, set Method to POST.",
+        },
+        {
+          receivedMethod: req.method,
+          expectedMethod: "POST",
+          path: req.path || "/",
+        }
+      ),
       405
     )
   }
@@ -103,17 +127,19 @@ module.exports = async ({ req, res, log, error }) => {
   const materialId = extractMaterialId(req, body)
   if (!materialId) {
     return res.json(
-      {
-        ok: false,
-        message:
-          'materialId is required. Provide it in JSON body {"materialId":"..."}, as a raw string body, or as ?materialId=...',
-        debug: {
+      withDebug(
+        {
+          ok: false,
+          message:
+            'materialId is required. Provide it in JSON body {"materialId":"..."}, as a raw string body, or as ?materialId=...',
+        },
+        {
           method: req.method,
           path: req.path || "/",
           hasBody: Boolean(req.body),
           bodyKeys: typeof body === "object" ? Object.keys(body) : [],
-        },
-      },
+        }
+      ),
       400
     )
   }
@@ -152,11 +178,26 @@ module.exports = async ({ req, res, log, error }) => {
     )
 
     if (material.isPremium && !isPremiumUser) {
+      const failureReason = profile
+        ? "profile_found_but_isPremium_false"
+        : "profile_missing"
+
       return res.json(
-        {
-          ok: false,
-          message: "Premium subscription required for this material.",
-        },
+        withDebug(
+          {
+            ok: false,
+            message: "Premium subscription required for this material.",
+          },
+          {
+            accessDecision: "premium_material_denied",
+            failureReason,
+            userId,
+            profileFound: Boolean(profile),
+            isPremiumUser,
+            materialId,
+            materialIsPremium: material.isPremium === true,
+          }
+        ),
         403
       )
     }

@@ -17,6 +17,7 @@ This Appwrite Function is scaffolded inside the same repository so premium check
 - `APPWRITE_DATABASE_ID`
 - `USER_PROFILES_COLLECTION_ID` (optional, defaults to `user_profiles`)
 - `LEARNING_MATERIALS_COLLECTION_ID` (optional, defaults to `learning_materials`)
+- `PREMIUM_ACCESS_DEBUG_MODE` (optional, set to `true` only in development)
 
 ## Invocation Shape
 
@@ -34,6 +35,21 @@ Accepted alternatives for quick/manual tests:
 - Query string on path: `/?materialId=learning-material-document-id`
 
 The function expects Appwrite to pass the authenticated user id through the request headers.
+
+## Status Code Troubleshooting
+
+- `200`: success, material returned
+- `400`: missing or invalid `materialId`
+- `401`: no authenticated Appwrite user context was provided
+- `403`: user context exists but premium access is denied for this material
+- `405`: execution method is not `POST`
+
+If you see `403`, open the execution response body and check the `debug` object (`profileFound`, `isPremiumUser`, `materialIsPremium`).
+
+When `PREMIUM_ACCESS_DEBUG_MODE=true`, `403` responses include:
+
+- `accessDecision`: `premium_material_denied`
+- `failureReason`: `profile_missing` or `profile_found_but_isPremium_false`
 
 ## Appwrite Console Settings
 
