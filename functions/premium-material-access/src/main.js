@@ -18,11 +18,55 @@ function parseJsonBody(rawBody) {
     return rawBody
   }
 
+  if (typeof rawBody === "string") {
+    const trimmed = rawBody.trim()
+
+    if (!trimmed) {
+      return {}
+    }
+
+    // Allow sending a raw material id in manual Appwrite console tests.
+    if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+      return { materialId: trimmed }
+    }
+  }
+
   try {
     return JSON.parse(rawBody)
   } catch {
     return null
   }
+}
+
+function extractMaterialId(req, body) {
+  const bodyMaterialId =
+    body?.materialId || body?.lessonId || body?.id || body?.documentId
+
+  if (bodyMaterialId) {
+    return String(bodyMaterialId)
+  }
+
+  const queryMaterialId =
+    req?.query?.materialId || req?.query?.lessonId || req?.query?.id
+
+  if (queryMaterialId) {
+    return String(queryMaterialId)
+  }
+
+  const rawPath = typeof req?.path === "string" ? req.path : ""
+  const queryString = rawPath.includes("?") ? rawPath.split("?")[1] : ""
+
+  if (queryString) {
+    const params = new URLSearchParams(queryString)
+    const pathMaterialId =
+      params.get("materialId") || params.get("lessonId") || params.get("id")
+
+    if (pathMaterialId) {
+      return pathMaterialId
+    }
+  }
+
+  return ""
 }
 
 module.exports = async ({ req, res, log, error }) => {
@@ -56,9 +100,22 @@ module.exports = async ({ req, res, log, error }) => {
     )
   }
 
-  const materialId = body.materialId
+  const materialId = extractMaterialId(req, body)
   if (!materialId) {
-    return res.json({ ok: false, message: "materialId is required." }, 400)
+    return res.json(
+      {
+        ok: false,
+        message:
+          "materialId is required. Provide it in JSON body {\"materialId\":\"...\"}, as a raw string body, or as ?materialId=...",
+        debug: {
+          method: req.method,
+          path: req.path || "/",
+          hasBody: Boolean(req.body),
+          bodyKeys: typeof body === "object" ? Object.keys(body) : [],
+        },
+      },
+      400
+    )
   }
 
   const userId =

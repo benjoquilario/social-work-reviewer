@@ -28,6 +28,11 @@ Use `POST` with a JSON body:
 }
 ```
 
+Accepted alternatives for quick/manual tests:
+
+- Raw body string: `learning-material-document-id`
+- Query string on path: `/?materialId=learning-material-document-id`
+
 The function expects Appwrite to pass the authenticated user id through the request headers.
 
 ## Appwrite Console Settings
