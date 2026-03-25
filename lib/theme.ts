@@ -1,4 +1,4 @@
-import { DarkTheme, DefaultTheme, type Theme } from "@react-navigation/native";
+import { DarkTheme, DefaultTheme, type Theme } from "@react-navigation/native"
 
 export const THEME = {
   light: {
@@ -8,13 +8,13 @@ export const THEME = {
     cardForeground: "hsl(240 10% 8%)",
     popover: "hsl(0 0% 100%)",
     popoverForeground: "hsl(240 10% 8%)",
-    primary: "hsl(243 75% 59%)",          // indigo
+    primary: "hsl(243 75% 59%)", // indigo
     primaryForeground: "hsl(0 0% 100%)",
     secondary: "hsl(243 30% 94%)",
     secondaryForeground: "hsl(243 60% 30%)",
     muted: "hsl(243 20% 94%)",
     mutedForeground: "hsl(240 10% 50%)",
-    accent: "hsl(38 92% 58%)",            // amber accent
+    accent: "hsl(38 92% 58%)", // amber accent
     accentForeground: "hsl(240 10% 8%)",
     destructive: "hsl(0 84.2% 60.2%)",
     destructiveForeground: "hsl(0 0% 98%)",
@@ -39,13 +39,13 @@ export const THEME = {
     cardForeground: "hsl(243 20% 96%)",
     popover: "hsl(240 10% 10%)",
     popoverForeground: "hsl(243 20% 96%)",
-    primary: "hsl(245 80% 72%)",          // lighter indigo for dark bg
+    primary: "hsl(245 80% 72%)", // lighter indigo for dark bg
     primaryForeground: "hsl(240 10% 6%)",
     secondary: "hsl(240 10% 18%)",
     secondaryForeground: "hsl(243 20% 90%)",
     muted: "hsl(240 10% 20%)",
     mutedForeground: "hsl(240 10% 68%)",
-    accent: "hsl(38 85% 60%)",            // amber (slightly muted for dark)
+    accent: "hsl(38 85% 60%)", // amber (slightly muted for dark)
     accentForeground: "hsl(240 10% 6%)",
     destructive: "hsl(0 70.9% 59.4%)",
     destructiveForeground: "hsl(0 0% 98%)",
@@ -63,7 +63,7 @@ export const THEME = {
     chart4: "hsl(280 65% 65%)",
     chart5: "hsl(340 75% 60%)",
   },
-} as const;
+} as const
 
 export const NAV_THEME: Record<"light" | "dark", Theme> = {
   light: {
@@ -90,8 +90,69 @@ export const NAV_THEME: Record<"light" | "dark", Theme> = {
       text: THEME.dark.foreground,
     },
   },
-};
+}
+
+const NATIVEWIND_THEME_VARIABLE_KEYS = {
+  background: "--background",
+  foreground: "--foreground",
+  card: "--card",
+  cardForeground: "--card-foreground",
+  popover: "--popover",
+  popoverForeground: "--popover-foreground",
+  primary: "--primary",
+  primaryForeground: "--primary-foreground",
+  secondary: "--secondary",
+  secondaryForeground: "--secondary-foreground",
+  muted: "--muted",
+  mutedForeground: "--muted-foreground",
+  accent: "--accent",
+  accentForeground: "--accent-foreground",
+  destructive: "--destructive",
+  destructiveForeground: "--destructive-foreground",
+  border: "--border",
+  input: "--input",
+  ring: "--ring",
+  success: "--success",
+  successForeground: "--success-foreground",
+  warning: "--warning",
+  warningForeground: "--warning-foreground",
+  radius: "--radius",
+  chart1: "--chart-1",
+  chart2: "--chart-2",
+  chart3: "--chart-3",
+  chart4: "--chart-4",
+  chart5: "--chart-5",
+} as const
+
+type NativewindThemeToken = keyof typeof NATIVEWIND_THEME_VARIABLE_KEYS
+type ThemePalette = Record<NativewindThemeToken, string>
+
+function toNativewindVariableValue(value: string): string {
+  if (value.startsWith("hsl(") && value.endsWith(")")) {
+    return value.slice(4, -1)
+  }
+
+  return value
+}
+
+function createNativewindThemeVariables(
+  palette: ThemePalette
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(NATIVEWIND_THEME_VARIABLE_KEYS).map(
+      ([token, cssVariable]) => [
+        cssVariable,
+        toNativewindVariableValue(palette[token as keyof typeof palette]),
+      ]
+    )
+  )
+}
+
+export const NATIVEWIND_THEME_VARIABLES = {
+  light: createNativewindThemeVariables(THEME.light),
+  dark: createNativewindThemeVariables(THEME.dark),
+} as const
 
 export function withOpacity(hslString: string, opacity: number): string {
-  return hslString.replace(")", ` / ${opacity})`);
+  return hslString.replace(")", ` / ${opacity})`)
 }

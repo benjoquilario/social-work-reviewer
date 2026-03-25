@@ -93,6 +93,16 @@ type PremiumMaterialFunctionResponse = {
   }
 }
 
+type MaterialAccessResolution =
+  | {
+      kind: "success"
+      material: LearningMaterial
+    }
+  | {
+      kind: "denied"
+      message: string
+    }
+
 function ensureLearningContentConfigured() {
   const configError = getAppwriteConfigurationError()
 
@@ -220,25 +230,32 @@ function getMaterialStats(
   }
 }
 
-async function resolvePremiumMaterialAccess(
+async function resolveMaterialAccessViaFunction(
   materialId: string
-): Promise<LearningMaterial | null> {
+): Promise<MaterialAccessResolution | null> {
   const functionId = APPWRITE_CONFIG.premiumMaterialAccessFunctionId
 
   if (!functionId) {
     return null
   }
 
-  const execution = await functions.createExecution({
-    functionId,
-    body: JSON.stringify({ materialId }),
-    async: false,
-    xpath: "/",
-    method: ExecutionMethod.POST,
-    headers: {
-      "content-type": "application/json",
-    },
-  })
+  let execution
+
+  try {
+    execution = await functions.createExecution({
+      functionId,
+      body: JSON.stringify({ materialId }),
+      async: false,
+      xpath: "/",
+      method: ExecutionMethod.POST,
+      headers: {
+        "content-type": "application/json",
+      },
+    })
+  } catch {
+    // Keep lesson loading resilient while function deployment/config is still stabilizing.
+    return null
+  }
 
   const responseStatusCode = execution.responseStatusCode ?? 500
   const responseBody = execution.responseBody ?? ""
@@ -254,10 +271,12 @@ async function resolvePremiumMaterialAccess(
 
   if (responseStatusCode >= 400 || !payload?.ok || !payload.material) {
     if (responseStatusCode === 401 || responseStatusCode === 403) {
-      throw createAppwriteContentError(
-        "request",
-        payload?.message ?? "Premium subscription required for this material."
-      )
+      return {
+        kind: "denied",
+        message:
+          payload?.message ??
+          "Premium subscription required for this material.",
+      }
     }
 
     throw createAppwriteContentError(
@@ -266,7 +285,10 @@ async function resolvePremiumMaterialAccess(
     )
   }
 
-  return mapPremiumMaterialPayload(payload.material)
+  return {
+    kind: "success",
+    material: mapPremiumMaterialPayload(payload.material),
+  }
 }
 
 async function getLearningSnapshot() {
@@ -597,10 +619,20 @@ export async function getLearningMaterialDetail(
     const visibleMaterials = viewerIsPremium
       ? orderedTopicMaterials
       : orderedTopicMaterials.filter((item) => !item.isPremium)
-    const premiumMaterial =
-      viewerIsPremium && material.isPremium
-        ? await resolvePremiumMaterialAccess(material.$id)
-        : null
+
+    let resolvedMaterial = mapMaterialDocument(material, viewerIsPremium)
+    const functionMaterial = await resolveMaterialAccessViaFunction(
+      material.$id
+    )
+
+    if (functionMaterial?.kind === "success") {
+      resolvedMaterial = functionMaterial.material
+    } else if (functionMaterial?.kind === "denied") {
+      resolvedMaterial = {
+        ...mapMaterialDocument(material, false),
+        isPremium: material.isPremium,
+      }
+    }
 
     return {
       subject: mapSubjectDocument(
@@ -619,8 +651,7 @@ export async function getLearningMaterialDetail(
         viewerIsPremium,
         visibleMaterials[0]?.$id ?? null
       ),
-      material:
-        premiumMaterial ?? mapMaterialDocument(material, viewerIsPremium),
+      material: resolvedMaterial,
     }
   } catch (error) {
     throw toContentError(

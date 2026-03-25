@@ -142,12 +142,6 @@ export default function ReviewCategoryScreen() {
           </View>
         </View>
 
-        <View className="border-chart2/30 bg-chart2/15 overflow-hidden rounded-2xl border px-4 py-3">
-          <Text className="text-center text-[13px] font-semibold text-card-foreground">
-            Topics from Appwrite CMS
-          </Text>
-        </View>
-
         <View className="gap-1 px-1">
           <Text className="text-[12px] font-black uppercase tracking-[1.5px] text-primary">
             Subject

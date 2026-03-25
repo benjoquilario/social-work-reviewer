@@ -111,7 +111,7 @@ export default function LearningCenterScreen() {
           <Card>
             <CardContent className="gap-2 px-3.5 py-4">
               <Text className="text-sm font-black text-destructive">
-                Appwrite content unavailable
+                Content unavailable
               </Text>
               <Text className="text-[13px] leading-5 text-muted-foreground">
                 {subjectsQuery.error instanceof Error

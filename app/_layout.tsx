@@ -1,15 +1,11 @@
 import { ThemeProvider } from "@react-navigation/native"
 import { PortalHost } from "@rn-primitives/portal"
 import { useFonts } from "expo-font"
-import {
-  Stack,
-  useRootNavigationState,
-  useRouter,
-  useSegments,
-} from "expo-router"
+import { Stack } from "expo-router"
 import * as SplashScreen from "expo-splash-screen"
 import { StatusBar } from "expo-status-bar"
 import { BookOpenText, ListChecks, Timer } from "lucide-react-native"
+import { vars } from "nativewind"
 
 import "react-native-reanimated"
 
@@ -27,7 +23,7 @@ import {
 } from "@/lib/app-preferences"
 import { APP_FONTS } from "@/lib/fonts"
 import { AppQueryProvider } from "@/lib/query-client"
-import { NAV_THEME } from "@/lib/theme"
+import { NATIVEWIND_THEME_VARIABLES, NAV_THEME } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 
 export const unstable_settings = {
@@ -60,6 +56,11 @@ function RootNavigator() {
   const { authState } = useAuth()
   const colorScheme = useColorScheme()
   const navTheme = colorScheme === "dark" ? NAV_THEME.dark : NAV_THEME.light
+  const nativewindThemeVariables = vars(
+    colorScheme === "dark"
+      ? NATIVEWIND_THEME_VARIABLES.dark
+      : NATIVEWIND_THEME_VARIABLES.light
+  )
 
   useEffect(() => {
     if (fontsLoaded && isReady && authState.status !== "loading") {
@@ -67,44 +68,19 @@ function RootNavigator() {
     }
   }, [fontsLoaded, isReady, authState.status])
 
-  const router = useRouter()
-  const segments = useSegments()
-  const rootNavigationState = useRootNavigationState()
-
-  useEffect(() => {
-    if (!fontsLoaded || !isReady || authState.status === "loading") return
-    if (!rootNavigationState?.key) return // Guard: Wait for navigation to initialize
-
-    const inAuthGroup = segments[0] === "(auth)"
-    const isDiagnosticsRoute = segments[0] === "diagnostics"
-
-    if (
-      authState.status === "unauthenticated" &&
-      !inAuthGroup &&
-      !isDiagnosticsRoute
-    ) {
-      router.replace("/(auth)/login")
-    } else if (authState.status === "authenticated" && inAuthGroup) {
-      router.replace("/(tabs)")
-    }
-  }, [
-    authState.status,
-    fontsLoaded,
-    isReady,
-    segments,
-    router,
-    rootNavigationState?.key,
-  ])
-
   if (!fontsLoaded || !isReady || authState.status === "loading") {
     return null
   }
 
+  const initialRouteName =
+    authState.status === "authenticated" ? "(tabs)" : "(auth)"
+
   return (
     <SafeAreaProvider>
-      <View className={colorScheme === "dark" ? "dark flex-1" : "flex-1"}>
-        <ThemeProvider value={navTheme}>
+      <ThemeProvider value={navTheme}>
+        <View className="flex-1 bg-background" style={nativewindThemeVariables}>
           <Stack
+            initialRouteName={initialRouteName}
             screenOptions={{
               headerShadowVisible: false,
               headerStyle: { backgroundColor: navTheme.colors.card },
@@ -183,9 +159,9 @@ function RootNavigator() {
             />
           </Stack>
           <PortalHost />
-          <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
-        </ThemeProvider>
-      </View>
+        </View>
+        <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+      </ThemeProvider>
     </SafeAreaProvider>
   )
 }
