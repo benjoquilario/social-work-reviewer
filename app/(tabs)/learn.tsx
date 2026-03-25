@@ -1,51 +1,53 @@
-import { useMemo } from "react"
-import { LEARNING_LESSONS } from "@/data/learning-center-data"
-import { CATEGORIES } from "@/data/reviewer-data"
-import { BookOpenText, Lock } from "lucide-react-native"
+import { useEffect, useMemo } from "react"
+import { useAuth } from "@/contexts/auth-context"
+import { useQuery } from "@tanstack/react-query"
+import { useRouter } from "expo-router"
+import { BookOpenText, ChevronRight, LockKeyhole } from "lucide-react-native"
 import { Pressable, ScrollView, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { THEME } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Card, CardContent } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 
+import { listLearningSubjects } from "../../lib/learning-content"
+
 export default function LearningCenterScreen() {
+  const router = useRouter()
+  const { isAuthenticated, profile, refreshProfile } = useAuth()
   const colorScheme = useColorScheme()
   const primaryColor =
     colorScheme === "dark" ? THEME.dark.primary : THEME.light.primary
-  const sectionNumbers = ["I", "II", "III", "IV", "V", "VI"]
-  const groupedSections = useMemo(
-    () =>
-      Array.from(
-        CATEGORIES.reduce((groups, category) => {
-          const currentGroup = groups.get(category.groupLabel) ?? []
+  const isPremiumUser = profile?.isPremium === true
 
-          currentGroup.push(category)
-          groups.set(category.groupLabel, currentGroup)
+  useEffect(() => {
+    if (isAuthenticated && !profile) {
+      void refreshProfile()
+    }
+  }, [isAuthenticated, profile, refreshProfile])
 
-          return groups
-        }, new Map<string, typeof CATEGORIES>())
-      ).map(([groupLabel, categories]) => ({
-        groupLabel,
-        categories,
-        totalTopics: categories.reduce(
-          (sum, category) => sum + category.topicCount,
-          0
-        ),
-        totalItems: categories.reduce(
-          (sum, category) => sum + category.itemCount,
-          0
-        ),
-      })),
-    []
+  const subjectsQuery = useQuery({
+    queryKey: ["learning-subjects", isPremiumUser],
+    queryFn: () => listLearningSubjects({ viewerIsPremium: isPremiumUser }),
+  })
+
+  const subjects = useMemo(() => subjectsQuery.data ?? [], [subjectsQuery.data])
+
+  const totals = useMemo(
+    () => ({
+      totalTopics: subjects.reduce(
+        (sum, subject) => sum + subject.topicCount,
+        0
+      ),
+      totalMaterials: subjects.reduce(
+        (sum, subject) => sum + subject.materialCount,
+        0
+      ),
+    }),
+    [subjects]
   )
-  const totalTopics = CATEGORIES.reduce(
-    (sum, category) => sum + category.topicCount,
-    0
-  )
-  const linkedLessons = new Set(LEARNING_LESSONS.map((lesson) => lesson.id))
-    .size
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -58,23 +60,23 @@ export default function LearningCenterScreen() {
             Learning Material Library
           </Text>
           <Text className="text-[13px] leading-5 text-muted-foreground">
-            Browse numbered sections, open a topic cluster, then move into the
-            lesson material with fewer taps.
+            Browse Appwrite subjects, open a topic cluster, then move into the
+            linked learning materials.
           </Text>
           <View className="mt-1.5 flex-row gap-2">
             <View className="rounded-full border border-border bg-card px-3 py-2">
               <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-muted-foreground">
-                {groupedSections.length} sections
+                {subjects.length} subjects
               </Text>
             </View>
             <View className="rounded-full border border-border bg-card px-3 py-2">
               <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-muted-foreground">
-                {totalTopics} topics
+                {totals.totalTopics} topics
               </Text>
             </View>
             <View className="rounded-full border border-border bg-card px-3 py-2">
               <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-muted-foreground">
-                {linkedLessons} lessons
+                {totals.totalMaterials} materials
               </Text>
             </View>
           </View>
@@ -89,62 +91,129 @@ export default function LearningCenterScreen() {
               </Text>
             </View>
             <Text className="text-[13px] leading-5 text-muted-foreground">
-              Open one numbered section, pick a topic card, then move into the
-              linked review lessons. Each card keeps the navigation short and
-              focused for mobile study sessions.
+              Open one subject, choose a topic, and load the material directly
+              from your Appwrite CMS collections.
             </Text>
           </CardContent>
         </Card>
 
-        {groupedSections.map((section, index) => (
-          <View key={section.groupLabel} className="gap-3">
-            <View className="gap-1">
-              <View className="flex-row items-start justify-between gap-3">
-                <Text className="flex-1 text-[18px] font-black leading-7 text-foreground">
-                  {sectionNumbers[index] ?? String(index + 1)}:{" "}
-                  {section.groupLabel}
-                </Text>
-                <Text className="pt-1 text-[15px] font-black text-primary">
-                  Unlock
-                </Text>
-              </View>
-              <Text className="text-[13px] font-semibold text-muted-foreground">
-                {section.totalItems} Items
+        {subjectsQuery.isLoading ? (
+          <Card>
+            <CardContent className="gap-3 px-3.5 py-4">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {!subjectsQuery.isLoading && subjectsQuery.error ? (
+          <Card>
+            <CardContent className="gap-2 px-3.5 py-4">
+              <Text className="text-sm font-black text-destructive">
+                Appwrite content unavailable
               </Text>
-            </View>
+              <Text className="text-[13px] leading-5 text-muted-foreground">
+                {subjectsQuery.error instanceof Error
+                  ? subjectsQuery.error.message
+                  : "Unable to load learning subjects from Appwrite."}
+              </Text>
+            </CardContent>
+          </Card>
+        ) : null}
 
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerClassName="gap-3 pr-4"
-            >
-              {section.categories.map((category) => {
-                return (
-                  <Pressable
-                    key={category.id}
-                    className="w-[236px] rounded-2xl border border-border bg-card"
-                    disabled
-                  >
-                    <View className="min-h-[78px] px-3.5 py-3.5">
-                      <Text className="text-[15px] font-semibold leading-6 text-card-foreground">
-                        {category.title}
-                      </Text>
-                    </View>
+        {!subjectsQuery.isLoading &&
+        !subjectsQuery.error &&
+        subjects.length === 0 ? (
+          <Card>
+            <CardContent className="gap-2 px-3.5 py-4">
+              <Text className="text-sm font-black text-card-foreground">
+                No subjects yet
+              </Text>
+              <Text className="text-[13px] leading-5 text-muted-foreground">
+                Add subject records in your Appwrite CMS before opening the
+                learning library.
+              </Text>
+            </CardContent>
+          </Card>
+        ) : null}
 
-                    <View className="bg-chart2/15 flex-row items-center justify-between border-t border-border px-3.5 py-2.5">
-                      <Text className="text-[12px] font-black uppercase tracking-[1px] text-card-foreground">
-                        {category.topicCount} Topics
+        {!subjectsQuery.isLoading && !subjectsQuery.error ? (
+          <View className="gap-3">
+            {subjects.map((subject) => (
+              <Pressable
+                key={subject.id}
+                className="rounded-2xl border border-border bg-card"
+                disabled={subject.isLocked}
+                onPress={() =>
+                  router.push({
+                    pathname: "/review/[categoryId]",
+                    params: { categoryId: subject.id },
+                  })
+                }
+                style={{ opacity: subject.isLocked ? 0.7 : 1 }}
+              >
+                <View className="gap-2 px-3.5 py-3.5">
+                  <View className="flex-row items-start justify-between gap-3">
+                    <View className="flex-1 gap-2">
+                      <Text className="text-[16px] font-semibold leading-6 text-card-foreground">
+                        {subject.name}
                       </Text>
-                      <View className="h-8 w-8 items-center justify-center rounded-full bg-black/70">
-                        <Lock size={13} color="#ffffff" />
+                      <View className="flex-row flex-wrap gap-2">
+                        {subject.isLocked ? (
+                          <View className="flex-row items-center gap-1 rounded-full border border-destructive/30 bg-destructive/10 px-2.5 py-1">
+                            <LockKeyhole size={12} color="#dc2626" />
+                            <Text className="text-[10px] font-bold uppercase tracking-wide text-destructive">
+                              Premium locked
+                            </Text>
+                          </View>
+                        ) : null}
+                        {!subject.isLocked &&
+                        subject.hasPremiumContent &&
+                        !isPremiumUser ? (
+                          <View className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1">
+                            <Text className="text-[10px] font-bold uppercase tracking-wide text-primary">
+                              {subject.freeMaterialCount} free ·{" "}
+                              {subject.premiumMaterialCount} premium
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
                     </View>
-                  </Pressable>
-                )
-              })}
-            </ScrollView>
+                    <View className="h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                      {subject.isLocked ? (
+                        <LockKeyhole size={14} color={primaryColor} />
+                      ) : (
+                        <ChevronRight size={14} color={primaryColor} />
+                      )}
+                    </View>
+                  </View>
+
+                  <Text className="text-[12px] leading-5 text-muted-foreground">
+                    {subject.isLocked
+                      ? "This subject currently contains premium-only materials."
+                      : subject.description ||
+                        "No subject description added yet."}
+                  </Text>
+
+                  <View className="flex-row gap-2">
+                    <View className="rounded-full border border-border bg-background px-2.5 py-1.5">
+                      <Text className="text-[11px] font-bold uppercase tracking-[1px] text-muted-foreground">
+                        {subject.topicCount} topics
+                      </Text>
+                    </View>
+                    <View className="rounded-full border border-border bg-background px-2.5 py-1.5">
+                      <Text className="text-[11px] font-bold uppercase tracking-[1px] text-muted-foreground">
+                        {subject.freeMaterialCount}/{subject.materialCount}{" "}
+                        visible
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </Pressable>
+            ))}
           </View>
-        ))}
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   )

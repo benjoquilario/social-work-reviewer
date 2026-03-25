@@ -1,7 +1,12 @@
 import { ThemeProvider } from "@react-navigation/native"
 import { PortalHost } from "@rn-primitives/portal"
 import { useFonts } from "expo-font"
-import { Stack } from "expo-router"
+import {
+  Stack,
+  useRootNavigationState,
+  useRouter,
+  useSegments,
+} from "expo-router"
 import * as SplashScreen from "expo-splash-screen"
 import { StatusBar } from "expo-status-bar"
 import { BookOpenText, ListChecks, Timer } from "lucide-react-native"
@@ -14,11 +19,14 @@ import { SafeAreaProvider } from "react-native-safe-area-context"
 
 import "../global.css"
 
+import { AuthProvider, useAuth } from "@/contexts/auth-context"
+
 import {
   AppPreferencesProvider,
   useAppPreferences,
 } from "@/lib/app-preferences"
 import { APP_FONTS } from "@/lib/fonts"
+import { AppQueryProvider } from "@/lib/query-client"
 import { NAV_THEME } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 
@@ -31,7 +39,11 @@ void SplashScreen.preventAutoHideAsync()
 export default function RootLayout() {
   return (
     <AppPreferencesProvider>
-      <RootNavigator />
+      <AppQueryProvider>
+        <AuthProvider>
+          <RootNavigator />
+        </AuthProvider>
+      </AppQueryProvider>
     </AppPreferencesProvider>
   )
 }
@@ -45,16 +57,46 @@ function RootNavigator() {
     PlusJakartaSans_800ExtraBold: require("../assets/fonts/PlusJakartaSans_800ExtraBold.ttf"),
   })
   const { isReady } = useAppPreferences()
+  const { authState } = useAuth()
   const colorScheme = useColorScheme()
   const navTheme = colorScheme === "dark" ? NAV_THEME.dark : NAV_THEME.light
 
   useEffect(() => {
-    if (fontsLoaded && isReady) {
+    if (fontsLoaded && isReady && authState.status !== "loading") {
       SplashScreen.hideAsync().catch(() => undefined)
     }
-  }, [fontsLoaded, isReady])
+  }, [fontsLoaded, isReady, authState.status])
 
-  if (!fontsLoaded || !isReady) {
+  const router = useRouter()
+  const segments = useSegments()
+  const rootNavigationState = useRootNavigationState()
+
+  useEffect(() => {
+    if (!fontsLoaded || !isReady || authState.status === "loading") return
+    if (!rootNavigationState?.key) return // Guard: Wait for navigation to initialize
+
+    const inAuthGroup = segments[0] === "(auth)"
+    const isDiagnosticsRoute = segments[0] === "diagnostics"
+
+    if (
+      authState.status === "unauthenticated" &&
+      !inAuthGroup &&
+      !isDiagnosticsRoute
+    ) {
+      router.replace("/(auth)/login")
+    } else if (authState.status === "authenticated" && inAuthGroup) {
+      router.replace("/(tabs)")
+    }
+  }, [
+    authState.status,
+    fontsLoaded,
+    isReady,
+    segments,
+    router,
+    rootNavigationState?.key,
+  ])
+
+  if (!fontsLoaded || !isReady || authState.status === "loading") {
     return null
   }
 
@@ -73,6 +115,8 @@ function RootNavigator() {
             }}
           >
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="diagnostics" options={{ headerShown: false }} />
             <Stack.Screen
               name="mode"
               options={{
@@ -101,6 +145,12 @@ function RootNavigator() {
             />
             <Stack.Screen
               name="learn/[lessonId]"
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="learn/topic/[topicId]"
               options={{
                 headerShown: false,
               }}

@@ -1,12 +1,17 @@
+import { useState } from "react"
+import { useAuth } from "@/contexts/auth-context"
+import { useRouter } from "expo-router"
 import { Alert, Pressable, ScrollView, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { useAppPreferences, type ThemeMode } from "@/lib/app-preferences"
+import { getInitials } from "@/lib/auth"
+import { THEME, withOpacity } from "@/lib/theme"
+import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Text } from "@/components/ui/text"
-import { AppShellHeader } from "@/components/app-shell-header"
 
 const APPEARANCE_OPTIONS: {
   label: string
@@ -42,7 +47,7 @@ function SettingRow({
   onValueChange: (value: boolean) => void
 }) {
   return (
-    <View className="flex-row items-center justify-between gap-4 py-1">
+    <View className="flex-row items-center justify-between gap-4 py-1.5">
       <View className="flex-1">
         <Text className="text-sm font-bold text-card-foreground">{label}</Text>
         <Text className="text-xs leading-5 text-muted-foreground">
@@ -55,6 +60,7 @@ function SettingRow({
 }
 
 export default function SettingsScreen() {
+  const router = useRouter()
   const {
     preferences,
     resolvedColorScheme,
@@ -62,52 +68,130 @@ export default function SettingsScreen() {
     setThemeMode,
     resetPreferences,
   } = useAppPreferences()
+  const { user, profile, logout } = useAuth()
+  const colorScheme = useColorScheme()
+  const isDark = colorScheme === "dark"
+  const theme = isDark ? THEME.dark : THEME.light
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  const displayName = profile?.fullName ?? user?.name ?? "Reviewer"
+  const email = profile?.email ?? user?.email ?? ""
+  const schoolName = profile?.schoolName ?? null
+  const initials = getInitials(displayName)
+
+  async function handleLogout() {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          setIsLoggingOut(true)
+          try {
+            await logout()
+          } finally {
+            setIsLoggingOut(false)
+          }
+        },
+      },
+    ])
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="gap-4 px-5 pb-8 pt-5">
-        <AppShellHeader
-          compact
-          eyebrow="App Preferences"
-          title="Settings"
-          subtitle="Configure your reviewer workflow for focus, consistency, and exam readiness."
-          stats={[
-            {
-              label: "Theme",
-              value: resolvedColorScheme === "dark" ? "Dark" : "Light",
-            },
-            {
-              label: "Explain",
-              value: preferences.showExplanations ? "On" : "Off",
-            },
-            {
-              label: "Haptics",
-              value: preferences.hapticsEnabled ? "On" : "Off",
-            },
-          ]}
-        />
+      <ScrollView contentContainerClassName="gap-4 px-4 pb-28 pt-5">
+        {/* Header */}
+        <View className="gap-0.5">
+          <Text className="text-[11px] font-black uppercase tracking-[1.8px] text-primary">
+            App Preferences
+          </Text>
+          <Text className="text-[22px] font-black leading-tight text-foreground">
+            Settings
+          </Text>
+        </View>
 
-        <Card>
+        {/* Profile card */}
+        <Card className="rounded-3xl">
+          <CardContent className="gap-3 px-4 py-4">
+            <Text className="text-base font-black text-card-foreground">
+              Profile
+            </Text>
+            <View className="flex-row items-center gap-4">
+              {/* Avatar */}
+              <View
+                className="h-14 w-14 items-center justify-center rounded-2xl"
+                style={{ backgroundColor: theme.primary }}
+              >
+                <Text
+                  className="text-xl font-black"
+                  style={{ color: theme.primaryForeground }}
+                >
+                  {initials}
+                </Text>
+              </View>
+              <View className="flex-1 gap-0.5">
+                <Text className="text-base font-black text-card-foreground">
+                  {displayName}
+                </Text>
+                <Text
+                  className="text-xs text-muted-foreground"
+                  numberOfLines={1}
+                >
+                  {email}
+                </Text>
+                {schoolName ? (
+                  <Text className="text-xs text-muted-foreground">
+                    {schoolName}
+                  </Text>
+                ) : null}
+                <View className="mt-1 self-start">
+                  {profile?.isPremium ? (
+                    <View
+                      className="rounded-full px-2.5 py-0.5"
+                      style={{ backgroundColor: theme.accent }}
+                    >
+                      <Text
+                        className="text-[10px] font-black uppercase tracking-wide"
+                        style={{ color: theme.accentForeground }}
+                      >
+                        Premium
+                      </Text>
+                    </View>
+                  ) : (
+                    <View className="rounded-full border border-border px-2.5 py-0.5">
+                      <Text className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                        Free Plan
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+          </CardContent>
+        </Card>
+
+        {/* Appearance */}
+        <Card className="rounded-3xl">
           <CardContent className="gap-3 px-4 py-4">
             <Text className="text-base font-black text-card-foreground">
               Appearance
             </Text>
             <Text className="text-xs leading-5 text-muted-foreground">
-              Current theme: {resolvedColorScheme === "dark" ? "Dark" : "Light"}
+              Current: {resolvedColorScheme === "dark" ? "Dark" : "Light"} mode
             </Text>
-
             <View className="gap-2">
               {APPEARANCE_OPTIONS.map((option) => {
                 const isActive = preferences.themeMode === option.value
-
                 return (
                   <Pressable
                     key={option.value}
-                    className={
-                      isActive
-                        ? "rounded-2xl border border-primary bg-primary/10 p-3"
-                        : "rounded-2xl border border-border bg-background p-3"
-                    }
+                    className="rounded-2xl border p-3"
+                    style={{
+                      borderColor: isActive ? theme.primary : theme.border,
+                      backgroundColor: isActive
+                        ? withOpacity(theme.primary, 0.1)
+                        : theme.background,
+                    }}
                     onPress={() => setThemeMode(option.value)}
                   >
                     <View className="flex-row items-center justify-between gap-3">
@@ -120,8 +204,14 @@ export default function SettingsScreen() {
                         </Text>
                       </View>
                       {isActive ? (
-                        <View className="rounded-full bg-primary px-2 py-1">
-                          <Text className="text-[10px] font-bold uppercase tracking-wide text-primary-foreground">
+                        <View
+                          className="rounded-full px-2 py-0.5"
+                          style={{ backgroundColor: theme.primary }}
+                        >
+                          <Text
+                            className="text-[10px] font-bold uppercase tracking-wide"
+                            style={{ color: theme.primaryForeground }}
+                          >
                             Active
                           </Text>
                         </View>
@@ -131,76 +221,70 @@ export default function SettingsScreen() {
                 )
               })}
             </View>
-
-            <View className="rounded-2xl border border-border bg-muted/60 p-3">
-              <Text className="text-sm font-bold text-card-foreground">
-                Recommended font family
-              </Text>
-              <Text className="mt-1 text-xs leading-5 text-muted-foreground">
-                Plus Jakarta Sans is now used as the app typeface. It is
-                compact, modern, and reads well in long study sessions.
-              </Text>
-            </View>
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Quiz Experience */}
+        <Card className="rounded-3xl">
           <CardContent className="gap-3 px-4 py-4">
             <Text className="text-base font-black text-card-foreground">
               Quiz Experience
             </Text>
             <SettingRow
               label="Show answer explanations"
-              description="Display short rationale after submitting a timed session."
+              description="Display rationale after submitting a timed session."
               value={preferences.showExplanations}
-              onValueChange={(value) =>
-                setPreference("showExplanations", value)
-              }
+              onValueChange={(v) => setPreference("showExplanations", v)}
             />
             <SettingRow
               label="Enable strict mode"
-              description="Lock answer changes after moving to the next question."
+              description="Lock answer changes after moving to next question."
               value={preferences.strictMode}
-              onValueChange={(value) => setPreference("strictMode", value)}
+              onValueChange={(v) => setPreference("strictMode", v)}
             />
             <SettingRow
               label="Sound effects"
               description="Play subtle sounds for correct and wrong answers."
               value={preferences.soundEffects}
-              onValueChange={(value) => setPreference("soundEffects", value)}
+              onValueChange={(v) => setPreference("soundEffects", v)}
             />
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Accessibility */}
+        <Card className="rounded-3xl">
           <CardContent className="gap-3 px-4 py-4">
             <Text className="text-base font-black text-card-foreground">
-              Accessibility and Focus
+              Accessibility & Focus
             </Text>
             <SettingRow
               label="Haptic feedback"
-              description="Use tactile cues when selecting options and completing quizzes."
+              description="Tactile cues when selecting options."
               value={preferences.hapticsEnabled}
-              onValueChange={(value) => setPreference("hapticsEnabled", value)}
+              onValueChange={(v) => setPreference("hapticsEnabled", v)}
             />
             <SettingRow
               label="Daily study reminder"
-              description="Remind you to complete at least one timed review session."
+              description="Remind you to complete at least one review session."
               value={preferences.dailyReminder}
-              onValueChange={(value) => setPreference("dailyReminder", value)}
+              onValueChange={(v) => setPreference("dailyReminder", v)}
             />
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Data Controls */}
+        <Card className="rounded-3xl">
           <CardContent className="gap-3 px-4 py-4">
             <Text className="text-base font-black text-card-foreground">
-              Data Controls
+              Data
             </Text>
-            <Text className="text-xs leading-5 text-muted-foreground">
-              These actions are local-only in this version and can be connected
-              to cloud sync later.
-            </Text>
+            <Button
+              variant="outline"
+              className="h-11"
+              onPress={() => router.push("/diagnostics")}
+            >
+              <Text className="font-bold">Run Appwrite Diagnostics</Text>
+            </Button>
             <Button
               variant="outline"
               className="h-11"
@@ -213,15 +297,33 @@ export default function SettingsScreen() {
               className="h-11"
               onPress={() =>
                 Alert.alert(
-                  "Reset progress",
-                  "This action will clear local progress history in a future connected version."
+                  "Reset Progress",
+                  "This will clear local progress data."
                 )
               }
             >
-              <Text className="font-bold">Reset Progress</Text>
+              <Text className="font-bold">Reset Local Progress</Text>
             </Button>
           </CardContent>
         </Card>
+
+        {/* Sign Out */}
+        <Button
+          className="h-12 rounded-3xl"
+          onPress={handleLogout}
+          disabled={isLoggingOut}
+          variant="outline"
+          style={
+            {
+              borderColor: "hsl(0 84% 60% / 0.35)",
+              backgroundColor: "hsl(0 84% 60% / 0.07)",
+            } as never
+          }
+        >
+          <Text style={{ color: theme.destructive }} className="font-bold">
+            {isLoggingOut ? "Signing out…" : "Sign Out"}
+          </Text>
+        </Button>
       </ScrollView>
     </SafeAreaView>
   )

@@ -1,0 +1,10 @@
+{
+  "name": "premium-material-access",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/main.js",
+  "type": "commonjs",
+  "dependencies": {
+    "node-appwrite": "^14.1.0"
+  }
+}

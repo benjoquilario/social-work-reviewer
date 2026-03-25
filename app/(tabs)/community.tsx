@@ -1,23 +1,14 @@
-import React, { memo, useCallback, useMemo, useState } from "react"
+import { memo, useCallback, useMemo, useState } from "react"
+import { useAuth } from "@/contexts/auth-context"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  COMMUNITY_CURRENT_USER,
-  COMMUNITY_GUIDELINES,
-  COMMUNITY_STATS,
-  COMMUNITY_THREADS,
-  COMMUNITY_TOPICS,
-  type CommunityComment,
-  type CommunityReply,
-  type CommunityThread,
-} from "@/data/community-data"
-import {
-  BookOpenText,
   CornerDownRight,
-  Eye,
+  Heart,
   MessageSquare,
-  Pin,
   Plus,
   Send,
   ShieldCheck,
+  Sparkles,
   Users,
 } from "lucide-react-native"
 import {
@@ -31,6 +22,17 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
+import {
+  createCommunityComment,
+  createCommunityPost,
+  createCommunityReply,
+  listCommunityFeed,
+  toggleCommunityPostLike,
+  type CommunityCommentItem,
+  type CommunityPostItem,
+  type CommunityReplyItem,
+} from "@/lib/community"
+import { listLearningSubjects } from "@/lib/learning-content"
 import { THEME } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Button } from "@/components/ui/button"
@@ -43,28 +45,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 import { AppShellHeader } from "@/components/app-shell-header"
 
-function createId(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-}
+const COMMUNITY_CATEGORIES = ["question", "discussion", "tip"] as const
 
-const COMMENT_PREVIEW_LIMIT = 2
-const REPLY_PREVIEW_LIMIT = 2
-
-const GuideItem = memo(function GuideItem({ rule }: { rule: string }) {
+const CommunityLoading = memo(function CommunityLoading() {
   return (
-    <View className="flex-row items-start gap-2">
-      <View className="mt-1 h-2 w-2 rounded-full bg-primary" />
-      <Text className="flex-1 text-sm leading-6 text-muted-foreground">
-        {rule}
-      </Text>
+    <View className="gap-4">
+      <Skeleton className="h-48 rounded-[26px]" />
+      <View className="flex-row gap-3">
+        <Skeleton className="h-24 flex-1 rounded-2xl" />
+        <Skeleton className="h-24 flex-1 rounded-2xl" />
+        <Skeleton className="h-24 flex-1 rounded-2xl" />
+      </View>
+      <Skeleton className="h-56 rounded-2xl" />
+      <Skeleton className="h-56 rounded-2xl" />
     </View>
   )
 })
 
-const ReplyRow = memo(function ReplyRow({ reply }: { reply: CommunityReply }) {
+const ReplyRow = memo(function ReplyRow({
+  reply,
+}: {
+  reply: CommunityReplyItem
+}) {
   return (
     <View className="ml-6 rounded-2xl border border-border bg-background px-3 py-3">
       <View className="flex-row items-center gap-2">
@@ -78,7 +84,7 @@ const ReplyRow = memo(function ReplyRow({ reply }: { reply: CommunityReply }) {
             {reply.author.name}
           </Text>
           <Text className="text-xs text-muted-foreground">
-            {reply.createdAtLabel}
+            {reply.author.subtitle} · {reply.createdAtLabel}
           </Text>
         </View>
       </View>
@@ -91,21 +97,15 @@ const ReplyRow = memo(function ReplyRow({ reply }: { reply: CommunityReply }) {
 
 const CommentRow = memo(function CommentRow({
   comment,
-  onAddReply,
-  compact = false,
+  disabled,
+  onSubmitReply,
 }: {
-  comment: CommunityComment
-  onAddReply: (commentId: string, content: string) => void
-  compact?: boolean
+  comment: CommunityCommentItem
+  disabled: boolean
+  onSubmitReply: (commentId: string, content: string) => void
 }) {
   const [replyDraft, setReplyDraft] = useState("")
   const [isReplying, setIsReplying] = useState(false)
-  const [showAllReplies, setShowAllReplies] = useState(false)
-
-  const visibleReplies =
-    compact && !showAllReplies
-      ? comment.replies.slice(0, REPLY_PREVIEW_LIMIT)
-      : comment.replies
 
   const submitReply = useCallback(() => {
     const trimmed = replyDraft.trim()
@@ -114,10 +114,10 @@ const CommentRow = memo(function CommentRow({
       return
     }
 
-    onAddReply(comment.id, trimmed)
+    onSubmitReply(comment.id, trimmed)
     setReplyDraft("")
     setIsReplying(false)
-  }, [comment.id, onAddReply, replyDraft])
+  }, [comment.id, onSubmitReply, replyDraft])
 
   return (
     <View className="gap-3 rounded-2xl border border-border bg-card px-3 py-3">
@@ -128,58 +128,36 @@ const CommentRow = memo(function CommentRow({
           </Text>
         </View>
         <View className="flex-1 gap-1">
-          <View className="flex-row items-center justify-between gap-2">
-            <View className="flex-1">
-              <Text className="text-sm font-bold text-card-foreground">
-                {comment.author.name}
-              </Text>
-              <Text className="text-xs text-muted-foreground">
-                {comment.author.role}
-              </Text>
-            </View>
-            <Text className="text-xs text-muted-foreground">
-              {comment.createdAtLabel}
-            </Text>
-          </View>
-
+          <Text className="text-sm font-bold text-card-foreground">
+            {comment.author.name}
+          </Text>
+          <Text className="text-xs text-muted-foreground">
+            {comment.author.subtitle} · {comment.createdAtLabel}
+          </Text>
           <Text className="text-sm leading-6 text-muted-foreground">
             {comment.content}
           </Text>
-
-          {!compact ? (
-            <Pressable
-              className="self-start rounded-full border border-border px-3 py-1.5"
-              onPress={() => setIsReplying((current) => !current)}
-            >
-              <View className="flex-row items-center gap-1">
-                <CornerDownRight size={14} color="#6b7280" />
-                <Text className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                  Reply
-                </Text>
-              </View>
-            </Pressable>
-          ) : null}
+          <Pressable
+            className="self-start rounded-full border border-border px-3 py-1.5"
+            disabled={disabled}
+            onPress={() => setIsReplying((current) => !current)}
+            style={{ opacity: disabled ? 0.6 : 1 }}
+          >
+            <View className="flex-row items-center gap-1">
+              <CornerDownRight size={14} color="#6b7280" />
+              <Text className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Reply
+              </Text>
+            </View>
+          </Pressable>
         </View>
       </View>
 
-      {visibleReplies.map((reply) => (
+      {comment.replies.map((reply) => (
         <ReplyRow key={reply.id} reply={reply} />
       ))}
 
-      {compact && comment.replies.length > REPLY_PREVIEW_LIMIT ? (
-        <Pressable
-          className="ml-6 self-start rounded-full border border-border px-3 py-1.5"
-          onPress={() => setShowAllReplies((current) => !current)}
-        >
-          <Text className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            {showAllReplies
-              ? "Show fewer replies"
-              : `View all ${comment.replies.length} replies`}
-          </Text>
-        </Pressable>
-      ) : null}
-
-      {isReplying && !compact ? (
+      {isReplying ? (
         <View className="ml-6 gap-2 rounded-2xl border border-border bg-background p-3">
           <TextInput
             value={replyDraft}
@@ -203,79 +181,58 @@ const CommentRow = memo(function CommentRow({
 })
 
 const ThreadCard = memo(function ThreadCard({
-  thread,
-  onOpenThread,
+  post,
+  liking,
+  onLike,
+  onOpen,
 }: {
-  thread: CommunityThread
-  onOpenThread: (threadId: string) => void
+  post: CommunityPostItem
+  liking: boolean
+  onLike: (post: CommunityPostItem) => void
+  onOpen: (postId: string) => void
 }) {
-  const totalReplies = useMemo(
-    () =>
-      thread.comments.reduce(
-        (count, comment) => count + comment.replies.length,
-        0
-      ),
-    [thread.comments]
-  )
-
-  const previewComments = useMemo(
-    () => thread.comments.slice(0, COMMENT_PREVIEW_LIMIT),
-    [thread.comments]
-  )
-
   return (
     <Card>
       <CardContent className="gap-4 px-4 py-4">
-        <View className="flex-row items-start justify-between gap-3">
-          <View className="flex-1 gap-2">
-            <View className="flex-row flex-wrap items-center gap-2">
-              {thread.isPinned ? (
-                <View className="flex-row items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1">
-                  <Pin size={12} color="#111827" />
-                  <Text className="text-[10px] font-bold uppercase tracking-wide text-primary">
-                    Pinned
-                  </Text>
-                </View>
-              ) : null}
-              <View className="rounded-full border border-border bg-background px-2.5 py-1">
-                <Text className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                  {thread.topic}
-                </Text>
-              </View>
-              <View
-                className={
-                  thread.status === "Answered"
-                    ? "border-chart2/40 bg-chart2/10 rounded-full border px-2.5 py-1"
-                    : "rounded-full border border-border bg-background px-2.5 py-1"
-                }
-              >
-                <Text className="text-[10px] font-bold uppercase tracking-wide text-card-foreground">
-                  {thread.status}
-                </Text>
-              </View>
-            </View>
-
-            <Text className="text-lg font-black leading-7 text-card-foreground">
-              {thread.title}
-            </Text>
-            <Text className="text-sm leading-6 text-muted-foreground">
-              {thread.content}
+        <View className="flex-row flex-wrap items-center gap-2">
+          <View className="rounded-full border border-border bg-background px-2.5 py-1">
+            <Text className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              {post.category}
             </Text>
           </View>
+          {post.subjectName ? (
+            <View className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1">
+              <Text className="text-[10px] font-bold uppercase tracking-wide text-primary">
+                {post.subjectName}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View className="gap-2">
+          <Text className="text-lg font-black leading-7 text-card-foreground">
+            {post.title}
+          </Text>
+          <Text
+            className="text-sm leading-6 text-muted-foreground"
+            numberOfLines={4}
+          >
+            {post.content}
+          </Text>
         </View>
 
         <View className="flex-row items-center gap-3">
           <View className="h-11 w-11 items-center justify-center rounded-full bg-primary/10">
             <Text className="text-xs font-bold uppercase text-primary">
-              {thread.author.avatarSeed}
+              {post.author.avatarSeed}
             </Text>
           </View>
           <View className="flex-1">
             <Text className="text-sm font-bold text-card-foreground">
-              {thread.author.name}
+              {post.author.name}
             </Text>
             <Text className="text-xs text-muted-foreground">
-              {thread.author.role} · {thread.createdAtLabel}
+              {post.author.subtitle} · {post.createdAtLabel}
             </Text>
           </View>
         </View>
@@ -286,7 +243,7 @@ const ThreadCard = memo(function ThreadCard({
               Comments
             </Text>
             <Text className="text-base font-black text-card-foreground">
-              {thread.comments.length}
+              {post.commentsCount}
             </Text>
           </View>
           <View className="h-full w-px bg-border" />
@@ -295,336 +252,194 @@ const ThreadCard = memo(function ThreadCard({
               Replies
             </Text>
             <Text className="text-base font-black text-card-foreground">
-              {totalReplies}
+              {post.repliesCount}
+            </Text>
+          </View>
+          <View className="h-full w-px bg-border" />
+          <View className="flex-1 gap-1">
+            <Text className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              Likes
+            </Text>
+            <Text className="text-base font-black text-card-foreground">
+              {post.likesCount}
             </Text>
           </View>
         </View>
 
-        <View className="gap-3">
-          {previewComments.map((comment) => (
-            <CommentRow
-              key={comment.id}
-              comment={comment}
-              onAddReply={() => undefined}
-              compact
-            />
-          ))}
+        <View className="flex-row gap-3">
+          <Button
+            variant="outline"
+            className="h-11 flex-1"
+            onPress={() => onOpen(post.id)}
+          >
+            <MessageSquare size={16} color="#6b7280" />
+            <Text className="font-bold">Open discussion</Text>
+          </Button>
+          <Button
+            variant={post.isLiked ? "default" : "outline"}
+            className="h-11 flex-1"
+            disabled={liking}
+            onPress={() => onLike(post)}
+          >
+            <Heart size={16} color={post.isLiked ? "#ffffff" : "#6b7280"} />
+            <Text
+              className={
+                post.isLiked ? "font-bold text-primary-foreground" : "font-bold"
+              }
+            >
+              {post.isLiked ? "Liked" : "Like"}
+            </Text>
+          </Button>
         </View>
-
-        <Button
-          variant="outline"
-          className="h-11"
-          onPress={() => onOpenThread(thread.id)}
-        >
-          <Eye size={16} color="#6b7280" />
-          <Text className="font-bold">Open discussion</Text>
-        </Button>
       </CardContent>
     </Card>
   )
 })
 
-const CommunityComposer = memo(function CommunityComposer({
-  onCreateThread,
-  onClose,
-}: {
-  onCreateThread: (payload: {
-    topic: string
-    title: string
-    content: string
-  }) => void
-  onClose: () => void
-}) {
-  const [selectedTopic, setSelectedTopic] = useState<
-    (typeof COMMUNITY_TOPICS)[number]
-  >(COMMUNITY_TOPICS[0])
-  const [title, setTitle] = useState("")
-  const [content, setContent] = useState("")
-
-  const submitThread = useCallback(() => {
-    const trimmedTitle = title.trim()
-    const trimmedContent = content.trim()
-
-    if (!trimmedTitle || !trimmedContent) {
-      Alert.alert(
-        "Incomplete post",
-        "Add a title and a question before posting."
-      )
-      return
-    }
-
-    onCreateThread({
-      topic: selectedTopic,
-      title: trimmedTitle,
-      content: trimmedContent,
-    })
-
-    setTitle("")
-    setContent("")
-    onClose()
-  }, [content, onClose, onCreateThread, selectedTopic, title])
-
-  return (
-    <View className="gap-3">
-      <View className="flex-row items-center justify-between gap-3">
-        <View>
-          <Text className="text-base font-black text-card-foreground">
-            Start a discussion
-          </Text>
-          <Text className="text-sm leading-6 text-muted-foreground">
-            Post one focused question so peers can answer precisely.
-          </Text>
-        </View>
-        <View className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5">
-          <Text className="text-[10px] font-bold uppercase tracking-wide text-primary">
-            Demo Account
-          </Text>
-        </View>
-      </View>
-
-      <View className="flex-row flex-wrap gap-2">
-        {COMMUNITY_TOPICS.map((topic) => {
-          const isActive = selectedTopic === topic
-
-          return (
-            <Pressable
-              key={topic}
-              className={
-                isActive
-                  ? "rounded-full border border-primary bg-primary px-3 py-2"
-                  : "rounded-full border border-border bg-background px-3 py-2"
-              }
-              onPress={() => setSelectedTopic(topic)}
-            >
-              <Text
-                className={
-                  isActive
-                    ? "text-xs font-bold uppercase tracking-wide text-primary-foreground"
-                    : "text-xs font-bold uppercase tracking-wide text-muted-foreground"
-                }
-              >
-                {topic}
-              </Text>
-            </Pressable>
-          )
-        })}
-      </View>
-
-      <View className="gap-2 rounded-2xl border border-border bg-background p-3">
-        <TextInput
-          value={title}
-          onChangeText={setTitle}
-          placeholder="Title your question clearly"
-          placeholderTextColor="#8b8b93"
-          className="text-base text-foreground"
-        />
-      </View>
-
-      <View className="gap-2 rounded-2xl border border-border bg-background p-3">
-        <TextInput
-          value={content}
-          onChangeText={setContent}
-          placeholder="Explain what you already know, what choice confuses you, and what kind of help you need"
-          placeholderTextColor="#8b8b93"
-          className="min-h-[112px] text-sm text-foreground"
-          multiline
-          textAlignVertical="top"
-        />
-      </View>
-
-      <View className="flex-row items-center justify-between gap-3">
-        <Text className="flex-1 text-xs leading-5 text-muted-foreground">
-          Your post is local-only for now. This UI is ready to connect to a
-          backend API later.
-        </Text>
-        <Button className="h-11 px-5" onPress={submitThread}>
-          <Send size={14} color="#ffffff" />
-          <Text className="font-bold text-primary-foreground">Post</Text>
-        </Button>
-      </View>
-    </View>
-  )
-})
-
-const ThreadDialog = memo(function ThreadDialog({
-  thread,
-  open,
-  onOpenChange,
-  onAddComment,
-  onAddReply,
-}: {
-  thread: CommunityThread | undefined
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onAddComment: (threadId: string, content: string) => void
-  onAddReply: (threadId: string, commentId: string, content: string) => void
-}) {
-  const [commentDraft, setCommentDraft] = useState("")
-
-  const submitComment = useCallback(() => {
-    const trimmed = commentDraft.trim()
-
-    if (!thread || !trimmed) {
-      return
-    }
-
-    onAddComment(thread.id, trimmed)
-    setCommentDraft("")
-  }, [commentDraft, onAddComment, thread])
-
-  const handleReply = useCallback(
-    (commentId: string, content: string) => {
-      if (!thread) {
-        return
-      }
-
-      onAddReply(thread.id, commentId, content)
-    },
-    [onAddReply, thread]
-  )
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0">
-        {thread ? (
-          <ScrollView
-            style={{ maxHeight: 640 }}
-            contentContainerStyle={{ padding: 20, gap: 16 }}
-          >
-            <DialogHeader>
-              <DialogTitle>{thread.title}</DialogTitle>
-              <DialogDescription>
-                {thread.topic} · {thread.author.name} · {thread.createdAtLabel}
-              </DialogDescription>
-            </DialogHeader>
-
-            <View className="rounded-2xl border border-border bg-background p-4">
-              <Text className="text-sm leading-6 text-muted-foreground">
-                {thread.content}
-              </Text>
-            </View>
-
-            <View className="gap-3">
-              {thread.comments.map((comment) => (
-                <CommentRow
-                  key={comment.id}
-                  comment={comment}
-                  onAddReply={handleReply}
-                />
-              ))}
-            </View>
-
-            <View className="gap-2 rounded-2xl border border-border bg-background p-3">
-              <Text className="text-sm font-bold text-card-foreground">
-                Add a comment
-              </Text>
-              <TextInput
-                value={commentDraft}
-                onChangeText={setCommentDraft}
-                placeholder="Share a clear answer, tip, or follow-up question"
-                placeholderTextColor="#8b8b93"
-                className="min-h-[88px] text-sm text-foreground"
-                multiline
-                textAlignVertical="top"
-              />
-              <DialogFooter className="flex-row justify-end">
-                <Button className="h-10 px-4" onPress={submitComment}>
-                  <MessageSquare size={14} color="#ffffff" />
-                  <Text className="font-bold text-primary-foreground">
-                    Comment
-                  </Text>
-                </Button>
-              </DialogFooter>
-            </View>
-          </ScrollView>
-        ) : null}
-      </DialogContent>
-    </Dialog>
-  )
-})
-
 export default function CommunityScreen() {
+  const { user } = useAuth()
   const colorScheme = useColorScheme()
   const primaryColor =
     colorScheme === "dark" ? THEME.dark.primary : THEME.light.primary
-  const [threads, setThreads] = useState(COMMUNITY_THREADS)
-  const [isGuideOpen, setIsGuideOpen] = useState(false)
+  const queryClient = useQueryClient()
   const [isComposerOpen, setIsComposerOpen] = useState(false)
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
-
-  const activeThread = useMemo(
-    () => threads.find((thread) => thread.id === activeThreadId),
-    [activeThreadId, threads]
+  const [activePostId, setActivePostId] = useState<string | null>(null)
+  const [selectedCategory, setSelectedCategory] =
+    useState<(typeof COMMUNITY_CATEGORIES)[number]>("discussion")
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(
+    null
   )
+  const [titleDraft, setTitleDraft] = useState("")
+  const [contentDraft, setContentDraft] = useState("")
+  const [commentDraft, setCommentDraft] = useState("")
 
-  const createThread = useCallback(
-    (payload: { topic: string; title: string; content: string }) => {
-      const nextThread: CommunityThread = {
-        id: createId("thread"),
-        topic: payload.topic,
-        title: payload.title,
-        content: payload.content,
-        author: COMMUNITY_CURRENT_USER,
-        createdAtLabel: "Just now",
-        status: "Open",
-        comments: [],
-      }
+  const subjectsQuery = useQuery({
+    queryKey: ["community-subjects"],
+    queryFn: () => listLearningSubjects({ viewerIsPremium: true }),
+  })
 
-      setThreads((current) => [nextThread, ...current])
+  const feedQuery = useQuery({
+    queryKey: ["community-feed", user?.$id],
+    enabled: Boolean(user?.$id),
+    queryFn: () => listCommunityFeed(user?.$id),
+  })
+
+  const createPostMutation = useMutation({
+    mutationFn: createCommunityPost,
+    onSuccess: async () => {
+      setIsComposerOpen(false)
+      setTitleDraft("")
+      setContentDraft("")
+      await queryClient.invalidateQueries({ queryKey: ["community-feed"] })
     },
-    []
+  })
+
+  const createCommentMutation = useMutation({
+    mutationFn: createCommunityComment,
+    onSuccess: async () => {
+      setCommentDraft("")
+      await queryClient.invalidateQueries({ queryKey: ["community-feed"] })
+    },
+  })
+
+  const createReplyMutation = useMutation({
+    mutationFn: createCommunityReply,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["community-feed"] })
+    },
+  })
+
+  const likeMutation = useMutation({
+    mutationFn: toggleCommunityPostLike,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["community-feed"] })
+    },
+  })
+
+  const activePost = useMemo(
+    () => feedQuery.data?.posts.find((post) => post.id === activePostId),
+    [activePostId, feedQuery.data?.posts]
   )
 
-  const addComment = useCallback((threadId: string, content: string) => {
-    const nextComment: CommunityComment = {
-      id: createId("comment"),
-      author: COMMUNITY_CURRENT_USER,
-      content,
-      createdAtLabel: "Just now",
-      replies: [],
+  const submitPost = useCallback(() => {
+    if (!user?.$id) {
+      Alert.alert(
+        "Sign in required",
+        "You need to be signed in to create a post."
+      )
+      return
     }
 
-    setThreads((current) =>
-      current.map((thread) =>
-        thread.id === threadId
-          ? { ...thread, comments: [...thread.comments, nextComment] }
-          : thread
-      )
-    )
-  }, [])
+    const title = titleDraft.trim()
+    const content = contentDraft.trim()
 
-  const addReply = useCallback(
-    (threadId: string, commentId: string, content: string) => {
-      const nextReply: CommunityReply = {
-        id: createId("reply"),
-        author: COMMUNITY_CURRENT_USER,
-        content,
-        createdAtLabel: "Just now",
+    if (!title || !content) {
+      Alert.alert("Incomplete post", "Add a title and content before posting.")
+      return
+    }
+
+    createPostMutation.mutate({
+      userId: user.$id,
+      title,
+      content,
+      category: selectedCategory,
+      ...(selectedSubjectId ? { subjectId: selectedSubjectId } : {}),
+    })
+  }, [
+    contentDraft,
+    createPostMutation,
+    selectedCategory,
+    selectedSubjectId,
+    titleDraft,
+    user?.$id,
+  ])
+
+  const submitComment = useCallback(() => {
+    if (!user?.$id || !activePost) {
+      return
+    }
+
+    const content = commentDraft.trim()
+    if (!content) {
+      return
+    }
+
+    createCommentMutation.mutate({
+      userId: user.$id,
+      postId: activePost.id,
+      content,
+    })
+  }, [activePost, commentDraft, createCommentMutation, user?.$id])
+
+  const submitReply = useCallback(
+    (commentId: string, content: string) => {
+      if (!user?.$id) {
+        return
       }
 
-      setThreads((current) =>
-        current.map((thread) => {
-          if (thread.id !== threadId) {
-            return thread
-          }
-
-          return {
-            ...thread,
-            comments: thread.comments.map((comment) =>
-              comment.id === commentId
-                ? { ...comment, replies: [...comment.replies, nextReply] }
-                : comment
-            ),
-          }
-        })
-      )
+      createReplyMutation.mutate({
+        userId: user.$id,
+        commentId,
+        content,
+      })
     },
-    []
+    [createReplyMutation, user?.$id]
   )
 
-  const openThread = useCallback((threadId: string) => {
-    setActiveThreadId(threadId)
-  }, [])
+  const toggleLike = useCallback(
+    (post: CommunityPostItem) => {
+      if (!user?.$id) {
+        return
+      }
+
+      likeMutation.mutate({
+        userId: user.$id,
+        postId: post.id,
+        currentlyLiked: post.isLiked,
+      })
+    },
+    [likeMutation, user?.$id]
+  )
 
   const header = useMemo(
     () => (
@@ -633,14 +448,20 @@ export default function CommunityScreen() {
           compact
           eyebrow="Reviewer Community"
           title="Ask Better Questions"
-          subtitle="A focused discussion space for reviewer strategies, confusing topics, and peer support."
+          subtitle="Appwrite-backed discussions, replies, and likes with cached loading and lightweight refreshes."
           stats={[
             {
               label: "Learners",
-              value: String(COMMUNITY_STATS.activeLearners),
+              value: String(feedQuery.data?.stats.activeLearners ?? 0),
             },
-            { label: "Open", value: String(COMMUNITY_STATS.openTopics) },
-            { label: "Answered", value: String(COMMUNITY_STATS.answeredToday) },
+            {
+              label: "Open",
+              value: String(feedQuery.data?.stats.openTopics ?? 0),
+            },
+            {
+              label: "Answered",
+              value: String(feedQuery.data?.stats.answeredToday ?? 0),
+            },
           ]}
         />
 
@@ -652,7 +473,7 @@ export default function CommunityScreen() {
                 Active Learners
               </Text>
               <Text className="text-lg font-black text-card-foreground">
-                {COMMUNITY_STATS.activeLearners}
+                {feedQuery.data?.stats.activeLearners ?? 0}
               </Text>
             </CardContent>
           </Card>
@@ -663,7 +484,7 @@ export default function CommunityScreen() {
                 Open Topics
               </Text>
               <Text className="text-lg font-black text-card-foreground">
-                {COMMUNITY_STATS.openTopics}
+                {feedQuery.data?.stats.openTopics ?? 0}
               </Text>
             </CardContent>
           </Card>
@@ -671,10 +492,10 @@ export default function CommunityScreen() {
             <CardContent className="gap-2 px-4 py-4">
               <ShieldCheck size={16} color={primaryColor} />
               <Text className="text-xs font-bold uppercase tracking-wide text-primary">
-                Answered Today
+                Answered
               </Text>
               <Text className="text-lg font-black text-card-foreground">
-                {COMMUNITY_STATS.answeredToday}
+                {feedQuery.data?.stats.answeredToday ?? 0}
               </Text>
             </CardContent>
           </Card>
@@ -693,94 +514,294 @@ export default function CommunityScreen() {
           <Button
             variant="outline"
             className="h-11 flex-1"
-            onPress={() => setIsGuideOpen(true)}
+            onPress={() => feedQuery.refetch()}
           >
-            <BookOpenText size={16} color="#6b7280" />
-            <Text className="font-bold">Community guide</Text>
+            <Sparkles size={16} color="#6b7280" />
+            <Text className="font-bold">Refresh feed</Text>
           </Button>
-        </View>
-
-        <View className="flex-row items-center justify-between gap-3 pt-1">
-          <Text className="text-lg font-black text-foreground">
-            Active Discussions
-          </Text>
-          <Text className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            {threads.length} threads
-          </Text>
         </View>
       </View>
     ),
-    [primaryColor, threads.length]
+    [feedQuery, primaryColor]
   )
 
   const renderItem = useCallback(
-    ({ item }: ListRenderItemInfo<CommunityThread>) => (
-      <ThreadCard thread={item} onOpenThread={openThread} />
+    ({ item }: ListRenderItemInfo<CommunityPostItem>) => (
+      <ThreadCard
+        post={item}
+        liking={likeMutation.isPending}
+        onLike={toggleLike}
+        onOpen={setActivePostId}
+      />
     ),
-    [openThread]
+    [likeMutation.isPending, toggleLike]
   )
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <FlatList
-        data={threads}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        ListHeaderComponent={header}
-        contentContainerClassName="gap-4 px-5 pb-8 pt-5"
-        ItemSeparatorComponent={() => <View className="h-4" />}
-        showsVerticalScrollIndicator={false}
-        initialNumToRender={4}
-        maxToRenderPerBatch={4}
-        windowSize={5}
-        removeClippedSubviews
-      />
-
-      <Dialog open={isGuideOpen} onOpenChange={setIsGuideOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Community Guide</DialogTitle>
-            <DialogDescription>
-              Keep discussions focused, respectful, and useful for exam review.
-            </DialogDescription>
-          </DialogHeader>
-          <View className="mt-4 gap-3">
-            {COMMUNITY_GUIDELINES.map((rule) => (
-              <GuideItem key={rule} rule={rule} />
-            ))}
-          </View>
-        </DialogContent>
-      </Dialog>
+      {feedQuery.isLoading ? (
+        <ScrollView contentContainerClassName="gap-4 px-5 pb-8 pt-5">
+          <CommunityLoading />
+        </ScrollView>
+      ) : feedQuery.error ? (
+        <ScrollView contentContainerClassName="gap-4 px-5 pb-8 pt-5">
+          {header}
+          <Card>
+            <CardContent className="gap-2 px-4 py-4">
+              <Text className="text-sm font-black text-destructive">
+                Community unavailable
+              </Text>
+              <Text className="text-[13px] leading-5 text-muted-foreground">
+                {feedQuery.error instanceof Error
+                  ? feedQuery.error.message
+                  : "Unable to load community feed from Appwrite."}
+              </Text>
+            </CardContent>
+          </Card>
+        </ScrollView>
+      ) : (
+        <FlatList
+          data={feedQuery.data?.posts ?? []}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          ListHeaderComponent={header}
+          ListEmptyComponent={
+            <Card>
+              <CardContent className="gap-2 px-4 py-4">
+                <Text className="text-sm font-black text-card-foreground">
+                  No discussions yet
+                </Text>
+                <Text className="text-[13px] leading-5 text-muted-foreground">
+                  Your Appwrite community collections are live, but there are no
+                  posts yet.
+                </Text>
+              </CardContent>
+            </Card>
+          }
+          contentContainerClassName="gap-4 px-5 pb-8 pt-5"
+          ItemSeparatorComponent={() => <View className="h-4" />}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={4}
+          maxToRenderPerBatch={4}
+          windowSize={5}
+          removeClippedSubviews
+        />
+      )}
 
       <Dialog open={isComposerOpen} onOpenChange={setIsComposerOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Write a discussion</DialogTitle>
             <DialogDescription>
-              Ask one focused question and provide enough context for strong
-              replies.
+              Create a lightweight Appwrite-backed post. Keep one focused
+              question per thread.
             </DialogDescription>
           </DialogHeader>
-          <View className="mt-4">
-            <CommunityComposer
-              onCreateThread={createThread}
-              onClose={() => setIsComposerOpen(false)}
-            />
+
+          <View className="gap-3">
+            <View className="flex-row flex-wrap gap-2">
+              {COMMUNITY_CATEGORIES.map((category) => {
+                const isActive = selectedCategory === category
+
+                return (
+                  <Pressable
+                    key={category}
+                    className={
+                      isActive
+                        ? "rounded-full border border-primary bg-primary px-3 py-2"
+                        : "rounded-full border border-border bg-background px-3 py-2"
+                    }
+                    onPress={() => setSelectedCategory(category)}
+                  >
+                    <Text
+                      className={
+                        isActive
+                          ? "text-xs font-bold uppercase tracking-wide text-primary-foreground"
+                          : "text-xs font-bold uppercase tracking-wide text-muted-foreground"
+                      }
+                    >
+                      {category}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+            </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View className="flex-row gap-2">
+                <Pressable
+                  className={
+                    selectedSubjectId === null
+                      ? "rounded-full border border-primary bg-primary px-3 py-2"
+                      : "rounded-full border border-border bg-background px-3 py-2"
+                  }
+                  onPress={() => setSelectedSubjectId(null)}
+                >
+                  <Text
+                    className={
+                      selectedSubjectId === null
+                        ? "text-xs font-bold uppercase tracking-wide text-primary-foreground"
+                        : "text-xs font-bold uppercase tracking-wide text-muted-foreground"
+                    }
+                  >
+                    General
+                  </Text>
+                </Pressable>
+                {(subjectsQuery.data ?? []).map((subject) => {
+                  const isActive = selectedSubjectId === subject.id
+
+                  return (
+                    <Pressable
+                      key={subject.id}
+                      className={
+                        isActive
+                          ? "rounded-full border border-primary bg-primary px-3 py-2"
+                          : "rounded-full border border-border bg-background px-3 py-2"
+                      }
+                      onPress={() => setSelectedSubjectId(subject.id)}
+                    >
+                      <Text
+                        className={
+                          isActive
+                            ? "text-xs font-bold uppercase tracking-wide text-primary-foreground"
+                            : "text-xs font-bold uppercase tracking-wide text-muted-foreground"
+                        }
+                      >
+                        {subject.name}
+                      </Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            </ScrollView>
+
+            <View className="rounded-2xl border border-border bg-background p-3">
+              <TextInput
+                value={titleDraft}
+                onChangeText={setTitleDraft}
+                placeholder="Title your question clearly"
+                placeholderTextColor="#8b8b93"
+                className="text-base text-foreground"
+              />
+            </View>
+
+            <View className="rounded-2xl border border-border bg-background p-3">
+              <TextInput
+                value={contentDraft}
+                onChangeText={setContentDraft}
+                placeholder="Explain the issue, what you already know, and what answer you need"
+                placeholderTextColor="#8b8b93"
+                className="min-h-[112px] text-sm text-foreground"
+                multiline
+                textAlignVertical="top"
+              />
+            </View>
+
+            <DialogFooter className="flex-row justify-end">
+              <Button
+                className="h-11 px-5"
+                disabled={createPostMutation.isPending}
+                onPress={submitPost}
+              >
+                <Send size={14} color="#ffffff" />
+                <Text className="font-bold text-primary-foreground">Post</Text>
+              </Button>
+            </DialogFooter>
           </View>
         </DialogContent>
       </Dialog>
 
-      <ThreadDialog
-        thread={activeThread}
-        open={Boolean(activeThread)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setActiveThreadId(null)
-          }
-        }}
-        onAddComment={addComment}
-        onAddReply={addReply}
-      />
+      <Dialog
+        open={Boolean(activePost)}
+        onOpenChange={(open) => !open && setActivePostId(null)}
+      >
+        <DialogContent className="p-0">
+          {activePost ? (
+            <ScrollView
+              style={{ maxHeight: 680 }}
+              contentContainerStyle={{ padding: 20, gap: 16 }}
+            >
+              <DialogHeader>
+                <DialogTitle>{activePost.title}</DialogTitle>
+                <DialogDescription>
+                  {activePost.category} · {activePost.author.name} ·{" "}
+                  {activePost.createdAtLabel}
+                </DialogDescription>
+              </DialogHeader>
+
+              <View className="gap-3 rounded-2xl border border-border bg-background p-4">
+                {activePost.subjectName ? (
+                  <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-primary">
+                    {activePost.subjectName}
+                  </Text>
+                ) : null}
+                <Text className="text-sm leading-6 text-muted-foreground">
+                  {activePost.content}
+                </Text>
+                <Button
+                  variant={activePost.isLiked ? "default" : "outline"}
+                  className="h-10 self-start px-4"
+                  disabled={likeMutation.isPending}
+                  onPress={() => toggleLike(activePost)}
+                >
+                  <Heart
+                    size={14}
+                    color={activePost.isLiked ? "#ffffff" : "#6b7280"}
+                  />
+                  <Text
+                    className={
+                      activePost.isLiked
+                        ? "font-bold text-primary-foreground"
+                        : "font-bold"
+                    }
+                  >
+                    {activePost.likesCount}{" "}
+                    {activePost.isLiked ? "liked" : "likes"}
+                  </Text>
+                </Button>
+              </View>
+
+              <View className="gap-3">
+                {activePost.comments.map((comment) => (
+                  <CommentRow
+                    key={comment.id}
+                    comment={comment}
+                    disabled={createReplyMutation.isPending}
+                    onSubmitReply={submitReply}
+                  />
+                ))}
+              </View>
+
+              <View className="gap-2 rounded-2xl border border-border bg-background p-3">
+                <Text className="text-sm font-bold text-card-foreground">
+                  Add a comment
+                </Text>
+                <TextInput
+                  value={commentDraft}
+                  onChangeText={setCommentDraft}
+                  placeholder="Share a clear answer, tip, or follow-up question"
+                  placeholderTextColor="#8b8b93"
+                  className="min-h-[88px] text-sm text-foreground"
+                  multiline
+                  textAlignVertical="top"
+                />
+                <DialogFooter className="flex-row justify-end">
+                  <Button
+                    className="h-10 px-4"
+                    disabled={createCommentMutation.isPending}
+                    onPress={submitComment}
+                  >
+                    <MessageSquare size={14} color="#ffffff" />
+                    <Text className="font-bold text-primary-foreground">
+                      Comment
+                    </Text>
+                  </Button>
+                </DialogFooter>
+              </View>
+            </ScrollView>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </SafeAreaView>
   )
 }

@@ -1,6 +1,6 @@
 {
   "name": "reviewer",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
@@ -20,7 +20,8 @@
     "@react-navigation/native": "^7.1.8",
     "@rn-primitives/portal": "^1.3.0",
     "@rn-primitives/slot": "^1.2.0",
-    "babel-preset-expo": "^55.0.12",
+    "@tanstack/react-query": "^5.95.2",
+    "babel-preset-expo": "~54.0.10",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "expo": "~54.0.33",
@@ -43,11 +44,13 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
+    "react-native-appwrite": "^0.25.0",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
+    "react-native-url-polyfill": "^3.0.0",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.5.1",
     "tailwind-merge": "^3.5.0",
@@ -102,5 +105,8 @@
       "prettier-plugin-tailwindcss"
     ]
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "expo-file-system": "19.0.21"
+  }
 }

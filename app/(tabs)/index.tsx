@@ -1,226 +1,267 @@
+import { useCallback, useEffect, useMemo } from "react"
+import { useAuth } from "@/contexts/auth-context"
 import {
-  CATEGORIES,
   DAILY_TRACKER,
   FULL_EXAM_PRESETS,
   PERFORMANCE_METRICS,
 } from "@/data/reviewer-data"
+import { useQuery } from "@tanstack/react-query"
 import { useRouter } from "expo-router"
 import {
   ArrowRight,
   BookOpenText,
-  ChartColumn,
+  ChartColumnIncreasing,
   Clock3,
+  Flame,
   FolderOpen,
+  LockKeyhole,
   MessagesSquare,
   Newspaper,
   Rocket,
   Target,
+  Zap,
 } from "lucide-react-native"
-import { Pressable, ScrollView, View } from "react-native"
+import { FlatList, Pressable, ScrollView, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import { THEME } from "@/lib/theme"
+import { listLearningSubjects } from "@/lib/learning-content"
+import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Card, CardContent } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
-import { AppShellHeader } from "@/components/app-shell-header"
+
+function getGreeting() {
+  const hour = new Date().getHours()
+  if (hour < 12) return "Good morning"
+  if (hour < 17) return "Good afternoon"
+  return "Good evening"
+}
 
 export default function ReviewerHomeScreen() {
   const router = useRouter()
   const colorScheme = useColorScheme()
-  const primaryColor =
-    colorScheme === "dark" ? THEME.dark.primary : THEME.light.primary
-  const weeklyMetric = PERFORMANCE_METRICS.find(
-    (metric) => metric.window === "week"
+  const isDark = colorScheme === "dark"
+  const theme = isDark ? THEME.dark : THEME.light
+  const { user, profile, isAuthenticated, refreshProfile } = useAuth()
+  const isPremiumUser = profile?.isPremium === true
+
+  const firstName = (profile?.fullName ?? user?.name ?? "Reviewer").split(
+    " "
+  )[0]
+  const weeklyMetric = useMemo(
+    () => PERFORMANCE_METRICS.find((m) => m.window === "week"),
+    []
+  )
+
+  useEffect(() => {
+    if (isAuthenticated && !profile) {
+      void refreshProfile()
+    }
+  }, [isAuthenticated, profile, refreshProfile])
+
+  const subjectsQuery = useQuery({
+    queryKey: ["home-review-subjects", isPremiumUser],
+    queryFn: () => listLearningSubjects({ viewerIsPremium: isPremiumUser }),
+  })
+
+  const reviewSubjects = subjectsQuery.data ?? []
+
+  const navigateToCategoryMode = useCallback(
+    (categoryId: string) =>
+      router.push({ pathname: "/mode", params: { categoryId } }),
+    [router]
+  )
+  const navigateToCategoryTopics = useCallback(
+    (categoryId: string) =>
+      router.push({ pathname: "/review/[categoryId]", params: { categoryId } }),
+    [router]
   )
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="gap-4 px-4 pb-7 pt-4">
-        <AppShellHeader
-          eyebrow="Daily Review System"
-          title="Professional Reviewer"
-          subtitle="Build exam confidence with timed reviews, full simulations, topic drills, and a cleaner performance dashboard."
-          stats={[
-            {
-              label: "Today",
-              value: `${DAILY_TRACKER.completedSessions}/${DAILY_TRACKER.targetSessions}`,
-            },
-            {
-              label: "Streak",
-              value: `${DAILY_TRACKER.streakDays} days`,
-            },
-            {
-              label: "Weekly Avg",
-              value: `${weeklyMetric?.averageScore ?? 0}%`,
-            },
-          ]}
-        />
-
-        <View className="flex-row gap-2.5">
-          <Card className="flex-1">
-            <CardContent className="gap-1.5 px-3.5 py-3.5">
-              <View className="flex-row items-center gap-2">
-                <Clock3 size={14} color={primaryColor} />
-                <Text className="text-xs font-bold uppercase tracking-wide text-primary">
-                  Pacing
-                </Text>
-              </View>
-              <Text className="text-[13px] font-black text-card-foreground">
-                {DAILY_TRACKER.completedSessions}/{DAILY_TRACKER.targetSessions}{" "}
-                today
-              </Text>
-              <Text className="text-xs leading-5 text-muted-foreground">
-                {DAILY_TRACKER.streakDays}-day streak. Focus:{" "}
-                {DAILY_TRACKER.focusLabel}.
-              </Text>
-            </CardContent>
-          </Card>
-
-          <Card className="flex-1">
-            <CardContent className="gap-1.5 px-3.5 py-3.5">
-              <View className="flex-row items-center gap-2">
-                <Target size={14} color={primaryColor} />
-                <Text className="text-xs font-bold uppercase tracking-wide text-primary">
-                  Focus
-                </Text>
-              </View>
-              <Text className="text-[13px] font-black text-card-foreground">
-                {weeklyMetric?.averageScore ?? 0}% average
-              </Text>
-              <Text className="text-xs leading-5 text-muted-foreground">
-                {weeklyMetric?.questionsAnswered ?? 0} items answered this week.
-              </Text>
-            </CardContent>
-          </Card>
+      <ScrollView
+        contentContainerClassName="gap-5 px-4 pb-28 pt-5"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Greeting Header ───────────────────────────────────────────── */}
+        <View className="gap-1">
+          <Text className="text-[11px] font-black uppercase tracking-[1.8px] text-primary">
+            Daily Review System
+          </Text>
+          <Text className="text-[24px] font-black leading-tight text-foreground">
+            {getGreeting()},{"\n"}
+            {firstName} 👋
+          </Text>
+          <Text className="mt-0.5 text-[13px] leading-5 text-muted-foreground">
+            Keep your streak going — one session at a time.
+          </Text>
         </View>
 
-        <View className="gap-3">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-[17px] font-extrabold text-foreground">
-              Dashboard Snapshot
-            </Text>
-            <Pressable onPress={() => router.push("/dashboard")}>
-              <Text className="text-xs font-black uppercase tracking-[1.6px] text-primary">
-                Open Dashboard
+        {/* ── Streak + Score strip ──────────────────────────────────────── */}
+        <View className="flex-row gap-2.5">
+          {/* Streak card */}
+          <View
+            className="flex-1 gap-1 rounded-3xl p-4"
+            style={{
+              backgroundColor: "hsl(38 92% 58% / 0.15)",
+              borderWidth: 1,
+              borderColor: "hsl(38 92% 58% / 0.25)",
+            }}
+          >
+            <View className="flex-row items-center gap-1.5">
+              <Flame size={14} color={theme.accent} />
+              <Text
+                className="text-[10px] font-black uppercase tracking-widest"
+                style={{ color: theme.accent }}
+              >
+                Streak
               </Text>
-            </Pressable>
+            </View>
+            <Text className="text-2xl font-black text-foreground">
+              {DAILY_TRACKER.streakDays}
+            </Text>
+            <Text className="text-[11px] text-muted-foreground">days</Text>
           </View>
 
-          <Card>
-            <CardContent className="gap-2.5 px-3.5 py-3.5">
-              <View className="flex-row items-center gap-2">
-                <ChartColumn size={18} color={primaryColor} />
-                <Text className="text-sm font-bold text-card-foreground">
-                  Weekly performance
-                </Text>
-              </View>
-              <Text className="text-[13px] leading-5 text-muted-foreground">
-                Strongest area this week:{" "}
-                {CATEGORIES.find(
-                  (category) =>
-                    category.id === weeklyMetric?.strongestCategoryId
-                )?.title ?? "Not available"}
+          {/* Today's sessions */}
+          <View
+            className="flex-1 gap-1 rounded-3xl p-4"
+            style={{
+              backgroundColor: withOpacity(theme.primary, 0.18),
+              borderWidth: 1,
+              borderColor: withOpacity(theme.primary, 0.3),
+            }}
+          >
+            <View className="flex-row items-center gap-1.5">
+              <Clock3 size={14} color={theme.primary} />
+              <Text className="text-[10px] font-black uppercase tracking-widest text-primary">
+                Today
               </Text>
-              <Text className="text-[13px] leading-5 text-muted-foreground">
-                Weakest area this week:{" "}
-                {CATEGORIES.find(
-                  (category) => category.id === weeklyMetric?.weakestCategoryId
-                )?.title ?? "Not available"}
+            </View>
+            <Text className="text-2xl font-black text-foreground">
+              {DAILY_TRACKER.completedSessions}
+              <Text className="text-base font-bold text-muted-foreground">
+                /{DAILY_TRACKER.targetSessions}
               </Text>
-            </CardContent>
-          </Card>
+            </Text>
+            <Text className="text-[11px] text-muted-foreground">sessions</Text>
+          </View>
+
+          {/* Weekly avg */}
+          <View
+            className="flex-1 gap-1 rounded-3xl p-4"
+            style={{
+              backgroundColor: withOpacity(theme.primary, 0.1),
+              borderWidth: 1,
+              borderColor: withOpacity(theme.primary, 0.2),
+            }}
+          >
+            <View className="flex-row items-center gap-1.5">
+              <Target size={14} color={theme.primary} />
+              <Text className="text-[10px] font-black uppercase tracking-widest text-primary">
+                Avg
+              </Text>
+            </View>
+            <Text className="text-2xl font-black text-foreground">
+              {weeklyMetric?.averageScore ?? 0}
+              <Text className="text-base font-bold text-muted-foreground">
+                %
+              </Text>
+            </Text>
+            <Text className="text-[11px] text-muted-foreground">weekly</Text>
+          </View>
         </View>
 
-        <View className="gap-3">
-          <Text className="text-[17px] font-extrabold text-foreground">
+        {/* ── Quick Access (horizontal scroll) ─────────────────────────── */}
+        <View className="gap-2.5">
+          <Text className="text-base font-extrabold text-foreground">
             Quick Access
           </Text>
-
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerClassName="gap-2.5 pr-4"
+            decelerationRate="fast"
           >
-            <Pressable
-              className="w-[208px] rounded-2xl"
-              onPress={() => router.push("/learn")}
-            >
-              <Card>
-                <CardContent className="gap-1.5 px-3.5 py-3.5">
-                  <BookOpenText size={18} color={primaryColor} />
-                  <Text className="text-sm font-bold text-card-foreground">
-                    Review Content
-                  </Text>
-                  <Text className="text-xs leading-5 text-muted-foreground">
-                    Open numbered review sections fast.
-                  </Text>
-                </CardContent>
-              </Card>
-            </Pressable>
-
-            <Pressable
-              className="w-[208px] rounded-2xl"
-              onPress={() => router.push("/community")}
-            >
-              <Card>
-                <CardContent className="gap-1.5 px-3.5 py-3.5">
-                  <MessagesSquare size={18} color={primaryColor} />
-                  <Text className="text-sm font-bold text-card-foreground">
-                    Community
-                  </Text>
-                  <Text className="text-xs leading-5 text-muted-foreground">
-                    Ask questions and learn from peers.
-                  </Text>
-                </CardContent>
-              </Card>
-            </Pressable>
-
-            <Pressable
-              className="w-[208px] rounded-2xl"
-              onPress={() => router.push("/news")}
-            >
-              <Card>
-                <CardContent className="gap-1.5 px-3.5 py-3.5">
-                  <Newspaper size={18} color={primaryColor} />
-                  <Text className="text-sm font-bold text-card-foreground">
-                    Latest News
-                  </Text>
-                  <Text className="text-xs leading-5 text-muted-foreground">
-                    See new materials and releases.
-                  </Text>
-                </CardContent>
-              </Card>
-            </Pressable>
-
-            <Pressable
-              className="w-[208px] rounded-2xl"
-              onPress={() => router.push("/dashboard")}
-            >
-              <Card>
-                <CardContent className="gap-1.5 px-3.5 py-3.5">
-                  <ChartColumn size={18} color={primaryColor} />
-                  <Text className="text-sm font-bold text-card-foreground">
-                    Dashboard
-                  </Text>
-                  <Text className="text-xs leading-5 text-muted-foreground">
-                    Review progress, trends, and weak areas.
-                  </Text>
-                </CardContent>
-              </Card>
-            </Pressable>
+            {[
+              {
+                icon: <BookOpenText size={20} color={theme.primary} />,
+                label: "Review Content",
+                sub: "Numbered review sections",
+                path: "/learn",
+              },
+              {
+                icon: <ChartColumnIncreasing size={20} color={theme.primary} />,
+                label: "Dashboard",
+                sub: "Progress and weak areas",
+                path: "/dashboard",
+              },
+              {
+                icon: <MessagesSquare size={20} color={theme.primary} />,
+                label: "Community",
+                sub: "Learn with peers",
+                path: "/community",
+              },
+              {
+                icon: <Newspaper size={20} color={theme.primary} />,
+                label: "Latest News",
+                sub: "New materials",
+                path: "/news",
+              },
+            ].map((item) => (
+              <Pressable
+                key={item.label}
+                className="w-[190px] rounded-3xl"
+                onPress={() => router.push(item.path as never)}
+              >
+                <Card className="rounded-3xl">
+                  <CardContent className="gap-2 px-4 py-2">
+                    <View
+                      className="h-10 w-10 items-center justify-center rounded-2xl"
+                      style={{
+                        backgroundColor: withOpacity(theme.primary, 0.15),
+                      }}
+                    >
+                      {item.icon}
+                    </View>
+                    <Text className="text-sm font-bold text-card-foreground">
+                      {item.label}
+                    </Text>
+                    <Text className="text-[12px] leading-4 text-muted-foreground">
+                      {item.sub}
+                    </Text>
+                  </CardContent>
+                </Card>
+              </Pressable>
+            ))}
           </ScrollView>
         </View>
 
-        <View className="gap-3">
-          <Text className="text-[17px] font-extrabold text-foreground">
-            Full Exam Simulation
-          </Text>
+        {/* ── Full Exam Simulation ──────────────────────────────────────── */}
+        <View className="gap-2.5">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-base font-extrabold text-foreground">
+              Full Exam Simulation
+            </Text>
+            <View
+              className="flex-row items-center gap-1 rounded-full px-2.5 py-1"
+              style={{ backgroundColor: withOpacity(theme.accent, 0.2) }}
+            >
+              <Zap size={11} color={theme.accent} />
+              <Text
+                className="text-[10px] font-black uppercase tracking-wide"
+                style={{ color: theme.accent }}
+              >
+                Board Prep
+              </Text>
+            </View>
+          </View>
 
           {FULL_EXAM_PRESETS.map((exam) => (
             <Pressable
               key={exam.id}
-              className="rounded-2xl"
+              className="overflow-hidden rounded-3xl"
               onPress={() =>
                 router.push({
                   pathname: "/quiz",
@@ -233,10 +274,17 @@ export default function ReviewerHomeScreen() {
                 })
               }
             >
-              <Card>
-                <CardContent className="gap-2 px-3.5 py-3.5">
-                  <View className="flex-row items-start gap-2">
-                    <Rocket size={18} color={primaryColor} />
+              <Card className="rounded-3xl">
+                <CardContent className="gap-2.5 px-4 py-2">
+                  <View className="flex-row items-start gap-3">
+                    <View
+                      className="h-10 w-10 items-center justify-center rounded-2xl"
+                      style={{
+                        backgroundColor: withOpacity(theme.primary, 0.15),
+                      }}
+                    >
+                      <Rocket size={20} color={theme.primary} />
+                    </View>
                     <View className="flex-1 gap-1">
                       <Text className="text-base font-extrabold leading-6 text-card-foreground">
                         {exam.title}
@@ -245,82 +293,205 @@ export default function ReviewerHomeScreen() {
                         {exam.description}
                       </Text>
                     </View>
+                    <ArrowRight size={16} color={theme.mutedForeground} />
                   </View>
-                  <Text className="text-[13px] font-bold uppercase tracking-wide text-primary">
-                    {exam.totalQuestions} items • {exam.minutes} minutes
-                  </Text>
+                  <View className="flex-row gap-2">
+                    <View
+                      className="rounded-full px-3 py-1"
+                      style={{
+                        backgroundColor: withOpacity(theme.primary, 0.15),
+                      }}
+                    >
+                      <Text className="text-[11px] font-black uppercase tracking-wide text-primary">
+                        {exam.totalQuestions} items
+                      </Text>
+                    </View>
+                    <View
+                      className="rounded-full px-3 py-1"
+                      style={{
+                        backgroundColor: withOpacity(theme.accent, 0.2),
+                      }}
+                    >
+                      <Text
+                        className="text-[11px] font-black uppercase tracking-wide"
+                        style={{ color: theme.accent }}
+                      >
+                        {exam.minutes} min
+                      </Text>
+                    </View>
+                  </View>
                 </CardContent>
               </Card>
             </Pressable>
           ))}
         </View>
 
-        <View className="gap-3">
+        {/* ── Quiz Categories (horizontal scroll) ───────────────────────── */}
+        <View className="gap-2.5">
           <Text className="text-[17px] font-extrabold text-foreground">
             Quiz Categories
           </Text>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerClassName="gap-3 pr-4"
-          >
-            {CATEGORIES.map((category) => (
-              <View key={category.id} className="w-[274px] rounded-2xl">
-                <Card>
-                  <CardContent className="gap-2 px-3.5 py-3.5">
-                    <View className="flex-row items-start gap-2">
-                      <FolderOpen size={18} color={primaryColor} />
-                      <View className="flex-1 gap-1">
-                        <Text className="text-base font-extrabold leading-6 text-card-foreground">
-                          {category.title}
-                        </Text>
-                        <Text className="text-[12px] font-bold uppercase tracking-wide text-primary">
-                          {category.itemCount} items • {category.topicCount}{" "}
-                          topics
-                        </Text>
+          {subjectsQuery.isLoading ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 12, paddingRight: 16 }}
+            >
+              {Array.from({ length: 3 }).map((_, index) => (
+                <View
+                  key={`subject-skeleton-${index}`}
+                  className="w-[260px] overflow-hidden rounded-3xl"
+                >
+                  <Card className="rounded-3xl">
+                    <CardContent className="gap-3 px-4 py-4">
+                      <Skeleton className="h-10 w-10 rounded-2xl" />
+                      <Skeleton className="h-5 w-40 rounded-lg" />
+                      <Skeleton className="h-4 w-24 rounded-lg" />
+                      <Skeleton className="h-12 w-full rounded-xl" />
+                      <View className="flex-row gap-2">
+                        <Skeleton className="h-11 flex-1 rounded-2xl" />
+                        <Skeleton className="h-11 flex-1 rounded-2xl" />
                       </View>
-                    </View>
+                    </CardContent>
+                  </Card>
+                </View>
+              ))}
+            </ScrollView>
+          ) : subjectsQuery.error ? (
+            <Card className="rounded-3xl">
+              <CardContent className="gap-2 px-4 py-4">
+                <Text className="text-sm font-black text-destructive">
+                  Review subjects unavailable
+                </Text>
+                <Text className="text-[13px] leading-5 text-muted-foreground">
+                  {subjectsQuery.error instanceof Error
+                    ? subjectsQuery.error.message
+                    : "Unable to load review subjects from Appwrite."}
+                </Text>
+              </CardContent>
+            </Card>
+          ) : (
+            <FlatList
+              data={reviewSubjects}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 12, paddingRight: 16 }}
+              keyExtractor={(item) => item.id}
+              decelerationRate="fast"
+              renderItem={({ item: subject }) => {
+                const isLocked = subject.isLocked
+
+                return (
+                  <View className="max-w-[260px] overflow-hidden rounded-3xl">
+                    <Card className="rounded-3xl">
+                      <CardContent className="gap-2.5 px-4 py-2">
+                        <View className="flex-row items-start gap-3">
+                          <View
+                            className="h-10 w-10 items-center justify-center rounded-2xl"
+                            style={{
+                              backgroundColor: withOpacity(theme.primary, 0.15),
+                            }}
+                          >
+                            {isLocked ? (
+                              <LockKeyhole size={20} color={theme.primary} />
+                            ) : (
+                              <FolderOpen size={20} color={theme.primary} />
+                            )}
+                          </View>
+                          <View className="flex-1 gap-0.5">
+                            <Text className="text-base font-extrabold leading-5 text-card-foreground">
+                              {subject.name}
+                            </Text>
+                            <Text className="text-[11px] font-bold uppercase tracking-wide text-primary">
+                              {subject.materialCount} materials ·{" "}
+                              {subject.topicCount} topics
+                            </Text>
+                          </View>
+                        </View>
+                        {!isPremiumUser && subject.hasPremiumContent ? (
+                          <View className="self-start rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1">
+                            <Text className="text-[10px] font-bold uppercase tracking-wide text-primary">
+                              {subject.freeMaterialCount} free ·{" "}
+                              {subject.premiumMaterialCount} premium
+                            </Text>
+                          </View>
+                        ) : null}
+                        <Text className="text-[13px] leading-5 text-muted-foreground">
+                          {isLocked
+                            ? "This subject is fully premium and locked for free users."
+                            : subject.description ||
+                              "No subject description added yet."}
+                        </Text>
+                        <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          {isLocked
+                            ? "Premium locked"
+                            : "Timed quiz from Appwrite"}
+                        </Text>
+                        <View className="mt-1 flex-row gap-2">
+                          <Pressable
+                            className="flex-1 flex-row items-center justify-center gap-1.5 rounded-2xl py-3"
+                            disabled={isLocked}
+                            style={{
+                              backgroundColor: isLocked
+                                ? theme.muted
+                                : theme.primary,
+                              opacity: isLocked ? 0.6 : 1,
+                            }}
+                            onPress={() => navigateToCategoryMode(subject.id)}
+                          >
+                            <Text
+                              className="text-[12px] font-black uppercase tracking-wide"
+                              style={{
+                                color: isLocked
+                                  ? theme.mutedForeground
+                                  : theme.primaryForeground,
+                              }}
+                            >
+                              {isLocked ? "Locked" : "Timed Quiz"}
+                            </Text>
+                            <ArrowRight
+                              size={13}
+                              color={
+                                isLocked
+                                  ? theme.mutedForeground
+                                  : theme.primaryForeground
+                              }
+                            />
+                          </Pressable>
+                          <Pressable
+                            className="flex-1 items-center justify-center rounded-2xl border py-3"
+                            disabled={isLocked}
+                            style={{
+                              borderColor: theme.border,
+                              opacity: isLocked ? 0.6 : 1,
+                            }}
+                            onPress={() => navigateToCategoryTopics(subject.id)}
+                          >
+                            <Text className="text-[12px] font-black uppercase tracking-wide text-card-foreground">
+                              Topics
+                            </Text>
+                          </Pressable>
+                        </View>
+                      </CardContent>
+                    </Card>
+                  </View>
+                )
+              }}
+              ListEmptyComponent={
+                <Card className="rounded-3xl">
+                  <CardContent className="gap-2 px-4 py-4">
+                    <Text className="text-sm font-black text-card-foreground">
+                      No review subjects yet
+                    </Text>
                     <Text className="text-[13px] leading-5 text-muted-foreground">
-                      {category.description}
+                      Add Appwrite subject and topic records to populate this
+                      section.
                     </Text>
-                    <Text className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {category.groupLabel}
-                    </Text>
-                    <View className="mt-2 flex-row gap-2.5">
-                      <Pressable
-                        className="flex-1 flex-row items-center justify-center gap-1 rounded-2xl border border-primary/20 bg-primary/10 px-2.5 py-2.5"
-                        onPress={() =>
-                          router.push({
-                            pathname: "/mode",
-                            params: { categoryId: category.id },
-                          })
-                        }
-                      >
-                        <Text className="text-[12px] font-bold uppercase tracking-wide text-primary">
-                          Timed
-                        </Text>
-                        <ArrowRight size={13} color={primaryColor} />
-                      </Pressable>
-                      <Pressable
-                        className="flex-1 items-center justify-center rounded-2xl border border-border px-2.5 py-2.5"
-                        onPress={() =>
-                          router.push({
-                            pathname: "/review/[categoryId]",
-                            params: { categoryId: category.id },
-                          })
-                        }
-                      >
-                        <Text className="text-[12px] font-bold uppercase tracking-wide text-card-foreground">
-                          Topics
-                        </Text>
-                      </Pressable>
-                    </View>
                   </CardContent>
                 </Card>
-              </View>
-            ))}
-          </ScrollView>
+              }
+            />
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
