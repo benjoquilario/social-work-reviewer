@@ -673,6 +673,13 @@ export const reviewerCmsSchema = {
         size: 64,
       },
       {
+        key: "photoUrl",
+        label: "Photo URL",
+        kind: "string",
+        required: false,
+        size: 2048,
+      },
+      {
         key: "likesCount",
         label: "Likes Count",
         kind: "integer",

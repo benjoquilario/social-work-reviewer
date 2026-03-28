@@ -16,7 +16,10 @@ export default function LearnScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="gap-4 px-5 py-6">
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerClassName="gap-4 px-5 py-6"
+      >
         <Text className="text-3xl font-black text-foreground">
           Learn By Doing
         </Text>

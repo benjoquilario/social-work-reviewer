@@ -64,7 +64,10 @@ export default function DiagnosticsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="gap-4 px-4 pb-7 pt-3">
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerClassName="gap-4 px-4 pb-7 pt-3"
+      >
         <View className="flex-row items-center justify-between gap-3">
           <Pressable
             className="h-10 w-10 items-center justify-center rounded-2xl"

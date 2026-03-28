@@ -16,7 +16,10 @@ export default function ModalScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="gap-3 px-5 py-6">
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerClassName="gap-3 px-5 py-6"
+      >
         <Text className="text-3xl font-black text-foreground">
           Imports Glossary
         </Text>

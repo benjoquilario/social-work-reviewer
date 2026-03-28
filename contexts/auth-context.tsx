@@ -9,12 +9,22 @@ import {
 } from "react"
 
 import {
+  changeCurrentUserPassword,
+  completeCurrentUserEmailVerification,
   createAccount,
+  deleteCurrentAccount,
   ensureUserProfileSetup,
   getCurrentUser,
   login,
   logout,
+  sendCurrentUserVerificationEmail,
+  updateCurrentEmail,
+  updateCurrentProfile,
+  uploadCurrentUserProfilePhoto,
   type AuthUser,
+  type UpdateEmailInput,
+  type UpdateProfileInput,
+  type UploadProfilePhotoInput,
   type UserProfile,
 } from "@/lib/auth"
 
@@ -35,6 +45,16 @@ type AuthContextValue = {
   register: (email: string, password: string, fullName: string) => Promise<void>
   logout: () => Promise<void>
   refreshProfile: () => Promise<void>
+  updateProfile: (input: UpdateProfileInput) => Promise<void>
+  updateEmail: (input: UpdateEmailInput) => Promise<void>
+  uploadProfilePhoto: (input: UploadProfilePhotoInput) => Promise<string>
+  sendVerificationEmail: () => Promise<void>
+  completeEmailVerification: (userId: string, secret: string) => Promise<void>
+  changePassword: (
+    currentPassword: string,
+    nextPassword: string
+  ) => Promise<void>
+  deleteAccount: () => Promise<void>
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -121,6 +141,89 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setAuthState({ status: "unauthenticated" })
   }, [])
 
+  const handleUpdateProfile = useCallback(
+    async (input: UpdateProfileInput) => {
+      if (authState.status !== "authenticated") {
+        throw new Error("You need to sign in again to update your profile.")
+      }
+
+      const result = await updateCurrentProfile(input)
+      setAuthState({
+        status: "authenticated",
+        user: result.user,
+        profile: result.profile,
+      })
+    },
+    [authState]
+  )
+
+  const handleUpdateEmail = useCallback(
+    async (input: UpdateEmailInput) => {
+      if (authState.status !== "authenticated") {
+        throw new Error("You need to sign in again to update your email.")
+      }
+
+      const result = await updateCurrentEmail(input)
+      setAuthState({
+        status: "authenticated",
+        user: result.user,
+        profile: result.profile,
+      })
+    },
+    [authState]
+  )
+
+  const handleUploadProfilePhoto = useCallback(
+    async (input: UploadProfilePhotoInput) => {
+      if (authState.status !== "authenticated") {
+        throw new Error("You need to sign in again to upload a profile photo.")
+      }
+
+      return uploadCurrentUserProfilePhoto(input)
+    },
+    [authState]
+  )
+
+  const handleSendVerificationEmail = useCallback(async () => {
+    if (authState.status !== "authenticated") {
+      throw new Error("You need to sign in again to verify your email.")
+    }
+
+    await sendCurrentUserVerificationEmail()
+  }, [authState])
+
+  const handleCompleteEmailVerification = useCallback(
+    async (userId: string, secret: string) => {
+      const freshUser = await completeCurrentUserEmailVerification(
+        userId,
+        secret
+      )
+      const profile = await bootstrapProfileSafely(freshUser)
+      setAuthState({ status: "authenticated", user: freshUser, profile })
+    },
+    [bootstrapProfileSafely]
+  )
+
+  const handleChangePassword = useCallback(
+    async (currentPassword: string, nextPassword: string) => {
+      if (authState.status !== "authenticated") {
+        throw new Error("You need to sign in again to change your password.")
+      }
+
+      await changeCurrentUserPassword(currentPassword, nextPassword)
+    },
+    [authState]
+  )
+
+  const handleDeleteAccount = useCallback(async () => {
+    if (authState.status !== "authenticated") {
+      throw new Error("You need to sign in again to delete your account.")
+    }
+
+    await deleteCurrentAccount()
+    setAuthState({ status: "unauthenticated" })
+  }, [authState])
+
   const refreshProfile = useCallback(async () => {
     if (authState.status !== "authenticated") return
     const profile = await bootstrapProfileSafely(authState.user)
@@ -140,8 +243,28 @@ export function AuthProvider({ children }: PropsWithChildren) {
       register: handleRegister,
       logout: handleLogout,
       refreshProfile,
+      updateProfile: handleUpdateProfile,
+      updateEmail: handleUpdateEmail,
+      uploadProfilePhoto: handleUploadProfilePhoto,
+      sendVerificationEmail: handleSendVerificationEmail,
+      completeEmailVerification: handleCompleteEmailVerification,
+      changePassword: handleChangePassword,
+      deleteAccount: handleDeleteAccount,
     }),
-    [authState, handleLogin, handleRegister, handleLogout, refreshProfile]
+    [
+      authState,
+      handleChangePassword,
+      handleCompleteEmailVerification,
+      handleDeleteAccount,
+      handleLogin,
+      handleLogout,
+      handleRegister,
+      handleSendVerificationEmail,
+      handleUploadProfilePhoto,
+      handleUpdateEmail,
+      handleUpdateProfile,
+      refreshProfile,
+    ]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

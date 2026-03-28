@@ -1,0 +1,10 @@
+{
+  "name": "account-delete",
+  "version": "1.0.0",
+  "private": true,
+  "main": "main.js",
+  "type": "commonjs",
+  "dependencies": {
+    "node-appwrite": "^14.1.0"
+  }
+}

@@ -56,6 +56,7 @@ export default function DashboardScreen() {
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView
         contentContainerClassName="gap-4 px-4 pb-28 pt-5"
+        contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
       >
         <View className="flex-row items-center justify-between gap-3">

@@ -18,6 +18,7 @@ import {
   Pressable,
   ScrollView,
   TouchableWithoutFeedback,
+  useWindowDimensions,
   View,
   type ViewToken,
 } from "react-native"
@@ -45,6 +46,7 @@ export default function QuizScreen() {
   const theme = isDark ? THEME.dark : THEME.light
   const { user, isAuthenticated, profile, refreshProfile } = useAuth()
   const flatListRef = useRef<FlatList<QuizQuestion>>(null)
+  const { width: screenWidth } = useWindowDimensions()
   const startTimeRef = useRef(Date.now())
 
   const params = useLocalSearchParams<{
@@ -87,7 +89,10 @@ export default function QuizScreen() {
       }),
   })
 
-  const questions = questionsQuery.data ?? []
+  const questions = useMemo(
+    () => questionsQuery.data ?? [],
+    [questionsQuery.data]
+  )
   const quizTitle =
     categoryId === "all-categories"
       ? (exam?.title ?? "Mixed Review")
@@ -174,6 +179,15 @@ export default function QuizScreen() {
     []
   )
 
+  const getQuestionItemLayout = useCallback(
+    (_: ArrayLike<QuizQuestion> | null | undefined, index: number) => ({
+      length: screenWidth,
+      offset: screenWidth * index,
+      index,
+    }),
+    [screenWidth]
+  )
+
   const cardClass = "rounded-3xl border border-border bg-card p-5"
 
   if (totalSeconds <= 0) {
@@ -203,7 +217,10 @@ export default function QuizScreen() {
   ) {
     return (
       <SafeAreaView className="flex-1 bg-background">
-        <ScrollView contentContainerClassName="gap-4 px-4 py-4">
+        <ScrollView
+          contentContainerClassName="gap-4 px-4 py-4"
+          contentInsetAdjustmentBehavior="automatic"
+        >
           <Skeleton className="h-24 rounded-3xl" />
           <Skeleton className="h-32 rounded-3xl" />
           <Skeleton className="h-16 rounded-2xl" />
@@ -265,7 +282,10 @@ export default function QuizScreen() {
   if (isSubmitted) {
     return (
       <SafeAreaView className="flex-1 bg-background">
-        <ScrollView contentContainerClassName="gap-4 px-4 py-4">
+        <ScrollView
+          contentContainerClassName="gap-4 px-4 py-4"
+          contentInsetAdjustmentBehavior="automatic"
+        >
           {/* Score card */}
           <View className={cardClass}>
             <Text className="text-xl font-black text-card-foreground">
@@ -504,13 +524,9 @@ export default function QuizScreen() {
         keyExtractor={(item) => item.id}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        getItemLayout={(_, index) => ({
-          length: 0, // handled by pagingEnabled
-          offset: 0,
-          index,
-        })}
+        getItemLayout={getQuestionItemLayout}
         renderItem={({ item: question, index }) => (
-          <View style={{ width: "100%", paddingHorizontal: 16 }}>
+          <View style={{ width: screenWidth, paddingHorizontal: 16 }}>
             <View className={cardClass}>
               <Text className="text-base font-bold leading-6 text-card-foreground">
                 {question.prompt}

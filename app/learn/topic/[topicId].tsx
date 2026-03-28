@@ -49,7 +49,10 @@ export default function TopicDetailScreen() {
   if (topicQuery.isLoading) {
     return (
       <SafeAreaView className="flex-1 bg-background">
-        <ScrollView contentContainerClassName="gap-4 px-4 pb-7 pt-3">
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          contentContainerClassName="gap-4 px-4 pb-7 pt-3"
+        >
           <Skeleton className="h-10 w-10 rounded-2xl" />
           <Skeleton className="h-24 rounded-2xl" />
           <Skeleton className="h-16 rounded-2xl" />
@@ -109,7 +112,10 @@ export default function TopicDetailScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="gap-4 px-4 pb-7 pt-3">
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerClassName="gap-4 px-4 pb-7 pt-3"
+      >
         <View className="flex-row items-center justify-between gap-3">
           <Pressable
             className="h-10 w-10 items-center justify-center rounded-2xl"
@@ -190,10 +196,7 @@ export default function TopicDetailScreen() {
                   <Text className="text-sm font-semibold leading-6 text-card-foreground">
                     {material.title}
                   </Text>
-                  <Text className="text-[11px] font-bold uppercase tracking-[1px] text-primary">
-                    {material.type}
-                    {material.isPremium ? " · Premium" : ""}
-                  </Text>
+
                   <Text
                     className="text-[12px] leading-5 text-muted-foreground"
                     numberOfLines={2}

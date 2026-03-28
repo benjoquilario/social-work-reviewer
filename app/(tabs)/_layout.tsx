@@ -1,6 +1,12 @@
 import React from "react"
 import { Tabs } from "expo-router"
-import { BookOpenText, ClipboardCheck, MessagesSquare, Newspaper, User } from "lucide-react-native"
+import {
+  BookOpenText,
+  ClipboardCheck,
+  MessagesSquare,
+  Newspaper,
+  User,
+} from "lucide-react-native"
 
 import { APP_FONTS } from "@/lib/fonts"
 import { THEME } from "@/lib/theme"
@@ -18,6 +24,8 @@ export default function TabLayout() {
     <>
       <Tabs
         screenOptions={{
+          lazy: true,
+          freezeOnBlur: true,
           tabBarActiveTintColor: activeTint,
           tabBarInactiveTintColor: inactiveTint,
           tabBarHideOnKeyboard: true,
@@ -84,7 +92,7 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="settings"
+          name="profile"
           options={{
             title: "Profile",
             tabBarIcon: ({ color }) => (

@@ -23,9 +23,15 @@ export const APPWRITE_CONFIG = {
   endpoint: process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT ?? FALLBACK_ENDPOINT,
   projectId: process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID ?? "",
   databaseId: process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID ?? "",
+  appScheme: process.env.EXPO_PUBLIC_APP_SCHEME ?? "reviewer",
+  emailRedirectUrl: process.env.EXPO_PUBLIC_APPWRITE_EMAIL_REDIRECT_URL ?? "",
+  profileImagesBucketId:
+    process.env.EXPO_PUBLIC_APPWRITE_PROFILE_IMAGES_BUCKET_ID ?? "",
   premiumMaterialAccessFunctionId:
     process.env.EXPO_PUBLIC_APPWRITE_PREMIUM_MATERIAL_FUNCTION_ID ??
     "69c35f750004ff04204f",
+  accountDeleteFunctionId:
+    process.env.EXPO_PUBLIC_APPWRITE_ACCOUNT_DELETE_FUNCTION_ID ?? "",
   platform: Platform.select({
     android:
       process.env.EXPO_PUBLIC_APPWRITE_ANDROID_PACKAGE ??
@@ -39,6 +45,10 @@ export const APPWRITE_CONFIG = {
 
 function isValidAppwriteEndpoint(endpoint: string) {
   return /^https?:\/\/.+\/v1\/?$/i.test(endpoint)
+}
+
+export function isValidExternalRedirectUrl(url: string) {
+  return /^https?:\/\/.+/i.test(url)
 }
 
 export function getAppwriteConfigurationError(): string | null {

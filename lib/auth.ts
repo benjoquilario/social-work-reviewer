@@ -2,17 +2,22 @@ import { AppwriteException, Models } from "react-native-appwrite"
 
 import {
   account,
+  APPWRITE_CONFIG,
   assertAppwriteConfigured,
   avatars,
   COLLECTIONS,
   createAppwritePermissionMessage,
   databases,
   DB_ID,
+  ExecutionMethod,
+  functions,
   ID,
   isAppwriteUnauthorizedError,
+  isValidExternalRedirectUrl,
   Permission,
   Query,
   Role,
+  storage,
 } from "./appwrite"
 
 const APPWRITE_REQUEST_TIMEOUT_MS = 15000
@@ -31,6 +36,30 @@ export type UserProfile = {
   reviewType: string | null
   isPremium: boolean
   createdAt: string
+}
+
+export type UpdateProfileInput = {
+  fullName: string
+  schoolName?: string | null
+  reviewType?: string | null
+  avatarUrl?: string | null
+}
+
+export type UpdateEmailInput = {
+  email: string
+  currentPassword: string
+}
+
+export type UploadProfilePhotoInput = {
+  uri: string
+  name: string
+  type: string
+  size: number
+}
+
+type AccountProfileResult = {
+  user: AuthUser
+  profile: UserProfile | null
 }
 
 type UserBootstrapInput = Pick<AuthUser, "$id" | "email" | "name">
@@ -52,6 +81,41 @@ function toErrorMessage(error: unknown, fallback: string) {
 
 function isNotFoundError(error: unknown) {
   return error instanceof AppwriteException && error.code === 404
+}
+
+function normalizeOptionalString(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? ""
+  return trimmed ? trimmed : null
+}
+
+function getProfileImagesBucketId() {
+  const bucketId = APPWRITE_CONFIG.profileImagesBucketId.trim()
+
+  if (!bucketId) {
+    throw new Error(
+      "Profile photo uploads are not configured. Set EXPO_PUBLIC_APPWRITE_PROFILE_IMAGES_BUCKET_ID to your Appwrite Storage bucket ID."
+    )
+  }
+
+  return bucketId
+}
+
+function getVerificationRedirectUrl() {
+  const redirectUrl = APPWRITE_CONFIG.emailRedirectUrl.trim()
+
+  if (!redirectUrl) {
+    throw new Error(
+      "Email verification is not configured. Set EXPO_PUBLIC_APPWRITE_EMAIL_REDIRECT_URL to an HTTPS URL registered as a Web platform in Appwrite. That URL should forward back to reviewer://verify-email."
+    )
+  }
+
+  if (!isValidExternalRedirectUrl(redirectUrl)) {
+    throw new Error(
+      "EXPO_PUBLIC_APPWRITE_EMAIL_REDIRECT_URL must be a valid HTTP or HTTPS URL. Appwrite rejects a raw app-scheme redirect like reviewer://verify-email."
+    )
+  }
+
+  return redirectUrl
 }
 
 async function withRequestTimeout<T>(
@@ -88,6 +152,22 @@ function getUserOwnedPermissions(userId: string) {
     Permission.update(userRole),
     Permission.delete(userRole),
   ]
+}
+
+function getUserAvatarPermissions(userId: string) {
+  const userRole = Role.user(userId)
+
+  return [
+    Permission.read(Role.any()),
+    Permission.update(userRole),
+    Permission.delete(userRole),
+  ]
+}
+
+function getProfilePhotoPreviewUrl(fileId: string) {
+  const bucketId = getProfileImagesBucketId()
+
+  return storage.getFilePreviewURL(bucketId, fileId, 512, 512).toString()
 }
 
 function getUserProfilePayload(
@@ -265,6 +345,242 @@ export async function logout(): Promise<void> {
     )
   } catch {
     // Ignore if session already expired
+  }
+}
+
+export async function updateCurrentProfile(
+  input: UpdateProfileInput
+): Promise<AccountProfileResult> {
+  assertAppwriteConfigured()
+
+  const fullName = input.fullName.trim()
+
+  if (!fullName) {
+    throw new Error("Full name is required.")
+  }
+
+  const currentUser = await withRequestTimeout("Session lookup", account.get())
+  const schoolName = normalizeOptionalString(input.schoolName)
+  const reviewType = normalizeOptionalString(input.reviewType)
+  const avatarUrl = normalizeOptionalString(input.avatarUrl)
+
+  const updatedUser =
+    fullName === (currentUser.name ?? "")
+      ? currentUser
+      : await withRequestTimeout(
+          "Profile name update",
+          account.updateName({ name: fullName })
+        )
+
+  const profile = await ensureUserProfileSetup(
+    updatedUser,
+    fullName,
+    updatedUser.email
+  )
+
+  if (!profile) {
+    throw new Error("Unable to load your Appwrite profile document.")
+  }
+
+  const updatedProfile = await withRequestTimeout(
+    "Profile update",
+    databases.updateDocument(DB_ID, COLLECTIONS.USER_PROFILES, profile.$id, {
+      fullName,
+      email: updatedUser.email,
+      schoolName,
+      reviewType,
+      avatarUrl,
+    })
+  )
+
+  return {
+    user: updatedUser,
+    profile: updatedProfile as unknown as UserProfile,
+  }
+}
+
+export async function updateCurrentEmail(
+  input: UpdateEmailInput
+): Promise<AccountProfileResult> {
+  assertAppwriteConfigured()
+
+  const email = input.email.trim().toLowerCase()
+  const currentPassword = input.currentPassword.trim()
+
+  if (!email) {
+    throw new Error("Email address is required.")
+  }
+
+  if (!currentPassword) {
+    throw new Error("Current password is required to change your email.")
+  }
+
+  const updatedUser = await withRequestTimeout(
+    "Email update",
+    account.updateEmail({ email, password: currentPassword })
+  )
+
+  const profile = await ensureUserProfileSetup(
+    updatedUser,
+    updatedUser.name,
+    updatedUser.email
+  )
+
+  if (!profile) {
+    throw new Error("Unable to load your Appwrite profile document.")
+  }
+
+  const updatedProfile = await withRequestTimeout(
+    "Profile email update",
+    databases.updateDocument(DB_ID, COLLECTIONS.USER_PROFILES, profile.$id, {
+      email: updatedUser.email,
+    })
+  )
+
+  return {
+    user: updatedUser,
+    profile: updatedProfile as unknown as UserProfile,
+  }
+}
+
+export async function uploadCurrentUserProfilePhoto(
+  input: UploadProfilePhotoInput
+): Promise<string> {
+  assertAppwriteConfigured()
+
+  const bucketId = getProfileImagesBucketId()
+
+  if (!input.uri.trim()) {
+    throw new Error("Selected image is missing a valid local URI.")
+  }
+
+  if (!input.type.trim().startsWith("image/")) {
+    throw new Error("Only image uploads are allowed for profile photos.")
+  }
+
+  if (input.size <= 0) {
+    throw new Error("Unable to determine the selected image size.")
+  }
+
+  if (input.size > 5 * 1024 * 1024) {
+    throw new Error("Profile photos must be 5 MB or smaller.")
+  }
+
+  const currentUser = await withRequestTimeout("Session lookup", account.get())
+  const uploadedFile = await withRequestTimeout(
+    "Profile photo upload",
+    storage.createFile({
+      bucketId,
+      fileId: ID.unique(),
+      file: {
+        uri: input.uri,
+        name: input.name,
+        type: input.type,
+        size: input.size,
+      },
+      permissions: getUserAvatarPermissions(currentUser.$id),
+    })
+  )
+
+  return getProfilePhotoPreviewUrl(uploadedFile.$id)
+}
+
+export async function sendCurrentUserVerificationEmail(): Promise<void> {
+  assertAppwriteConfigured()
+
+  await withRequestTimeout(
+    "Email verification",
+    account.createEmailVerification({ url: getVerificationRedirectUrl() })
+  )
+}
+
+export async function completeCurrentUserEmailVerification(
+  userId: string,
+  secret: string
+): Promise<AuthUser> {
+  assertAppwriteConfigured()
+
+  await withRequestTimeout(
+    "Email verification completion",
+    account.updateEmailVerification({ userId, secret })
+  )
+
+  return withRequestTimeout("Session lookup", account.get())
+}
+
+export async function changeCurrentUserPassword(
+  currentPassword: string,
+  nextPassword: string
+): Promise<void> {
+  assertAppwriteConfigured()
+
+  const oldPassword = currentPassword.trim()
+  const password = nextPassword.trim()
+
+  if (!oldPassword) {
+    throw new Error("Current password is required.")
+  }
+
+  if (password.length < 8) {
+    throw new Error("New password must be at least 8 characters long.")
+  }
+
+  if (password === oldPassword) {
+    throw new Error(
+      "Choose a new password that is different from the current one."
+    )
+  }
+
+  await withRequestTimeout(
+    "Password update",
+    account.updatePassword({ password, oldPassword })
+  )
+}
+
+export async function deleteCurrentAccount(): Promise<void> {
+  assertAppwriteConfigured()
+
+  const functionId = APPWRITE_CONFIG.accountDeleteFunctionId
+
+  if (!functionId) {
+    throw new Error(
+      "Delete account is not configured yet. Deploy the account deletion Appwrite Function and set EXPO_PUBLIC_APPWRITE_ACCOUNT_DELETE_FUNCTION_ID."
+    )
+  }
+
+  const execution = await withRequestTimeout(
+    "Delete account",
+    functions.createExecution({
+      functionId,
+      body: JSON.stringify({ action: "delete-account" }),
+      async: false,
+      xpath: "/",
+      method: ExecutionMethod.POST,
+      headers: {
+        "content-type": "application/json",
+      },
+    })
+  )
+
+  const responseStatusCode = execution.responseStatusCode ?? 500
+  const responseBody = execution.responseBody ?? ""
+
+  if (!responseBody && responseStatusCode < 400) {
+    return
+  }
+
+  let payload: { ok?: boolean; message?: string } | null = null
+
+  try {
+    payload = responseBody
+      ? (JSON.parse(responseBody) as { ok?: boolean; message?: string })
+      : null
+  } catch {
+    payload = null
+  }
+
+  if (responseStatusCode >= 400 || payload?.ok === false) {
+    throw new Error(payload?.message ?? "Unable to delete the account.")
   }
 }
 

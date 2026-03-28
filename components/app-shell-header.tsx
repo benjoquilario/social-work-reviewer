@@ -1,9 +1,5 @@
-import { useRouter } from "expo-router"
-import { Settings } from "lucide-react-native"
-import { Pressable, View } from "react-native"
+import { View } from "react-native"
 
-import { THEME } from "@/lib/theme"
-import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Text } from "@/components/ui/text"
 
 type HeaderStat = {
@@ -28,11 +24,6 @@ export function AppShellHeader({
   stats,
   compact = false,
 }: AppShellHeaderProps) {
-  const router = useRouter()
-  const colorScheme = useColorScheme()
-  const iconColor =
-    colorScheme === "dark" ? THEME.dark.primary : THEME.light.primary
-
   return (
     <View
       className={
@@ -55,42 +46,6 @@ export function AppShellHeader({
             : "bg-chart2/15 absolute -bottom-9 -left-8 h-20 w-20 rounded-full"
         }
       />
-
-      <View className="flex-row items-center justify-between gap-3">
-        <View className="flex-row items-center gap-3">
-          <View
-            className={
-              compact
-                ? "relative h-10 w-10 items-center justify-center rounded-2xl bg-primary"
-                : "relative h-11 w-11 items-center justify-center rounded-2xl bg-primary"
-            }
-          >
-            <Text className="text-sm font-black text-primary-foreground">
-              {avatarLabel}
-            </Text>
-            <View className="bg-chart2 absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-card" />
-          </View>
-          <View className="gap-0.5">
-            <Text className="text-xs font-black uppercase tracking-[1.8px] text-primary">
-              Study Workspace
-            </Text>
-            <Text className="text-sm font-semibold text-card-foreground">
-              Ready for today&apos;s review
-            </Text>
-          </View>
-        </View>
-
-        <Pressable
-          className={
-            compact
-              ? "h-10 w-10 items-center justify-center rounded-2xl border border-border bg-background"
-              : "h-10 w-10 items-center justify-center rounded-2xl border border-border bg-background"
-          }
-          onPress={() => router.push("/settings")}
-        >
-          <Settings size={18} color={iconColor} strokeWidth={2.4} />
-        </Pressable>
-      </View>
 
       {eyebrow ? (
         <Text
@@ -119,7 +74,7 @@ export function AppShellHeader({
 
       {stats?.length ? (
         <View
-          className={compact ? "mt-4 flex-row gap-2" : "mt-4 flex-row gap-2"}
+          className={compact ? "mt-4 flex-row gap-2" : "mt-4 flex-row gap-1.5"}
         >
           {stats.slice(0, 3).map((stat) => (
             <View

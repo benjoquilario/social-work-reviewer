@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo } from "react"
+import { memo, useCallback, useEffect, useMemo } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import {
   DAILY_TRACKER,
   FULL_EXAM_PRESETS,
   PERFORMANCE_METRICS,
 } from "@/data/reviewer-data"
+import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list"
 import { useQuery } from "@tanstack/react-query"
 import { useRouter } from "expo-router"
 import {
@@ -21,15 +22,22 @@ import {
   Target,
   Zap,
 } from "lucide-react-native"
-import { FlatList, Pressable, ScrollView, View } from "react-native"
+import { Pressable, ScrollView, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import { listLearningSubjects } from "@/lib/learning-content"
+import {
+  listLearningSubjects,
+  type LearningSubject,
+} from "@/lib/learning-content"
 import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
+
+const SubjectCardSeparator = memo(function SubjectCardSeparator() {
+  return <View className="w-3" />
+})
 
 function getGreeting() {
   const hour = new Date().getHours()
@@ -78,10 +86,107 @@ export default function ReviewerHomeScreen() {
     [router]
   )
 
+  const renderSubjectCard = useCallback(
+    ({ item: subject }: ListRenderItemInfo<LearningSubject>) => {
+      const isLocked = subject.isLocked
+
+      return (
+        <View className="w-[260px] overflow-hidden rounded-3xl">
+          <Card className="rounded-3xl">
+            <CardContent className="gap-2.5 px-4 py-2">
+              <View className="flex-row items-start gap-3">
+                <View
+                  className="h-10 w-10 items-center justify-center rounded-2xl"
+                  style={{
+                    backgroundColor: withOpacity(theme.primary, 0.15),
+                  }}
+                >
+                  {isLocked ? (
+                    <LockKeyhole size={20} color={theme.primary} />
+                  ) : (
+                    <FolderOpen size={20} color={theme.primary} />
+                  )}
+                </View>
+                <View className="flex-1 gap-0.5">
+                  <Text className="line-clamp-3 text-sm font-extrabold leading-5 text-card-foreground">
+                    {subject.name}
+                  </Text>
+                  <Text className="text-[10px] font-bold uppercase tracking-wide text-primary">
+                    {subject.materialCount} materials · {subject.topicCount}{" "}
+                    topics
+                  </Text>
+                </View>
+              </View>
+              {!isPremiumUser && subject.hasPremiumContent ? (
+                <View className="self-start rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1">
+                  <Text className="text-[10px] font-bold uppercase tracking-wide text-primary">
+                    {subject.freeMaterialCount} free ·{" "}
+                    {subject.premiumMaterialCount} premium
+                  </Text>
+                </View>
+              ) : null}
+              <Text className="text-[13px] leading-5 text-muted-foreground">
+                {isLocked
+                  ? "This subject is fully premium and locked for free users."
+                  : subject.description || "No subject description added yet."}
+              </Text>
+              <Text className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {isLocked ? "Premium locked" : "Timed quiz from Appwrite"}
+              </Text>
+              <View className="mt-1 flex-row gap-2">
+                <Pressable
+                  className="flex-1 flex-row items-center justify-center gap-1.5 rounded-2xl py-3"
+                  disabled={isLocked}
+                  style={{
+                    backgroundColor: isLocked ? theme.muted : theme.primary,
+                    opacity: isLocked ? 0.6 : 1,
+                  }}
+                  onPress={() => navigateToCategoryMode(subject.id)}
+                >
+                  <Text
+                    className="text-[10px] font-black uppercase tracking-wide"
+                    style={{
+                      color: isLocked
+                        ? theme.mutedForeground
+                        : theme.primaryForeground,
+                    }}
+                  >
+                    {isLocked ? "Locked" : "Timed Quiz"}
+                  </Text>
+                  <ArrowRight
+                    size={13}
+                    color={
+                      isLocked ? theme.mutedForeground : theme.primaryForeground
+                    }
+                  />
+                </Pressable>
+                <Pressable
+                  className="flex-1 items-center justify-center rounded-2xl border py-3"
+                  disabled={isLocked}
+                  style={{
+                    borderColor: theme.border,
+                    opacity: isLocked ? 0.6 : 1,
+                  }}
+                  onPress={() => navigateToCategoryTopics(subject.id)}
+                >
+                  <Text className="text-[10px] font-black uppercase tracking-wide text-card-foreground">
+                    Topics
+                  </Text>
+                </Pressable>
+              </View>
+            </CardContent>
+          </Card>
+        </View>
+      )
+    },
+    [isPremiumUser, navigateToCategoryMode, navigateToCategoryTopics, theme]
+  )
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView
         contentContainerClassName="gap-5 px-4 pb-28 pt-5"
+        contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
       >
         {/* ── Greeting Header ───────────────────────────────────────────── */}
@@ -100,77 +205,70 @@ export default function ReviewerHomeScreen() {
 
         {/* ── Streak + Score strip ──────────────────────────────────────── */}
         <View className="flex-row gap-2.5">
-          {/* Streak card */}
-          <View
-            className="flex-1 gap-1 rounded-3xl p-4"
-            style={{
-              backgroundColor: "hsl(38 92% 58% / 0.15)",
-              borderWidth: 1,
-              borderColor: "hsl(38 92% 58% / 0.25)",
-            }}
-          >
-            <View className="flex-row items-center gap-1.5">
-              <Flame size={14} color={theme.accent} />
-              <Text
-                className="text-[10px] font-black uppercase tracking-widest"
-                style={{ color: theme.accent }}
-              >
-                Streak
+          <Card className="flex-1 rounded-3xl">
+            <CardContent
+              className="gap-1 px-3 py-2"
+              style={{ backgroundColor: "hsl(38 92% 58% / 0.12)" }}
+            >
+              <View className="flex-row items-center gap-1.5">
+                <Flame size={14} color={theme.accent} />
+                <Text
+                  className="text-[10px] font-black uppercase tracking-widest"
+                  style={{ color: theme.accent }}
+                >
+                  Streak
+                </Text>
+              </View>
+              <Text className="text-2xl font-black text-foreground">
+                {DAILY_TRACKER.streakDays}
               </Text>
-            </View>
-            <Text className="text-2xl font-black text-foreground">
-              {DAILY_TRACKER.streakDays}
-            </Text>
-            <Text className="text-[11px] text-muted-foreground">days</Text>
-          </View>
+              <Text className="text-[11px] text-muted-foreground">days</Text>
+            </CardContent>
+          </Card>
 
-          {/* Today's sessions */}
-          <View
-            className="flex-1 gap-1 rounded-3xl p-4"
-            style={{
-              backgroundColor: withOpacity(theme.primary, 0.18),
-              borderWidth: 1,
-              borderColor: withOpacity(theme.primary, 0.3),
-            }}
-          >
-            <View className="flex-row items-center gap-1.5">
-              <Clock3 size={14} color={theme.primary} />
-              <Text className="text-[10px] font-black uppercase tracking-widest text-primary">
-                Today
+          <Card className="flex-1 rounded-3xl">
+            <CardContent
+              className="gap-1 px-3 py-2"
+              style={{ backgroundColor: withOpacity(theme.primary, 0.14) }}
+            >
+              <View className="flex-row items-center gap-1.5">
+                <Clock3 size={14} color={theme.primary} />
+                <Text className="text-[10px] font-black uppercase tracking-widest text-primary">
+                  Today
+                </Text>
+              </View>
+              <Text className="text-2xl font-black text-foreground">
+                {DAILY_TRACKER.completedSessions}
+                <Text className="text-base font-bold text-muted-foreground">
+                  /{DAILY_TRACKER.targetSessions}
+                </Text>
               </Text>
-            </View>
-            <Text className="text-2xl font-black text-foreground">
-              {DAILY_TRACKER.completedSessions}
-              <Text className="text-base font-bold text-muted-foreground">
-                /{DAILY_TRACKER.targetSessions}
+              <Text className="text-[11px] text-muted-foreground">
+                sessions
               </Text>
-            </Text>
-            <Text className="text-[11px] text-muted-foreground">sessions</Text>
-          </View>
+            </CardContent>
+          </Card>
 
-          {/* Weekly avg */}
-          <View
-            className="flex-1 gap-1 rounded-3xl p-4"
-            style={{
-              backgroundColor: withOpacity(theme.primary, 0.1),
-              borderWidth: 1,
-              borderColor: withOpacity(theme.primary, 0.2),
-            }}
-          >
-            <View className="flex-row items-center gap-1.5">
-              <Target size={14} color={theme.primary} />
-              <Text className="text-[10px] font-black uppercase tracking-widest text-primary">
-                Avg
+          <Card className="flex-1 rounded-3xl">
+            <CardContent
+              className="gap-1 px-3 py-2"
+              style={{ backgroundColor: withOpacity(theme.primary, 0.08) }}
+            >
+              <View className="flex-row items-center gap-1.5">
+                <Target size={14} color={theme.primary} />
+                <Text className="text-[10px] font-black uppercase tracking-widest text-primary">
+                  Avg
+                </Text>
+              </View>
+              <Text className="text-2xl font-black text-foreground">
+                {weeklyMetric?.averageScore ?? 0}
+                <Text className="text-base font-bold text-muted-foreground">
+                  %
+                </Text>
               </Text>
-            </View>
-            <Text className="text-2xl font-black text-foreground">
-              {weeklyMetric?.averageScore ?? 0}
-              <Text className="text-base font-bold text-muted-foreground">
-                %
-              </Text>
-            </Text>
-            <Text className="text-[11px] text-muted-foreground">weekly</Text>
-          </View>
+              <Text className="text-[11px] text-muted-foreground">weekly</Text>
+            </CardContent>
+          </Card>
         </View>
 
         {/* ── Quick Access (horizontal scroll) ─────────────────────────── */}
@@ -371,112 +469,15 @@ export default function ReviewerHomeScreen() {
               </CardContent>
             </Card>
           ) : (
-            <FlatList
+            <FlashList
               data={reviewSubjects}
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 12, paddingRight: 16 }}
+              contentContainerStyle={{ paddingRight: 16 }}
               keyExtractor={(item) => item.id}
               decelerationRate="fast"
-              renderItem={({ item: subject }) => {
-                const isLocked = subject.isLocked
-
-                return (
-                  <View className="max-w-[260px] overflow-hidden rounded-3xl">
-                    <Card className="rounded-3xl">
-                      <CardContent className="gap-2.5 px-4 py-2">
-                        <View className="flex-row items-start gap-3">
-                          <View
-                            className="h-10 w-10 items-center justify-center rounded-2xl"
-                            style={{
-                              backgroundColor: withOpacity(theme.primary, 0.15),
-                            }}
-                          >
-                            {isLocked ? (
-                              <LockKeyhole size={20} color={theme.primary} />
-                            ) : (
-                              <FolderOpen size={20} color={theme.primary} />
-                            )}
-                          </View>
-                          <View className="flex-1 gap-0.5">
-                            <Text className="text-base font-extrabold leading-5 text-card-foreground">
-                              {subject.name}
-                            </Text>
-                            <Text className="text-[11px] font-bold uppercase tracking-wide text-primary">
-                              {subject.materialCount} materials ·{" "}
-                              {subject.topicCount} topics
-                            </Text>
-                          </View>
-                        </View>
-                        {!isPremiumUser && subject.hasPremiumContent ? (
-                          <View className="self-start rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1">
-                            <Text className="text-[10px] font-bold uppercase tracking-wide text-primary">
-                              {subject.freeMaterialCount} free ·{" "}
-                              {subject.premiumMaterialCount} premium
-                            </Text>
-                          </View>
-                        ) : null}
-                        <Text className="text-[13px] leading-5 text-muted-foreground">
-                          {isLocked
-                            ? "This subject is fully premium and locked for free users."
-                            : subject.description ||
-                              "No subject description added yet."}
-                        </Text>
-                        <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          {isLocked
-                            ? "Premium locked"
-                            : "Timed quiz from Appwrite"}
-                        </Text>
-                        <View className="mt-1 flex-row gap-2">
-                          <Pressable
-                            className="flex-1 flex-row items-center justify-center gap-1.5 rounded-2xl py-3"
-                            disabled={isLocked}
-                            style={{
-                              backgroundColor: isLocked
-                                ? theme.muted
-                                : theme.primary,
-                              opacity: isLocked ? 0.6 : 1,
-                            }}
-                            onPress={() => navigateToCategoryMode(subject.id)}
-                          >
-                            <Text
-                              className="text-[12px] font-black uppercase tracking-wide"
-                              style={{
-                                color: isLocked
-                                  ? theme.mutedForeground
-                                  : theme.primaryForeground,
-                              }}
-                            >
-                              {isLocked ? "Locked" : "Timed Quiz"}
-                            </Text>
-                            <ArrowRight
-                              size={13}
-                              color={
-                                isLocked
-                                  ? theme.mutedForeground
-                                  : theme.primaryForeground
-                              }
-                            />
-                          </Pressable>
-                          <Pressable
-                            className="flex-1 items-center justify-center rounded-2xl border py-3"
-                            disabled={isLocked}
-                            style={{
-                              borderColor: theme.border,
-                              opacity: isLocked ? 0.6 : 1,
-                            }}
-                            onPress={() => navigateToCategoryTopics(subject.id)}
-                          >
-                            <Text className="text-[12px] font-black uppercase tracking-wide text-card-foreground">
-                              Topics
-                            </Text>
-                          </Pressable>
-                        </View>
-                      </CardContent>
-                    </Card>
-                  </View>
-                )
-              }}
+              renderItem={renderSubjectCard}
+              ItemSeparatorComponent={SubjectCardSeparator}
               ListEmptyComponent={
                 <Card className="rounded-3xl">
                   <CardContent className="gap-2 px-4 py-4">

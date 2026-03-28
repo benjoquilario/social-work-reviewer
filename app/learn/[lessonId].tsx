@@ -433,7 +433,10 @@ export default function LessonDetailScreen() {
   if (materialQuery.isLoading) {
     return (
       <SafeAreaView className="flex-1 bg-background">
-        <ScrollView contentContainerClassName="gap-4 px-4 pb-7 pt-3">
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          contentContainerClassName="gap-4 px-4 pb-7 pt-3"
+        >
           <Skeleton className="h-10 w-10 rounded-2xl" />
           <Skeleton className="h-28 rounded-2xl" />
           <Skeleton className="h-24 rounded-2xl" />
@@ -453,7 +456,7 @@ export default function LessonDetailScreen() {
           <Text className="text-center text-sm leading-6 text-muted-foreground">
             {materialQuery.error instanceof Error
               ? materialQuery.error.message
-              : "Unable to load learning material from Appwrite."}
+              : "Unable to load learning material."}
           </Text>
           <Button
             className="h-11 w-full"
@@ -494,7 +497,10 @@ export default function LessonDetailScreen() {
   if (materialDetail.material.isLocked) {
     return (
       <SafeAreaView className="flex-1 bg-background">
-        <ScrollView contentContainerClassName="gap-4 px-4 pb-7 pt-3">
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          contentContainerClassName="gap-4 px-4 pb-7 pt-3"
+        >
           <View className="flex-row items-center justify-between gap-3">
             <Pressable
               className="h-10 w-10 items-center justify-center rounded-2xl"
@@ -540,7 +546,10 @@ export default function LessonDetailScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="gap-4 px-4 pb-7 pt-3">
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerClassName="gap-4 px-4 pb-7 pt-3"
+      >
         <View className="flex-row items-center justify-between gap-3">
           <Pressable
             className="h-10 w-10 items-center justify-center rounded-2xl"
@@ -581,12 +590,12 @@ export default function LessonDetailScreen() {
             {materialDetail.material.type}
           </Text>
 
-          <Text className="text-[17px] font-black leading-7 text-foreground">
+          <Text className="text-[16px] font-black leading-7 text-foreground">
             {materialDetail.material.title}
           </Text>
           <Text className="text-[13px] leading-6 text-muted-foreground">
             {materialDetail.material.type === "note"
-              ? "Formatted directly from your Appwrite note content."
+              ? "Formatted directly from your note content."
               : "This material is linked to an external learning resource."}
           </Text>
         </View>
@@ -624,8 +633,8 @@ export default function LessonDetailScreen() {
           </Card>
         ) : null}
 
-        <Card className="border-none bg-background">
-          <CardContent className="gap-3 bg-background px-3.5 py-3.5">
+        <Card className="border-0 bg-background py-0">
+          <CardContent className="gap-3 border-none bg-background px-3.5 py-3.5">
             {hasRenderableNote ? (
               <View className="gap-3">
                 {contentBlocks.map((block, index) =>

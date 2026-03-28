@@ -57,6 +57,7 @@ export type CommunityPostItem = {
   category: string
   subjectId: string | null
   subjectName: string | null
+  photoUrl: string | null
   createdAt: string
   createdAtLabel: string
   likesCount: number
@@ -82,6 +83,7 @@ export type CreateCommunityPostInput = {
   content: string
   category: "question" | "discussion" | "tip"
   subjectId?: string
+  photoUrl?: string
 }
 
 function ensureCommunityConfigured() {
@@ -113,6 +115,23 @@ function toCommunityError(error: unknown, fallback: string) {
   }
 
   return createAppwriteContentError("request", fallback)
+}
+
+function normalizePhotoUrl(value?: string): string | null {
+  const trimmed = value?.trim()
+
+  if (!trimmed) {
+    return null
+  }
+
+  if (!/^https?:\/\//i.test(trimmed)) {
+    throw createAppwriteContentError(
+      "request",
+      "Photo URL must start with http:// or https://"
+    )
+  }
+
+  return trimmed
 }
 
 function getOwnerPermissions(userId: string) {
@@ -327,6 +346,7 @@ export async function listCommunityFeed(
           subjectName: post.subjectId
             ? (subjectMap.get(post.subjectId) ?? null)
             : null,
+          photoUrl: post.photoUrl?.trim() || null,
           createdAt: post.createdAt,
           createdAtLabel: formatRelativeTime(post.createdAt),
           likesCount: likedUsers.size || post.likesCount,
@@ -358,23 +378,54 @@ export async function listCommunityFeed(
 export async function createCommunityPost(input: CreateCommunityPostInput) {
   ensureCommunityConfigured()
 
+  const photoUrl = normalizePhotoUrl(input.photoUrl)
+
+  const payload = {
+    userId: input.userId,
+    title: input.title,
+    content: input.content,
+    category: input.category,
+    ...(input.subjectId ? { subjectId: input.subjectId } : {}),
+    ...(photoUrl ? { photoUrl } : {}),
+    likesCount: 0,
+    createdAt: new Date().toISOString(),
+  }
+
   try {
     await databases.createDocument(
       DB_ID,
       COLLECTIONS.POSTS,
       ID.unique(),
-      {
-        userId: input.userId,
-        title: input.title,
-        content: input.content,
-        category: input.category,
-        ...(input.subjectId ? { subjectId: input.subjectId } : {}),
-        likesCount: 0,
-        createdAt: new Date().toISOString(),
-      },
+      payload,
       getOwnerPermissions(input.userId)
     )
   } catch (error) {
+    // If Appwrite posts schema has not yet been updated with photoUrl,
+    // retry once without it so posting still works.
+    if (
+      photoUrl &&
+      error instanceof Error &&
+      /unknown attribute|attribute not found|Invalid document structure/i.test(
+        error.message
+      )
+    ) {
+      try {
+        await databases.createDocument(
+          DB_ID,
+          COLLECTIONS.POSTS,
+          ID.unique(),
+          {
+            ...payload,
+            photoUrl: undefined,
+          },
+          getOwnerPermissions(input.userId)
+        )
+        return
+      } catch {
+        // Fall through to canonical error handling below.
+      }
+    }
+
     throw toCommunityError(error, "Unable to create the discussion post.")
   }
 }

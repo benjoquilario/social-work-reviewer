@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
+import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   CornerDownRight,
@@ -7,19 +8,16 @@ import {
   MessageSquare,
   Plus,
   Send,
-  ShieldCheck,
   Sparkles,
   Tag,
-  Users,
 } from "lucide-react-native"
 import {
   Alert,
-  FlatList,
+  Image,
   Pressable,
   ScrollView,
   TextInput,
   View,
-  type ListRenderItemInfo,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
@@ -52,6 +50,10 @@ import { AppShellHeader } from "@/components/app-shell-header"
 
 const COMMUNITY_CATEGORIES = ["question", "discussion", "tip"] as const
 const COMMUNITY_FEED_FILTERS = ["all", ...COMMUNITY_CATEGORIES] as const
+
+const ThreadSeparator = memo(function ThreadSeparator() {
+  return <View className="h-4" />
+})
 
 const CommunityLoading = memo(function CommunityLoading() {
   return (
@@ -194,9 +196,23 @@ const ThreadCard = memo(function ThreadCard({
   onLike: (post: CommunityPostItem) => void
   onOpen: (postId: string) => void
 }) {
+  const [imageFailed, setImageFailed] = useState(false)
+  const hasPhoto = Boolean(post.photoUrl) && !imageFailed
+
   return (
     <Card className="overflow-hidden rounded-[30px] border-border/80">
       <CardContent className="gap-4 px-4 py-4">
+        {hasPhoto ? (
+          <View className="overflow-hidden rounded-[24px] border border-border bg-background">
+            <Image
+              source={{ uri: post.photoUrl as string }}
+              className="h-44 w-full"
+              resizeMode="cover"
+              onError={() => setImageFailed(true)}
+            />
+          </View>
+        ) : null}
+
         <View className="gap-3 rounded-[24px] border border-primary/15 bg-primary/5 p-3.5">
           <View className="flex-row flex-wrap items-center gap-2">
             <View className="rounded-full border border-border bg-background px-2.5 py-1">
@@ -249,26 +265,26 @@ const ThreadCard = memo(function ThreadCard({
 
         <View className="flex-row gap-2.5">
           <View className="flex-1 gap-1 rounded-[22px] border border-border bg-background px-3 py-3">
-            <Text className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <Text className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
               Comments
             </Text>
-            <Text className="text-base font-black text-card-foreground">
+            <Text className="text-sm font-black text-card-foreground">
               {post.commentsCount}
             </Text>
           </View>
           <View className="flex-1 gap-1 rounded-[22px] border border-border bg-background px-3 py-3">
-            <Text className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <Text className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
               Replies
             </Text>
-            <Text className="text-base font-black text-card-foreground">
+            <Text className="text-sm font-black text-card-foreground">
               {post.repliesCount}
             </Text>
           </View>
           <View className="flex-1 gap-1 rounded-[22px] border border-border bg-background px-3 py-3">
-            <Text className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            <Text className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
               Likes
             </Text>
-            <Text className="text-base font-black text-card-foreground">
+            <Text className="text-sm font-black text-card-foreground">
               {post.likesCount}
             </Text>
           </View>
@@ -281,7 +297,7 @@ const ThreadCard = memo(function ThreadCard({
             onPress={() => onOpen(post.id)}
           >
             <MessageSquare size={16} color="#6b7280" />
-            <Text className="font-bold">Open discussion</Text>
+            <Text className="text-[10px] font-bold">Open discussion</Text>
           </Button>
           <Button
             variant={post.isLiked ? "default" : "outline"}
@@ -292,7 +308,9 @@ const ThreadCard = memo(function ThreadCard({
             <Heart size={16} color={post.isLiked ? "#ffffff" : "#6b7280"} />
             <Text
               className={
-                post.isLiked ? "font-bold text-primary-foreground" : "font-bold"
+                post.isLiked
+                  ? "text-[10px] font-bold text-primary-foreground"
+                  : "text-[10px] font-bold"
               }
             >
               {post.isLiked ? "Liked" : "Like"}
@@ -321,6 +339,7 @@ export default function CommunityScreen() {
     useState<(typeof COMMUNITY_FEED_FILTERS)[number]>("all")
   const [titleDraft, setTitleDraft] = useState("")
   const [contentDraft, setContentDraft] = useState("")
+  const [photoUrlDraft, setPhotoUrlDraft] = useState("")
   const [commentDraft, setCommentDraft] = useState("")
 
   const subjectsQuery = useQuery({
@@ -340,6 +359,7 @@ export default function CommunityScreen() {
       setIsComposerOpen(false)
       setTitleDraft("")
       setContentDraft("")
+      setPhotoUrlDraft("")
       await queryClient.invalidateQueries({ queryKey: ["community-feed"] })
     },
   })
@@ -408,10 +428,12 @@ export default function CommunityScreen() {
       content,
       category: selectedCategory,
       ...(selectedSubjectId ? { subjectId: selectedSubjectId } : {}),
+      ...(photoUrlDraft.trim() ? { photoUrl: photoUrlDraft.trim() } : {}),
     })
   }, [
     contentDraft,
     createPostMutation,
+    photoUrlDraft,
     selectedCategory,
     selectedSubjectId,
     titleDraft,
@@ -472,53 +494,18 @@ export default function CommunityScreen() {
           compact
           eyebrow="Reviewer Community"
           title="Study Threads That Stay Useful"
-          subtitle="Focused questions, cleaner replies, and Appwrite-backed discussions filtered for active review sessions."
-          stats={[
-            {
-              label: "Learners",
-              value: String(feedQuery.data?.stats.activeLearners ?? 0),
-            },
-            {
-              label: "Open",
-              value: String(feedQuery.data?.stats.openTopics ?? 0),
-            },
-            {
-              label: "Answered",
-              value: String(feedQuery.data?.stats.answeredToday ?? 0),
-            },
-          ]}
+          subtitle="Focused questions, cleaner replies, and discussions filtered for active review sessions."
         />
 
         <Card className="overflow-hidden rounded-[30px] border-primary/20 bg-primary/5">
-          <CardContent className="gap-4 px-4 py-4">
-            <View className="flex-row items-start justify-between gap-3">
-              <View className="flex-1 gap-2">
-                <View className="self-start rounded-full border border-primary/30 bg-background px-3 py-1">
-                  <Text className="text-[11px] font-black uppercase tracking-[1.2px] text-primary">
-                    Live review board
-                  </Text>
-                </View>
-                <Text className="text-[22px] font-black leading-8 text-card-foreground">
-                  Ask once. Leave with an answer you can actually review later.
-                </Text>
-                <Text className="text-[13px] leading-6 text-muted-foreground">
-                  Use subject-linked threads for precise questions, quick tips,
-                  and discussion prompts without losing the context of what you
-                  are studying.
-                </Text>
-              </View>
-              <View className="h-14 w-14 items-center justify-center rounded-[20px] bg-primary/10">
-                <Users size={24} color={primaryColor} />
-              </View>
-            </View>
-
+          <CardContent className="gap-4 px-4 py-2">
             <View className="flex-row gap-3">
               <Button
                 className="h-11 flex-1"
                 onPress={() => setIsComposerOpen(true)}
               >
-                <Plus size={16} color="#ffffff" />
-                <Text className="font-bold text-primary-foreground">
+                <Plus size={15} color="#ffffff" />
+                <Text className="text-[10px] font-bold text-primary-foreground">
                   Start a thread
                 </Text>
               </Button>
@@ -527,48 +514,12 @@ export default function CommunityScreen() {
                 className="h-11 flex-1"
                 onPress={() => feedQuery.refetch()}
               >
-                <Sparkles size={16} color="#6b7280" />
-                <Text className="font-bold">Refresh board</Text>
+                <Sparkles size={15} color="#6b7280" />
+                <Text className="text-[10px] font-bold">Refresh board</Text>
               </Button>
             </View>
           </CardContent>
         </Card>
-
-        <View className="flex-row gap-3">
-          <Card className="flex-1">
-            <CardContent className="gap-2 px-4 py-4">
-              <Users size={16} color={primaryColor} />
-              <Text className="text-xs font-bold uppercase tracking-wide text-primary">
-                Active Learners
-              </Text>
-              <Text className="text-lg font-black text-card-foreground">
-                {feedQuery.data?.stats.activeLearners ?? 0}
-              </Text>
-            </CardContent>
-          </Card>
-          <Card className="flex-1">
-            <CardContent className="gap-2 px-4 py-4">
-              <MessageSquare size={16} color={primaryColor} />
-              <Text className="text-xs font-bold uppercase tracking-wide text-primary">
-                Open Topics
-              </Text>
-              <Text className="text-lg font-black text-card-foreground">
-                {feedQuery.data?.stats.openTopics ?? 0}
-              </Text>
-            </CardContent>
-          </Card>
-          <Card className="flex-1">
-            <CardContent className="gap-2 px-4 py-4">
-              <ShieldCheck size={16} color={primaryColor} />
-              <Text className="text-xs font-bold uppercase tracking-wide text-primary">
-                Answered
-              </Text>
-              <Text className="text-lg font-black text-card-foreground">
-                {feedQuery.data?.stats.answeredToday ?? 0}
-              </Text>
-            </CardContent>
-          </Card>
-        </View>
 
         <View className="gap-3 rounded-[28px] border border-border bg-card px-4 py-4">
           <View className="flex-row items-center gap-2">
@@ -650,11 +601,17 @@ export default function CommunityScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       {feedQuery.isLoading ? (
-        <ScrollView contentContainerClassName="gap-4 px-5 pb-8 pt-5">
+        <ScrollView
+          contentContainerClassName="gap-4 px-5 pb-8 pt-5"
+          contentInsetAdjustmentBehavior="automatic"
+        >
           <CommunityLoading />
         </ScrollView>
       ) : feedQuery.error ? (
-        <ScrollView contentContainerClassName="gap-4 px-5 pb-8 pt-5">
+        <ScrollView
+          contentContainerClassName="gap-4 px-5 pb-8 pt-5"
+          contentInsetAdjustmentBehavior="automatic"
+        >
           {header}
           <Card>
             <CardContent className="gap-2 px-4 py-4">
@@ -670,7 +627,7 @@ export default function CommunityScreen() {
           </Card>
         </ScrollView>
       ) : (
-        <FlatList
+        <FlashList
           data={filteredPosts}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
@@ -685,19 +642,20 @@ export default function CommunityScreen() {
                 </Text>
                 <Text className="text-[13px] leading-5 text-muted-foreground">
                   {activeFeedFilter === "all"
-                    ? "Your Appwrite community collections are live, but there are no posts yet."
+                    ? "Your community collections are live, but there are no posts yet."
                     : `Nothing in the ${activeFeedFilter} lane matches the current board. Try another filter or start the first thread.`}
                 </Text>
               </CardContent>
             </Card>
           }
-          contentContainerClassName="gap-4 px-5 pb-8 pt-5"
-          ItemSeparatorComponent={() => <View className="h-4" />}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 20,
+            paddingBottom: 32,
+          }}
+          ItemSeparatorComponent={ThreadSeparator}
           showsVerticalScrollIndicator={false}
           initialNumToRender={4}
-          maxToRenderPerBatch={4}
-          windowSize={5}
-          removeClippedSubviews
         />
       )}
 
@@ -800,6 +758,28 @@ export default function CommunityScreen() {
 
             <View className="rounded-2xl border border-border bg-background p-3">
               <TextInput
+                value={photoUrlDraft}
+                onChangeText={setPhotoUrlDraft}
+                placeholder="Optional photo URL (https://...)"
+                placeholderTextColor="#8b8b93"
+                className="text-sm text-foreground"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+
+            {photoUrlDraft.trim() ? (
+              <View className="overflow-hidden rounded-2xl border border-border bg-background">
+                <Image
+                  source={{ uri: photoUrlDraft.trim() }}
+                  className="h-36 w-full"
+                  resizeMode="cover"
+                />
+              </View>
+            ) : null}
+
+            <View className="rounded-2xl border border-border bg-background p-3">
+              <TextInput
                 value={contentDraft}
                 onChangeText={setContentDraft}
                 placeholder="Add the details, what you already checked, and the answer or feedback you need"
@@ -833,6 +813,7 @@ export default function CommunityScreen() {
             <ScrollView
               style={{ maxHeight: 680 }}
               contentContainerStyle={{ padding: 20, gap: 16 }}
+              contentInsetAdjustmentBehavior="automatic"
             >
               <DialogHeader>
                 <DialogTitle>{activePost.title}</DialogTitle>
@@ -843,6 +824,16 @@ export default function CommunityScreen() {
               </DialogHeader>
 
               <View className="gap-3 rounded-2xl border border-border bg-background p-4">
+                {activePost.photoUrl ? (
+                  <View className="overflow-hidden rounded-2xl border border-border bg-card">
+                    <Image
+                      source={{ uri: activePost.photoUrl }}
+                      className="h-44 w-full"
+                      resizeMode="cover"
+                    />
+                  </View>
+                ) : null}
+
                 {activePost.subjectName ? (
                   <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-primary">
                     {activePost.subjectName}

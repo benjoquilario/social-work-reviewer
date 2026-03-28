@@ -46,7 +46,10 @@ export default function ModeSelectionScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <ScrollView contentContainerClassName="gap-3.5 px-4 py-4">
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerClassName="gap-3.5 px-4 py-4"
+      >
         <Text className="text-[24px] font-extrabold text-foreground">
           Select Quiz Mode
         </Text>

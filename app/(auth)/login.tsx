@@ -62,6 +62,7 @@ export default function LoginScreen() {
         className="flex-1"
       >
         <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
           contentContainerClassName="flex-1 px-6 justify-center gap-6"
           keyboardShouldPersistTaps="handled"
         >

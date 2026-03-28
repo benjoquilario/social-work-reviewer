@@ -1,7 +1,7 @@
 import { ThemeProvider } from "@react-navigation/native"
 import { PortalHost } from "@rn-primitives/portal"
 import { useFonts } from "expo-font"
-import { Stack } from "expo-router"
+import { Stack, useRouter, useSegments } from "expo-router"
 import * as SplashScreen from "expo-splash-screen"
 import { StatusBar } from "expo-status-bar"
 import { BookOpenText, ListChecks, Timer } from "lucide-react-native"
@@ -45,6 +45,8 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
+  const router = useRouter()
+  const segments = useSegments()
   const [fontsLoaded] = useFonts({
     PlusJakartaSans_400Regular: require("../assets/fonts/PlusJakartaSans_400Regular.ttf"),
     PlusJakartaSans_500Medium: require("../assets/fonts/PlusJakartaSans_500Medium.ttf"),
@@ -68,19 +70,38 @@ function RootNavigator() {
     }
   }, [fontsLoaded, isReady, authState.status])
 
+  useEffect(() => {
+    if (!fontsLoaded || !isReady || authState.status === "loading") {
+      return
+    }
+
+    const inAuthGroup = segments[0] === "(auth)"
+    const isPublicRoute =
+      segments[0] === "verify-email" || segments[0] === "verify-email-bridge"
+
+    if (
+      authState.status === "unauthenticated" &&
+      !inAuthGroup &&
+      !isPublicRoute
+    ) {
+      router.replace("/(auth)/login")
+      return
+    }
+
+    if (authState.status === "authenticated" && inAuthGroup) {
+      router.replace("/(tabs)")
+    }
+  }, [authState.status, fontsLoaded, isReady, router, segments])
+
   if (!fontsLoaded || !isReady || authState.status === "loading") {
     return null
   }
-
-  const initialRouteName =
-    authState.status === "authenticated" ? "(tabs)" : "(auth)"
 
   return (
     <SafeAreaProvider>
       <ThemeProvider value={navTheme}>
         <View className="flex-1 bg-background" style={nativewindThemeVariables}>
           <Stack
-            initialRouteName={initialRouteName}
             screenOptions={{
               headerShadowVisible: false,
               headerStyle: { backgroundColor: navTheme.colors.card },
@@ -93,6 +114,15 @@ function RootNavigator() {
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="diagnostics" options={{ headerShown: false }} />
+            <Stack.Screen name="settings" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="verify-email"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="verify-email-bridge"
+              options={{ headerShown: false }}
+            />
             <Stack.Screen
               name="mode"
               options={{
