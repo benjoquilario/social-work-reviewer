@@ -2,7 +2,6 @@ import {
   COLLECTIONS,
   createAppwriteContentError,
   createAppwritePermissionMessage,
-  databases,
   DB_ID,
   getAppwriteConfigurationError,
   ID,
@@ -10,6 +9,7 @@ import {
   Permission,
   Query,
   Role,
+  tablesDB,
 } from "./appwrite"
 import {
   type CommentDocument,
@@ -198,14 +198,14 @@ function mapAuthor(
   }
 }
 
-async function listDocumentsSafe<T>(collectionId: string, queries: string[]) {
-  const { documents } = await databases.listDocuments(
-    DB_ID,
-    collectionId,
-    queries
-  )
+async function listRowsSafe<T>(tableId: string, queries: string[]) {
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId,
+    queries,
+  })
 
-  return documents as unknown as T[]
+  return rows as unknown as T[]
 }
 
 export async function listCommunityFeed(
@@ -223,29 +223,29 @@ export async function listCommunityFeed(
       subjects,
       flaggedItems,
     ] = await Promise.all([
-      listDocumentsSafe<PostDocument>(COLLECTIONS.POSTS, [
+      listRowsSafe<PostDocument>(COLLECTIONS.POSTS, [
         Query.orderDesc("createdAt"),
         Query.limit(COMMUNITY_LIMIT),
       ]),
-      listDocumentsSafe<CommentDocument>(COLLECTIONS.COMMENTS, [
+      listRowsSafe<CommentDocument>(COLLECTIONS.COMMENTS, [
         Query.orderAsc("createdAt"),
         Query.limit(COMMUNITY_LIMIT),
       ]),
-      listDocumentsSafe<ReplyDocument>(COLLECTIONS.REPLIES, [
+      listRowsSafe<ReplyDocument>(COLLECTIONS.REPLIES, [
         Query.orderAsc("createdAt"),
         Query.limit(COMMUNITY_LIMIT),
       ]),
-      listDocumentsSafe<PostLikeDocument>(COLLECTIONS.POST_LIKES, [
+      listRowsSafe<PostLikeDocument>(COLLECTIONS.POST_LIKES, [
         Query.limit(COMMUNITY_LIMIT),
       ]),
-      listDocumentsSafe<UserProfileDocument>(COLLECTIONS.USER_PROFILES, [
+      listRowsSafe<UserProfileDocument>(COLLECTIONS.USER_PROFILES, [
         Query.limit(COMMUNITY_LIMIT),
       ]).catch(() => []),
-      listDocumentsSafe<SubjectDocument>(COLLECTIONS.SUBJECTS, [
+      listRowsSafe<SubjectDocument>(COLLECTIONS.SUBJECTS, [
         Query.orderAsc("order"),
         Query.limit(COMMUNITY_LIMIT),
       ]).catch(() => []),
-      listDocumentsSafe<FlaggedContentDocument>(COLLECTIONS.FLAGGED_CONTENT, [
+      listRowsSafe<FlaggedContentDocument>(COLLECTIONS.FLAGGED_CONTENT, [
         Query.limit(COMMUNITY_LIMIT),
       ]).catch(() => []),
     ])
@@ -392,13 +392,13 @@ export async function createCommunityPost(input: CreateCommunityPostInput) {
   }
 
   try {
-    await databases.createDocument(
-      DB_ID,
-      COLLECTIONS.POSTS,
-      ID.unique(),
-      payload,
-      getOwnerPermissions(input.userId)
-    )
+    await tablesDB.createRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.POSTS,
+      rowId: ID.unique(),
+      data: payload,
+      permissions: getOwnerPermissions(input.userId),
+    })
   } catch (error) {
     // If Appwrite posts schema has not yet been updated with photoUrl,
     // retry once without it so posting still works.
@@ -410,16 +410,15 @@ export async function createCommunityPost(input: CreateCommunityPostInput) {
       )
     ) {
       try {
-        await databases.createDocument(
-          DB_ID,
-          COLLECTIONS.POSTS,
-          ID.unique(),
-          {
-            ...payload,
-            photoUrl: undefined,
-          },
-          getOwnerPermissions(input.userId)
-        )
+        const { photoUrl: _, ...payloadWithoutPhoto } = payload
+
+        await tablesDB.createRow({
+          databaseId: DB_ID,
+          tableId: COLLECTIONS.POSTS,
+          rowId: ID.unique(),
+          data: payloadWithoutPhoto,
+          permissions: getOwnerPermissions(input.userId),
+        })
         return
       } catch {
         // Fall through to canonical error handling below.
@@ -438,19 +437,19 @@ export async function createCommunityComment(input: {
   ensureCommunityConfigured()
 
   try {
-    await databases.createDocument(
-      DB_ID,
-      COLLECTIONS.COMMENTS,
-      ID.unique(),
-      {
+    await tablesDB.createRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.COMMENTS,
+      rowId: ID.unique(),
+      data: {
         postId: input.postId,
         userId: input.userId,
         content: input.content,
         likesCount: 0,
         createdAt: new Date().toISOString(),
       },
-      getOwnerPermissions(input.userId)
-    )
+      permissions: getOwnerPermissions(input.userId),
+    })
   } catch (error) {
     throw toCommunityError(error, "Unable to add the comment.")
   }
@@ -464,19 +463,19 @@ export async function createCommunityReply(input: {
   ensureCommunityConfigured()
 
   try {
-    await databases.createDocument(
-      DB_ID,
-      COLLECTIONS.REPLIES,
-      ID.unique(),
-      {
+    await tablesDB.createRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.REPLIES,
+      rowId: ID.unique(),
+      data: {
         commentId: input.commentId,
         userId: input.userId,
         content: input.content,
         likesCount: 0,
         createdAt: new Date().toISOString(),
       },
-      getOwnerPermissions(input.userId)
-    )
+      permissions: getOwnerPermissions(input.userId),
+    })
   } catch (error) {
     throw toCommunityError(error, "Unable to add the reply.")
   }
@@ -490,7 +489,7 @@ export async function toggleCommunityPostLike(input: {
   ensureCommunityConfigured()
 
   try {
-    const existingLikes = await listDocumentsSafe<PostLikeDocument>(
+    const existingLikes = await listRowsSafe<PostLikeDocument>(
       COLLECTIONS.POST_LIKES,
       [
         Query.equal("postId", input.postId),
@@ -500,37 +499,42 @@ export async function toggleCommunityPostLike(input: {
     )
 
     if (input.currentlyLiked && existingLikes[0]) {
-      await databases.deleteDocument(
-        DB_ID,
-        COLLECTIONS.POST_LIKES,
-        existingLikes[0].$id
-      )
+      await tablesDB.deleteRow({
+        databaseId: DB_ID,
+        tableId: COLLECTIONS.POST_LIKES,
+        rowId: existingLikes[0].$id,
+      })
     } else if (!input.currentlyLiked) {
-      await databases.createDocument(
-        DB_ID,
-        COLLECTIONS.POST_LIKES,
-        ID.unique(),
-        {
+      await tablesDB.createRow({
+        databaseId: DB_ID,
+        tableId: COLLECTIONS.POST_LIKES,
+        rowId: ID.unique(),
+        data: {
           postId: input.postId,
           userId: input.userId,
         },
-        getOwnerPermissions(input.userId)
-      )
+        permissions: getOwnerPermissions(input.userId),
+      })
     }
 
-    const post = (await databases.getDocument(
-      DB_ID,
-      COLLECTIONS.POSTS,
-      input.postId
-    )) as unknown as PostDocument
+    const post = (await tablesDB.getRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.POSTS,
+      rowId: input.postId,
+    })) as unknown as PostDocument
 
     const nextLikesCount = Math.max(
       0,
       post.likesCount + (input.currentlyLiked ? -1 : 1)
     )
 
-    await databases.updateDocument(DB_ID, COLLECTIONS.POSTS, input.postId, {
-      likesCount: nextLikesCount,
+    await tablesDB.updateRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.POSTS,
+      rowId: input.postId,
+      data: {
+        likesCount: nextLikesCount,
+      },
     })
   } catch (error) {
     throw toCommunityError(error, "Unable to update the post like.")

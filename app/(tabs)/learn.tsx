@@ -54,13 +54,24 @@ export default function LearningCenterScreen() {
     ({ item: subject }: ListRenderItemInfo<(typeof subjects)[number]>) => (
       <Pressable
         className="rounded-2xl border border-border bg-card"
-        disabled={subject.isLocked}
-        onPress={() =>
+        onPress={() => {
+          if (subject.isLocked) {
+            router.push({
+              pathname: "/premium",
+              params: {
+                source: "subject",
+                title: subject.name,
+                categoryId: subject.id,
+              },
+            })
+            return
+          }
+
           router.push({
             pathname: "/review/[categoryId]",
             params: { categoryId: subject.id },
           })
-        }
+        }}
         style={{ opacity: subject.isLocked ? 0.7 : 1 }}
       >
         <View className="gap-2 px-3.5 py-3.5">
@@ -78,10 +89,13 @@ export default function LearningCenterScreen() {
                     </Text>
                   </View>
                 ) : null}
-                {!subject.isLocked && subject.hasPremiumContent && !isPremiumUser ? (
+                {!subject.isLocked &&
+                subject.hasPremiumContent &&
+                !isPremiumUser ? (
                   <View className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1">
                     <Text className="text-[10px] font-bold uppercase tracking-wide text-primary">
-                      {subject.freeMaterialCount} free · {subject.premiumMaterialCount} premium
+                      {subject.freeMaterialCount} free ·{" "}
+                      {subject.premiumMaterialCount} premium
                     </Text>
                   </View>
                 ) : null}
@@ -117,7 +131,7 @@ export default function LearningCenterScreen() {
         </View>
       </Pressable>
     ),
-    [isPremiumUser, primaryColor, router, subjects]
+    [isPremiumUser, primaryColor, router]
   )
 
   return (

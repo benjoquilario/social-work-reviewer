@@ -33,38 +33,42 @@ function createClient() {
     .setKey(API_KEY)
 }
 
-async function listAllDocuments(databases, collectionId, queries) {
-  const documents = []
+async function listAllRows(tablesDB, tableId, queries) {
+  const rows = []
   let offset = 0
   const limit = 100
 
   while (true) {
-    const response = await databases.listDocuments(DATABASE_ID, collectionId, [
-      ...queries,
-      sdk.Query.limit(limit),
-      sdk.Query.offset(offset),
-    ])
+    const response = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId,
+      queries: [...queries, sdk.Query.limit(limit), sdk.Query.offset(offset)],
+    })
 
-    documents.push(...response.documents)
+    rows.push(...response.rows)
 
-    if (response.documents.length < limit) {
-      return documents
+    if (response.rows.length < limit) {
+      return rows
     }
 
     offset += limit
   }
 }
 
-async function deleteDocuments(databases, collectionId, queries) {
-  const documents = await listAllDocuments(databases, collectionId, queries)
+async function deleteRows(tablesDB, tableId, queries) {
+  const rows = await listAllRows(tablesDB, tableId, queries)
 
   await Promise.all(
-    documents.map((document) =>
-      databases.deleteDocument(DATABASE_ID, collectionId, document.$id)
+    rows.map((row) =>
+      tablesDB.deleteRow({
+        databaseId: DATABASE_ID,
+        tableId,
+        rowId: row.$id,
+      })
     )
   )
 
-  return documents.length
+  return rows.length
 }
 
 module.exports = async ({ req, res, log, error }) => {
@@ -93,14 +97,12 @@ module.exports = async ({ req, res, log, error }) => {
 
   try {
     const client = createClient()
-    const databases = new sdk.Databases(client)
+    const tablesDB = new sdk.TablesDB(client)
     const users = new sdk.Users(client)
 
-    const attempts = await listAllDocuments(
-      databases,
-      COLLECTION_IDS.examAttempts,
-      [sdk.Query.equal("userId", userId)]
-    )
+    const attempts = await listAllRows(tablesDB, COLLECTION_IDS.examAttempts, [
+      sdk.Query.equal("userId", userId),
+    ])
     const attemptIds = attempts.map((attempt) => attempt.$id)
 
     let deletedUserAnswers = 0
@@ -109,7 +111,7 @@ module.exports = async ({ req, res, log, error }) => {
 
       for (let index = 0; index < attemptIds.length; index += 100) {
         answerBatches.push(
-          deleteDocuments(databases, COLLECTION_IDS.userAnswers, [
+          deleteRows(tablesDB, COLLECTION_IDS.userAnswers, [
             sdk.Query.equal("attemptId", attemptIds.slice(index, index + 100)),
           ])
         )
@@ -131,40 +133,40 @@ module.exports = async ({ req, res, log, error }) => {
       deletedCommentLikes,
       deletedFlags,
     ] = await Promise.all([
-      deleteDocuments(databases, COLLECTION_IDS.userProfiles, [
+      deleteRows(tablesDB, COLLECTION_IDS.userProfiles, [
         sdk.Query.equal("userId", userId),
       ]),
-      deleteDocuments(databases, COLLECTION_IDS.userRoles, [
+      deleteRows(tablesDB, COLLECTION_IDS.userRoles, [
         sdk.Query.equal("userId", userId),
       ]),
       Promise.all(
         attempts.map((attempt) =>
-          databases.deleteDocument(
-            DATABASE_ID,
-            COLLECTION_IDS.examAttempts,
-            attempt.$id
-          )
+          tablesDB.deleteRow({
+            databaseId: DATABASE_ID,
+            tableId: COLLECTION_IDS.examAttempts,
+            rowId: attempt.$id,
+          })
         )
       ).then(() => attempts.length),
-      deleteDocuments(databases, COLLECTION_IDS.userProgress, [
+      deleteRows(tablesDB, COLLECTION_IDS.userProgress, [
         sdk.Query.equal("userId", userId),
       ]),
-      deleteDocuments(databases, COLLECTION_IDS.posts, [
+      deleteRows(tablesDB, COLLECTION_IDS.posts, [
         sdk.Query.equal("userId", userId),
       ]),
-      deleteDocuments(databases, COLLECTION_IDS.comments, [
+      deleteRows(tablesDB, COLLECTION_IDS.comments, [
         sdk.Query.equal("userId", userId),
       ]),
-      deleteDocuments(databases, COLLECTION_IDS.replies, [
+      deleteRows(tablesDB, COLLECTION_IDS.replies, [
         sdk.Query.equal("userId", userId),
       ]),
-      deleteDocuments(databases, COLLECTION_IDS.postLikes, [
+      deleteRows(tablesDB, COLLECTION_IDS.postLikes, [
         sdk.Query.equal("userId", userId),
       ]),
-      deleteDocuments(databases, COLLECTION_IDS.commentLikes, [
+      deleteRows(tablesDB, COLLECTION_IDS.commentLikes, [
         sdk.Query.equal("userId", userId),
       ]),
-      deleteDocuments(databases, COLLECTION_IDS.flaggedContent, [
+      deleteRows(tablesDB, COLLECTION_IDS.flaggedContent, [
         sdk.Query.equal("reportedBy", userId),
       ]),
     ])

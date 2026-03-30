@@ -1,12 +1,14 @@
+import { FULL_EXAM_DUMMY_QUESTIONS } from "@/data/reviewer-data"
+
 import {
   COLLECTIONS,
   createAppwriteContentError,
   createAppwritePermissionMessage,
-  databases,
   DB_ID,
   getAppwriteConfigurationError,
   isAppwriteUnauthorizedError,
   Query,
+  tablesDB,
 } from "./appwrite"
 import {
   type ChoiceDocument,
@@ -88,25 +90,25 @@ async function listQuestionDocuments(subjectId?: string) {
     queries.unshift(Query.equal("subjectId", subjectId))
   }
 
-  const { documents } = await databases.listDocuments(
-    DB_ID,
-    COLLECTIONS.QUESTIONS,
-    queries
-  )
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.QUESTIONS,
+    queries,
+  })
 
-  return documents as unknown as QuestionDocument[]
+  return rows as unknown as QuestionDocument[]
 }
 
 async function listChoiceDocuments(questionIds?: string[]) {
   ensureQuizConfigured()
 
-  const { documents } = await databases.listDocuments(
-    DB_ID,
-    COLLECTIONS.CHOICES,
-    [Query.limit(QUIZ_QUERY_LIMIT)]
-  )
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.CHOICES,
+    queries: [Query.limit(QUIZ_QUERY_LIMIT)],
+  })
 
-  const choices = documents as unknown as ChoiceDocument[]
+  const choices = rows as unknown as ChoiceDocument[]
 
   if (!questionIds || questionIds.length === 0) {
     return choices
@@ -125,6 +127,27 @@ function getVisibleQuestions(
     : questions.filter((question) => !question.isPremium)
 }
 
+function buildDummyFullExamQuizQuestions(
+  totalQuestions: number
+): QuizQuestion[] {
+  const cappedTotal = Math.min(
+    Math.max(totalQuestions, 1),
+    FULL_EXAM_DUMMY_QUESTIONS.length
+  )
+
+  return shuffleArray(FULL_EXAM_DUMMY_QUESTIONS)
+    .slice(0, cappedTotal)
+    .map((question, index) => ({
+      id: `${question.id}-session-${index + 1}`,
+      questionId: question.id,
+      categoryId: question.categoryId,
+      prompt: question.prompt,
+      choices: question.choices,
+      answerIndex: question.answerIndex,
+      explanation: question.explanation,
+    }))
+}
+
 export async function getQuizCategoryDetail(
   subjectId: string,
   options: { viewerIsPremium?: boolean } = {}
@@ -133,11 +156,30 @@ export async function getQuizCategoryDetail(
 
   try {
     const [subject, questions] = await Promise.all([
-      databases.getDocument(DB_ID, COLLECTIONS.SUBJECTS, subjectId),
+      tablesDB.getRow({
+        databaseId: DB_ID,
+        tableId: COLLECTIONS.SUBJECTS,
+        rowId: subjectId,
+      }),
       listQuestionDocuments(subjectId),
     ])
 
     const typedSubject = subject as unknown as SubjectDocument
+
+    if (questions.length === 0) {
+      return {
+        id: typedSubject.$id,
+        name: typedSubject.name,
+        description: typedSubject.description ?? "",
+        totalQuestionCount: 0,
+        availableQuestionCount: 0,
+        freeQuestionCount: 0,
+        premiumQuestionCount: 0,
+        hasPremiumQuestions: false,
+        isLocked: false,
+      }
+    }
+
     const freeQuestionCount = questions.filter(
       (question) => !question.isPremium
     ).length
@@ -167,12 +209,21 @@ export async function buildAppwriteQuizQuestions(options: {
   viewerIsPremium?: boolean
 }): Promise<QuizQuestion[]> {
   const viewerIsPremium = options.viewerIsPremium === true
+  const requestedTotal = Math.max(options.totalQuestions, 1)
+  const targetTotal =
+    options.subjectId === "all-categories"
+      ? Math.min(requestedTotal, FULL_EXAM_DUMMY_QUESTIONS.length)
+      : requestedTotal
 
   try {
     const questions = await listQuestionDocuments(options.subjectId)
     const visibleQuestions = getVisibleQuestions(questions, viewerIsPremium)
 
     if (visibleQuestions.length === 0) {
+      if (options.subjectId === "all-categories") {
+        return buildDummyFullExamQuizQuestions(targetTotal)
+      }
+
       return []
     }
 
@@ -215,12 +266,16 @@ export async function buildAppwriteQuizQuestions(options: {
     })
 
     if (normalizedQuestions.length === 0) {
+      if (options.subjectId === "all-categories") {
+        return buildDummyFullExamQuizQuestions(targetTotal)
+      }
+
       return []
     }
 
     const selected: QuizQuestion[] = []
 
-    while (selected.length < options.totalQuestions) {
+    while (selected.length < targetTotal) {
       const chunk = shuffleArray(normalizedQuestions).map(
         (question, chunkIndex) => ({
           ...question,
@@ -231,7 +286,7 @@ export async function buildAppwriteQuizQuestions(options: {
       selected.push(...chunk)
     }
 
-    return selected.slice(0, options.totalQuestions)
+    return selected.slice(0, targetTotal)
   } catch (error) {
     throw toQuizError(error, "Unable to build quiz questions from Appwrite.")
   }

@@ -4,7 +4,6 @@ import {
   AppwriteException,
   Avatars,
   Client,
-  Databases,
   ExecutionMethod,
   Functions,
   ID,
@@ -12,6 +11,7 @@ import {
   Query,
   Role,
   Storage,
+  TablesDB,
 } from "react-native-appwrite"
 
 const FALLBACK_ENDPOINT = "https://sgp.cloud.appwrite.io/v1"
@@ -87,7 +87,7 @@ export const client = new Client()
   .setPlatform(APPWRITE_CONFIG.platform)
 
 export const account = new Account(client)
-export const databases = new Databases(client)
+export const tablesDB = new TablesDB(client)
 export const functions = new Functions(client)
 export const storage = new Storage(client)
 export const avatars = new Avatars(client)

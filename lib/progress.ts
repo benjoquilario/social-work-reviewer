@@ -1,4 +1,4 @@
-import { COLLECTIONS, databases, DB_ID, ID, Query } from "./appwrite"
+import { COLLECTIONS, DB_ID, ID, Query, tablesDB } from "./appwrite"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,14 +38,16 @@ export type UserProgressSummary = {
  * Saves a completed quiz result as an exam_attempt document.
  * examId is set to the categoryId since we're using local questions.
  */
-export async function saveQuizResult(payload: QuizResultPayload): Promise<void> {
+export async function saveQuizResult(
+  payload: QuizResultPayload
+): Promise<void> {
   const now = new Date().toISOString()
 
-  await databases.createDocument(
-    DB_ID,
-    COLLECTIONS.EXAM_ATTEMPTS,
-    ID.unique(),
-    {
+  await tablesDB.createRow({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.EXAM_ATTEMPTS,
+    rowId: ID.unique(),
+    data: {
       userId: payload.userId,
       examId: payload.subjectId, // maps to local categoryId
       score: payload.score,
@@ -54,8 +56,8 @@ export async function saveQuizResult(payload: QuizResultPayload): Promise<void> 
       status: payload.status,
       startedAt: now,
       finishedAt: payload.status === "done" ? now : null,
-    }
-  )
+    },
+  })
 }
 
 /**
@@ -63,12 +65,16 @@ export async function saveQuizResult(payload: QuizResultPayload): Promise<void> 
  */
 export async function getUserAttempts(userId: string): Promise<ExamAttempt[]> {
   try {
-    const { documents } = await databases.listDocuments(
-      DB_ID,
-      COLLECTIONS.EXAM_ATTEMPTS,
-      [Query.equal("userId", userId), Query.orderDesc("$createdAt"), Query.limit(100)]
-    )
-    return documents as unknown as ExamAttempt[]
+    const { rows } = await tablesDB.listRows({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.EXAM_ATTEMPTS,
+      queries: [
+        Query.equal("userId", userId),
+        Query.orderDesc("$createdAt"),
+        Query.limit(100),
+      ],
+    })
+    return rows as unknown as ExamAttempt[]
   } catch {
     return []
   }
@@ -77,8 +83,13 @@ export async function getUserAttempts(userId: string): Promise<ExamAttempt[]> {
 /**
  * Aggregates attempts into per-subject progress summaries.
  */
-export function aggregateProgress(attempts: ExamAttempt[]): UserProgressSummary[] {
-  const subjectMap = new Map<string, { correct: number; total: number; lastStudied: string }>()
+export function aggregateProgress(
+  attempts: ExamAttempt[]
+): UserProgressSummary[] {
+  const subjectMap = new Map<
+    string,
+    { correct: number; total: number; lastStudied: string }
+  >()
 
   for (const attempt of attempts) {
     if (attempt.status !== "done") continue
@@ -103,7 +114,8 @@ export function aggregateProgress(attempts: ExamAttempt[]): UserProgressSummary[
     totalAttempts: attempts.filter((a) => a.examId === subjectId).length,
     totalCorrect: data.correct,
     totalItems: data.total,
-    averageScore: data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
+    averageScore:
+      data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
     lastStudied: data.lastStudied,
   }))
 }

@@ -80,6 +80,18 @@ export default function ReviewerHomeScreen() {
       router.push({ pathname: "/mode", params: { categoryId } }),
     [router]
   )
+  const navigateToPremium = useCallback(
+    (source: "subject" | "quiz-category", title: string, categoryId: string) =>
+      router.push({
+        pathname: "/premium",
+        params: {
+          source,
+          title,
+          categoryId,
+        },
+      }),
+    [router]
+  )
   const navigateToCategoryTopics = useCallback(
     (categoryId: string) =>
       router.push({ pathname: "/review/[categoryId]", params: { categoryId } }),
@@ -136,12 +148,22 @@ export default function ReviewerHomeScreen() {
               <View className="mt-1 flex-row gap-2">
                 <Pressable
                   className="flex-1 flex-row items-center justify-center gap-1.5 rounded-2xl py-3"
-                  disabled={isLocked}
                   style={{
                     backgroundColor: isLocked ? theme.muted : theme.primary,
                     opacity: isLocked ? 0.6 : 1,
                   }}
-                  onPress={() => navigateToCategoryMode(subject.id)}
+                  onPress={() => {
+                    if (isLocked) {
+                      navigateToPremium(
+                        "quiz-category",
+                        subject.name,
+                        subject.id
+                      )
+                      return
+                    }
+
+                    navigateToCategoryMode(subject.id)
+                  }}
                 >
                   <Text
                     className="text-[10px] font-black uppercase tracking-wide"
@@ -162,12 +184,18 @@ export default function ReviewerHomeScreen() {
                 </Pressable>
                 <Pressable
                   className="flex-1 items-center justify-center rounded-2xl border py-3"
-                  disabled={isLocked}
                   style={{
                     borderColor: theme.border,
                     opacity: isLocked ? 0.6 : 1,
                   }}
-                  onPress={() => navigateToCategoryTopics(subject.id)}
+                  onPress={() => {
+                    if (isLocked) {
+                      navigateToPremium("subject", subject.name, subject.id)
+                      return
+                    }
+
+                    navigateToCategoryTopics(subject.id)
+                  }}
                 >
                   <Text className="text-[10px] font-black uppercase tracking-wide text-card-foreground">
                     Topics
@@ -179,7 +207,13 @@ export default function ReviewerHomeScreen() {
         </View>
       )
     },
-    [isPremiumUser, navigateToCategoryMode, navigateToCategoryTopics, theme]
+    [
+      isPremiumUser,
+      navigateToCategoryMode,
+      navigateToCategoryTopics,
+      navigateToPremium,
+      theme,
+    ]
   )
 
   return (

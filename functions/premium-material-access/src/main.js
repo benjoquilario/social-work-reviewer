@@ -159,23 +159,23 @@ module.exports = async ({ req, res, log, error }) => {
     .setProject(PROJECT_ID)
     .setKey(API_KEY)
 
-  const databases = new sdk.Databases(client)
+  const tablesDB = new sdk.TablesDB(client)
 
   try {
-    const profileResult = await databases.listDocuments(
-      DATABASE_ID,
-      USER_PROFILES_COLLECTION_ID,
-      [sdk.Query.equal("userId", userId), sdk.Query.limit(1)]
-    )
+    const profileResult = await tablesDB.listRows({
+      databaseId: DATABASE_ID,
+      tableId: USER_PROFILES_COLLECTION_ID,
+      queries: [sdk.Query.equal("userId", userId), sdk.Query.limit(1)],
+    })
 
-    const profile = profileResult.documents[0] || null
+    const profile = profileResult.rows[0] || null
     const isPremiumUser = profile?.isPremium === true
 
-    const material = await databases.getDocument(
-      DATABASE_ID,
-      LEARNING_MATERIALS_COLLECTION_ID,
-      materialId
-    )
+    const material = await tablesDB.getRow({
+      databaseId: DATABASE_ID,
+      tableId: LEARNING_MATERIALS_COLLECTION_ID,
+      rowId: materialId,
+    })
 
     if (material.isPremium && !isPremiumUser) {
       const failureReason = profile

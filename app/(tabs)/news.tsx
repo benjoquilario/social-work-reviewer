@@ -24,7 +24,9 @@ export default function NewsScreen() {
       },
       {
         label: "Learning",
-        value: String(NEWS_ITEMS.filter((item) => item.type === "learning").length),
+        value: String(
+          NEWS_ITEMS.filter((item) => item.type === "learning").length
+        ),
       },
     ],
     []

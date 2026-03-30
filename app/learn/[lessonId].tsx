@@ -532,10 +532,30 @@ export default function LessonDetailScreen() {
               <Text className="text-[12px] leading-5 text-muted-foreground">
                 Topic: {materialDetail.topic.title}
               </Text>
-              <Button className="h-11" onPress={() => router.back()}>
+              <Button
+                className="h-11"
+                onPress={() =>
+                  router.push({
+                    pathname: "/premium",
+                    params: {
+                      source: "material",
+                      title: materialDetail.material.title,
+                      categoryId: materialDetail.subject.id,
+                      topicId: materialDetail.topic.id,
+                    },
+                  })
+                }
+              >
                 <Text className="font-bold text-primary-foreground">
-                  Back to Topic Materials
+                  View Premium Plans
                 </Text>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-11"
+                onPress={() => router.back()}
+              >
+                <Text className="font-bold">Back to Topic Materials</Text>
               </Button>
             </CardContent>
           </Card>

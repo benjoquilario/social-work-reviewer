@@ -174,6 +174,12 @@ function RootNavigator() {
               }}
             />
             <Stack.Screen
+              name="premium"
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
               name="modal"
               options={{
                 presentation: "modal",

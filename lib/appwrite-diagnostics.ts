@@ -1,11 +1,11 @@
 import {
   account,
   COLLECTIONS,
-  databases,
   DB_ID,
   getAppwriteConfigurationError,
   isAppwriteUnauthorizedError,
   Query,
+  tablesDB,
 } from "./appwrite"
 import { getUserProfile } from "./auth"
 
@@ -31,9 +31,11 @@ async function diagnoseCollection(
   collectionId: string
 ): Promise<AppwriteDiagnosticResult> {
   try {
-    const response = await databases.listDocuments(DB_ID, collectionId, [
-      Query.limit(1),
-    ])
+    const response = await tablesDB.listRows({
+      databaseId: DB_ID,
+      tableId: collectionId,
+      queries: [Query.limit(1)],
+    })
 
     return {
       key: collectionId,

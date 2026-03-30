@@ -88,21 +88,34 @@ export default function ReviewCategoryScreen() {
   const renderTopicItem = useCallback(
     ({ item: topic, index }: ListRenderItemInfo<(typeof topics)[number]>) => {
       const isUnavailable = topic.materialCount === 0
-      const isTopicBlocked = topic.isLocked || isUnavailable
+      const isTopicBlocked = isUnavailable
 
       return (
         <Pressable
           className="border-b border-border/80 px-3.5 py-3.5"
           disabled={isTopicBlocked}
-          onPress={() =>
+          onPress={() => {
+            if (topic.isLocked) {
+              router.push({
+                pathname: "/premium",
+                params: {
+                  source: "topic",
+                  title: topic.title,
+                  categoryId,
+                  topicId: topic.id,
+                },
+              })
+              return
+            }
+
             router.push({
               pathname: "/learn/topic/[topicId]",
               params: { topicId: topic.id },
             })
-          }
+          }}
           style={{
             borderBottomWidth: index === visibleTopics.length - 1 ? 0 : 1,
-            opacity: isTopicBlocked ? 0.65 : 1,
+            opacity: topic.isLocked || isTopicBlocked ? 0.65 : 1,
           }}
         >
           <View className="flex-row items-start gap-3">
@@ -180,7 +193,7 @@ export default function ReviewCategoryScreen() {
         </Pressable>
       )
     },
-    [isPremiumUser, mutedIconColor, router, visibleTopics.length]
+    [categoryId, isPremiumUser, mutedIconColor, router, visibleTopics.length]
   )
 
   if (subjectQuery.isLoading) {

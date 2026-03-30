@@ -112,20 +112,28 @@ export const QUIZ_MODES: QuizMode[] = [
 
 export const FULL_EXAM_PRESETS: FullExamPreset[] = [
   {
-    id: "board-170",
-    title: "Full Board Simulation",
-    totalQuestions: 170,
-    minutes: 180,
+    id: "exam-10",
+    title: "Quick Full Exam Drill",
+    totalQuestions: 10,
+    minutes: 12,
     description:
-      "A full-length board-style exam that mixes all categories and tests pacing under pressure.",
+      "Short mixed exam using seeded dummy and Appwrite questions for fast daily calibration.",
   },
   {
-    id: "mastery-200",
-    title: "Mastery Endurance Exam",
-    totalQuestions: 200,
-    minutes: 210,
+    id: "exam-20",
+    title: "Standard Full Exam",
+    totalQuestions: 20,
+    minutes: 22,
     description:
-      "Extended mixed exam for endurance, retention, and post-review readiness.",
+      "Balanced mixed exam for pacing, retention checks, and score consistency.",
+  },
+  {
+    id: "exam-30",
+    title: "Extended Full Exam",
+    totalQuestions: 30,
+    minutes: 35,
+    description:
+      "Maximum full exam preset with 30 mixed examples for board-style simulation.",
   },
 ]
 
@@ -431,6 +439,23 @@ export const QUESTION_BANK: Question[] = [
       "Confidentiality is essential, but it may be limited when there is a serious threat to safety or where law and ethical duty require protective action.",
   },
 ]
+
+const FULL_EXAM_DUMMY_MAX = 30
+
+export const FULL_EXAM_DUMMY_QUESTIONS: Question[] = Array.from(
+  { length: FULL_EXAM_DUMMY_MAX },
+  (_, index) => {
+    const source = QUESTION_BANK[index % QUESTION_BANK.length]
+    const examExample = index + 1
+
+    return {
+      ...source,
+      id: `dummy-full-exam-${examExample}`,
+      prompt: `Exam Example ${examExample}. ${source.prompt}`,
+      explanation: `${source.explanation} (Dummy full exam example ${examExample}.)`,
+    }
+  }
+)
 
 export function getQuestionsByCategory(categoryId: string): Question[] {
   if (categoryId === "all-categories") {

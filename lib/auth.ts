@@ -7,7 +7,6 @@ import {
   avatars,
   COLLECTIONS,
   createAppwritePermissionMessage,
-  databases,
   DB_ID,
   ExecutionMethod,
   functions,
@@ -18,6 +17,7 @@ import {
   Query,
   Role,
   storage,
+  tablesDB,
 } from "./appwrite"
 
 const APPWRITE_REQUEST_TIMEOUT_MS = 15000
@@ -194,29 +194,29 @@ async function createUserProfileDocument(
 ) {
   return withRequestTimeout(
     "Profile creation",
-    databases.createDocument(
-      DB_ID,
-      COLLECTIONS.USER_PROFILES,
-      user.$id,
-      getUserProfilePayload(user, fullName, email),
-      getUserOwnedPermissions(user.$id)
-    )
+    tablesDB.createRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.USER_PROFILES,
+      rowId: user.$id,
+      data: getUserProfilePayload(user, fullName, email),
+      permissions: getUserOwnedPermissions(user.$id),
+    })
   )
 }
 
 async function createUserRoleDocument(userId: string) {
   return withRequestTimeout(
     "Role creation",
-    databases.createDocument(
-      DB_ID,
-      COLLECTIONS.USER_ROLES,
-      userId,
-      {
+    tablesDB.createRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.USER_ROLES,
+      rowId: userId,
+      data: {
         userId,
         role: "student",
       },
-      getUserOwnedPermissions(userId)
-    )
+      permissions: getUserOwnedPermissions(userId),
+    })
   )
 }
 
@@ -232,7 +232,11 @@ export async function ensureUserProfileSetup(
   try {
     const profile = await withRequestTimeout(
       "Profile lookup",
-      databases.getDocument(DB_ID, COLLECTIONS.USER_PROFILES, user.$id)
+      tablesDB.getRow({
+        databaseId: DB_ID,
+        tableId: COLLECTIONS.USER_PROFILES,
+        rowId: user.$id,
+      })
     )
 
     return profile as unknown as UserProfile
@@ -384,12 +388,17 @@ export async function updateCurrentProfile(
 
   const updatedProfile = await withRequestTimeout(
     "Profile update",
-    databases.updateDocument(DB_ID, COLLECTIONS.USER_PROFILES, profile.$id, {
-      fullName,
-      email: updatedUser.email,
-      schoolName,
-      reviewType,
-      avatarUrl,
+    tablesDB.updateRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.USER_PROFILES,
+      rowId: profile.$id,
+      data: {
+        fullName,
+        email: updatedUser.email,
+        schoolName,
+        reviewType,
+        avatarUrl,
+      },
     })
   )
 
@@ -432,8 +441,13 @@ export async function updateCurrentEmail(
 
   const updatedProfile = await withRequestTimeout(
     "Profile email update",
-    databases.updateDocument(DB_ID, COLLECTIONS.USER_PROFILES, profile.$id, {
-      email: updatedUser.email,
+    tablesDB.updateRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.USER_PROFILES,
+      rowId: profile.$id,
+      data: {
+        email: updatedUser.email,
+      },
     })
   )
 
@@ -607,7 +621,11 @@ export async function getUserProfile(
     try {
       const profile = await withRequestTimeout(
         "Profile lookup",
-        databases.getDocument(DB_ID, COLLECTIONS.USER_PROFILES, userId)
+        tablesDB.getRow({
+          databaseId: DB_ID,
+          tableId: COLLECTIONS.USER_PROFILES,
+          rowId: userId,
+        })
       )
 
       return profile as unknown as UserProfile
@@ -616,18 +634,20 @@ export async function getUserProfile(
         throw error
       }
 
-      const { documents } = await withRequestTimeout(
+      const { rows } = await withRequestTimeout(
         "Profile lookup",
-        databases.listDocuments(DB_ID, COLLECTIONS.USER_PROFILES, [
-          Query.equal("userId", userId),
-        ])
+        tablesDB.listRows({
+          databaseId: DB_ID,
+          tableId: COLLECTIONS.USER_PROFILES,
+          queries: [Query.equal("userId", userId)],
+        })
       )
 
-      if (documents.length === 0) {
+      if (rows.length === 0) {
         return null
       }
 
-      return documents[0] as unknown as UserProfile
+      return rows[0] as unknown as UserProfile
     }
   } catch (error) {
     if (isAppwriteUnauthorizedError(error)) {
@@ -651,5 +671,5 @@ export function getInitials(name: string): string {
 }
 
 export function getAvatarUrl(name: string): string {
-  return avatars.getInitials(name, 80, 80).toString()
+  return avatars.getInitialsURL(name, 80, 80).toString()
 }

@@ -41,8 +41,9 @@ export default function ModeSelectionScreen() {
   })
 
   const category = categoryQuery.data ?? null
+  const isCategoryLocked = category?.isLocked === true
   const isCategoryUnavailable =
-    !category || category.isLocked || category.availableQuestionCount === 0
+    !category || (!isCategoryLocked && category.availableQuestionCount === 0)
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -92,6 +93,18 @@ export default function ModeSelectionScreen() {
                     return
                   }
 
+                  if (category.isLocked) {
+                    router.push({
+                      pathname: "/premium",
+                      params: {
+                        source: "quiz-category",
+                        title: category.name,
+                        categoryId: category.id,
+                      },
+                    })
+                    return
+                  }
+
                   router.push({
                     pathname: "/quiz",
                     params: {
@@ -101,7 +114,10 @@ export default function ModeSelectionScreen() {
                     },
                   })
                 }}
-                style={{ opacity: isCategoryUnavailable ? 0.55 : 1 }}
+                style={{
+                  opacity:
+                    isCategoryUnavailable || category?.isLocked ? 0.55 : 1,
+                }}
               >
                 <Text className="text-[15px] font-bold text-card-foreground">
                   {mode.totalQuestions} Questions / {mode.minutes} Minutes

@@ -3,7 +3,6 @@ import {
   COLLECTIONS,
   createAppwriteContentError,
   createAppwritePermissionMessage,
-  databases,
   DB_ID,
   ExecutionMethod,
   functions,
@@ -11,6 +10,7 @@ import {
   isAppwriteContentError,
   isAppwriteUnauthorizedError,
   Query,
+  tablesDB,
 } from "./appwrite"
 import {
   type LearningMaterialDocument,
@@ -296,12 +296,13 @@ async function getLearningSnapshot() {
 
   const [subjects, topics, materials] = await Promise.all([
     listRemoteSubjects(),
-    databases
-      .listDocuments(DB_ID, COLLECTIONS.TOPICS, [
-        Query.orderAsc("order"),
-        Query.limit(CONTENT_QUERY_LIMIT),
-      ])
-      .then((result) => result.documents as unknown as TopicDocument[]),
+    tablesDB
+      .listRows({
+        databaseId: DB_ID,
+        tableId: COLLECTIONS.TOPICS,
+        queries: [Query.orderAsc("order"), Query.limit(CONTENT_QUERY_LIMIT)],
+      })
+      .then((result) => result.rows as unknown as TopicDocument[]),
     listRemoteMaterials(),
   ])
 
@@ -325,57 +326,57 @@ async function getLearningSnapshot() {
 async function listRemoteSubjects() {
   ensureLearningContentConfigured()
 
-  const { documents } = await databases.listDocuments(
-    DB_ID,
-    COLLECTIONS.SUBJECTS,
-    [Query.orderAsc("order"), Query.limit(CONTENT_QUERY_LIMIT)]
-  )
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.SUBJECTS,
+    queries: [Query.orderAsc("order"), Query.limit(CONTENT_QUERY_LIMIT)],
+  })
 
-  return documents as unknown as SubjectDocument[]
+  return rows as unknown as SubjectDocument[]
 }
 
 async function listRemoteTopicsBySubjectId(subjectId: string) {
   ensureLearningContentConfigured()
 
-  const { documents } = await databases.listDocuments(
-    DB_ID,
-    COLLECTIONS.TOPICS,
-    [
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.TOPICS,
+    queries: [
       Query.equal("subjectId", subjectId),
       Query.orderAsc("order"),
       Query.limit(CONTENT_QUERY_LIMIT),
-    ]
-  )
+    ],
+  })
 
-  return documents as unknown as TopicDocument[]
+  return rows as unknown as TopicDocument[]
 }
 
 async function listRemoteMaterials() {
   ensureLearningContentConfigured()
 
-  const { documents } = await databases.listDocuments(
-    DB_ID,
-    COLLECTIONS.LEARNING_MATERIALS,
-    [Query.orderAsc("createdAt"), Query.limit(CONTENT_QUERY_LIMIT)]
-  )
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.LEARNING_MATERIALS,
+    queries: [Query.orderAsc("createdAt"), Query.limit(CONTENT_QUERY_LIMIT)],
+  })
 
-  return documents as unknown as LearningMaterialDocument[]
+  return rows as unknown as LearningMaterialDocument[]
 }
 
 async function listRemoteMaterialsByTopicId(topicId: string) {
   ensureLearningContentConfigured()
 
-  const { documents } = await databases.listDocuments(
-    DB_ID,
-    COLLECTIONS.LEARNING_MATERIALS,
-    [
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.LEARNING_MATERIALS,
+    queries: [
       Query.equal("topicId", topicId),
       Query.orderAsc("createdAt"),
       Query.limit(CONTENT_QUERY_LIMIT),
-    ]
-  )
+    ],
+  })
 
-  return documents as unknown as LearningMaterialDocument[]
+  return rows as unknown as LearningMaterialDocument[]
 }
 
 function toContentError(error: unknown, fallback: string) {
@@ -443,11 +444,11 @@ export async function getLearningTopicById(
   const viewerIsPremium = options.viewerIsPremium === true
 
   try {
-    const topic = (await databases.getDocument(
-      DB_ID,
-      COLLECTIONS.TOPICS,
-      topicId
-    )) as unknown as TopicDocument
+    const topic = (await tablesDB.getRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.TOPICS,
+      rowId: topicId,
+    })) as unknown as TopicDocument
     const materials = sortMaterials(await listRemoteMaterialsByTopicId(topicId))
     const stats = getMaterialStats(materials, viewerIsPremium)
     const visibleMaterials = viewerIsPremium
@@ -543,17 +544,17 @@ export async function getLearningTopicDetail(
   const viewerIsPremium = options.viewerIsPremium === true
 
   try {
-    const topic = (await databases.getDocument(
-      DB_ID,
-      COLLECTIONS.TOPICS,
-      topicId
-    )) as unknown as TopicDocument
+    const topic = (await tablesDB.getRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.TOPICS,
+      rowId: topicId,
+    })) as unknown as TopicDocument
 
-    const subject = (await databases.getDocument(
-      DB_ID,
-      COLLECTIONS.SUBJECTS,
-      topic.subjectId
-    )) as unknown as SubjectDocument
+    const subject = (await tablesDB.getRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.SUBJECTS,
+      rowId: topic.subjectId,
+    })) as unknown as SubjectDocument
 
     const materials = await listRemoteMaterialsByTopicId(topic.$id)
     const orderedMaterials = sortMaterials(materials)
@@ -595,23 +596,23 @@ export async function getLearningMaterialDetail(
   const viewerIsPremium = options.viewerIsPremium === true
 
   try {
-    const material = (await databases.getDocument(
-      DB_ID,
-      COLLECTIONS.LEARNING_MATERIALS,
-      materialId
-    )) as unknown as LearningMaterialDocument
+    const material = (await tablesDB.getRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.LEARNING_MATERIALS,
+      rowId: materialId,
+    })) as unknown as LearningMaterialDocument
 
-    const topic = (await databases.getDocument(
-      DB_ID,
-      COLLECTIONS.TOPICS,
-      material.topicId
-    )) as unknown as TopicDocument
+    const topic = (await tablesDB.getRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.TOPICS,
+      rowId: material.topicId,
+    })) as unknown as TopicDocument
 
-    const subject = (await databases.getDocument(
-      DB_ID,
-      COLLECTIONS.SUBJECTS,
-      topic.subjectId
-    )) as unknown as SubjectDocument
+    const subject = (await tablesDB.getRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.SUBJECTS,
+      rowId: topic.subjectId,
+    })) as unknown as SubjectDocument
 
     const topicMaterials = await listRemoteMaterialsByTopicId(topic.$id)
     const orderedTopicMaterials = sortMaterials(topicMaterials)

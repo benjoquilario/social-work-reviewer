@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   ChevronRight,
   EllipsisVertical,
+  LockKeyhole,
   Search,
   UserCircle2,
 } from "lucide-react-native"
@@ -178,13 +179,24 @@ export default function TopicDetailScreen() {
             <Pressable
               key={material.id}
               className="border-b border-border/80 px-3.5 py-3.5"
-              disabled={material.isLocked}
-              onPress={() =>
+              onPress={() => {
+                if (material.isLocked) {
+                  router.push({
+                    pathname: "/premium",
+                    params: {
+                      source: "material",
+                      title: material.title,
+                      topicId,
+                    },
+                  })
+                  return
+                }
+
                 router.push({
                   pathname: "/learn/[lessonId]",
                   params: { lessonId: material.id },
                 })
-              }
+              }}
               style={{
                 borderBottomWidth:
                   index === topicDetail.materials.length - 1 ? 0 : 1,
@@ -208,11 +220,19 @@ export default function TopicDetailScreen() {
                 </View>
 
                 <View className="pt-0.5">
-                  <ChevronRight
-                    size={20}
-                    color={primaryColor}
-                    strokeWidth={2.1}
-                  />
+                  {material.isLocked ? (
+                    <LockKeyhole
+                      size={20}
+                      color={primaryColor}
+                      strokeWidth={2.1}
+                    />
+                  ) : (
+                    <ChevronRight
+                      size={20}
+                      color={primaryColor}
+                      strokeWidth={2.1}
+                    />
+                  )}
                 </View>
               </View>
             </Pressable>

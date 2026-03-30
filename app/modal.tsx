@@ -1,18 +1,18 @@
-import { Link } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
-import { ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Link } from "expo-router"
+import { ArrowLeft } from "lucide-react-native"
+import { ScrollView } from "react-native"
+import { SafeAreaView } from "react-native-safe-area-context"
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Text } from "@/components/ui/text";
-import { useColorScheme } from "@/hooks/use-color-scheme";
-import { THEME } from "@/lib/theme";
+import { THEME } from "@/lib/theme"
+import { useColorScheme } from "@/hooks/use-color-scheme"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Text } from "@/components/ui/text"
 
 export default function ModalScreen() {
-  const colorScheme = useColorScheme();
+  const colorScheme = useColorScheme()
   const primaryColor =
-    colorScheme === "dark" ? THEME.dark.primary : THEME.light.primary;
+    colorScheme === "dark" ? THEME.dark.primary : THEME.light.primary
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -69,5 +69,5 @@ export default function ModalScreen() {
         </Link>
       </ScrollView>
     </SafeAreaView>
-  );
+  )
 }
