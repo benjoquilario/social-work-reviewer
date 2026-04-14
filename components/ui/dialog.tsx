@@ -20,7 +20,7 @@ function Dialog({
       visible={open}
       onRequestClose={() => onOpenChange(false)}
     >
-      <View className="flex-1 items-center justify-center bg-black/45 px-5">
+      <View className="flex-1 items-center justify-center bg-black/30 px-5">
         <Pressable
           className="absolute inset-0"
           onPress={() => onOpenChange(false)}
@@ -39,7 +39,7 @@ function DialogContent({
     <TextClassContext.Provider value="text-card-foreground">
       <View
         className={cn(
-          "w-full max-w-[520px] rounded-[28px] border border-border bg-card p-5 shadow-lg shadow-black/20",
+          "w-full max-w-[520px] rounded-[32px] border border-border/70 bg-card p-5 shadow-lg shadow-black/15",
           className
         )}
         {...props}
@@ -83,7 +83,7 @@ function DialogFooter({
   className,
   ...props
 }: ViewProps & React.RefAttributes<View>) {
-  return <View className={cn("mt-4 gap-2", className)} {...props} />
+  return <View className={cn("mt-5 gap-2", className)} {...props} />
 }
 
 export {

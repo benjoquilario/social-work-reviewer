@@ -15,7 +15,10 @@ type VerificationState = "loading" | "success" | "error"
 export default function VerifyEmailScreen() {
   const router = useRouter()
   const params = useLocalSearchParams<{ userId?: string; secret?: string }>()
-  const { completeEmailVerification, isAuthenticated } = useAuth()
+  const completeEmailVerification = useAuth(
+    (state) => state.completeEmailVerification
+  )
+  const isAuthenticated = useAuth((state) => state.isAuthenticated)
   const colorScheme = useColorScheme()
   const theme = colorScheme === "dark" ? THEME.dark : THEME.light
   const [state, setState] = useState<VerificationState>("loading")

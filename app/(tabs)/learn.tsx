@@ -4,23 +4,28 @@ import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list"
 import { useQuery } from "@tanstack/react-query"
 import { useRouter } from "expo-router"
 import { ChevronRight, LockKeyhole } from "lucide-react-native"
-import { Pressable, View } from "react-native"
+import { View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import { THEME } from "@/lib/theme"
+import { getStaggerDelay } from "@/lib/motion"
+import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Card, CardContent } from "@/components/ui/card"
+import { FadeInView, MotionPressable } from "@/components/ui/motion"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
+import { AppShellHeader } from "@/components/app-shell-header"
 
 import { listLearningSubjects } from "../../lib/learning-content"
 
 export default function LearningCenterScreen() {
   const router = useRouter()
-  const { isAuthenticated, profile, refreshProfile } = useAuth()
+  const isAuthenticated = useAuth((state) => state.isAuthenticated)
+  const profile = useAuth((state) => state.profile)
+  const refreshProfile = useAuth((state) => state.refreshProfile)
   const colorScheme = useColorScheme()
-  const primaryColor =
-    colorScheme === "dark" ? THEME.dark.primary : THEME.light.primary
+  const theme = colorScheme === "dark" ? THEME.dark : THEME.light
+  const primaryColor = theme.primary
   const isPremiumUser = profile?.isPremium === true
 
   useEffect(() => {
@@ -49,11 +54,19 @@ export default function LearningCenterScreen() {
     }),
     [subjects]
   )
+  const headerStats = useMemo(
+    () => [
+      { label: "Subjects", value: String(subjects.length) },
+      { label: "Topics", value: String(totals.totalTopics) },
+      { label: "Materials", value: String(totals.totalMaterials) },
+    ],
+    [subjects.length, totals.totalMaterials, totals.totalTopics]
+  )
 
   const renderSubjectItem = useCallback(
     ({ item: subject }: ListRenderItemInfo<(typeof subjects)[number]>) => (
-      <Pressable
-        className="rounded-2xl border border-border bg-card"
+      <MotionPressable
+        className="rounded-[28px]"
         onPress={() => {
           if (subject.isLocked) {
             router.push({
@@ -72,66 +85,84 @@ export default function LearningCenterScreen() {
             params: { categoryId: subject.id },
           })
         }}
-        style={{ opacity: subject.isLocked ? 0.7 : 1 }}
+        style={{ opacity: subject.isLocked ? 0.75 : 1 }}
       >
-        <View className="gap-2 px-3.5 py-3.5">
-          <View className="flex-row items-start justify-between gap-3">
-            <View className="flex-1 gap-2">
-              <Text className="text-[16px] font-semibold leading-6 text-card-foreground">
-                {subject.name}
-              </Text>
-              <View className="flex-row flex-wrap gap-2">
+        <Card>
+          <CardContent className="gap-2.5 px-4 py-3.5">
+            <View className="flex-row items-start gap-3">
+              <View
+                className="h-10 w-10 items-center justify-center rounded-xl"
+                style={{
+                  backgroundColor: withOpacity(
+                    subject.isLocked ? theme.accent : theme.primary,
+                    0.1
+                  ),
+                }}
+              >
                 {subject.isLocked ? (
-                  <View className="flex-row items-center gap-1 rounded-full border border-destructive/30 bg-destructive/10 px-2.5 py-1">
-                    <LockKeyhole size={12} color="#dc2626" />
-                    <Text className="text-[10px] font-bold uppercase tracking-wide text-destructive">
-                      Premium locked
-                    </Text>
-                  </View>
-                ) : null}
-                {!subject.isLocked &&
-                subject.hasPremiumContent &&
-                !isPremiumUser ? (
-                  <View className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1">
-                    <Text className="text-[10px] font-bold uppercase tracking-wide text-primary">
-                      {subject.freeMaterialCount} free ·{" "}
-                      {subject.premiumMaterialCount} premium
-                    </Text>
-                  </View>
-                ) : null}
+                  <LockKeyhole size={18} color={theme.accent} />
+                ) : (
+                  <ChevronRight size={18} color={primaryColor} />
+                )}
+              </View>
+              <View className="flex-1 gap-1">
+                <Text className="text-[15px] font-bold leading-5 text-foreground">
+                  {subject.name}
+                </Text>
+                <View className="flex-row flex-wrap gap-1.5">
+                  {subject.isLocked ? (
+                    <View
+                      className="flex-row items-center gap-1 rounded-full px-2 py-0.5"
+                      style={{
+                        backgroundColor: withOpacity(theme.accent, 0.1),
+                      }}
+                    >
+                      <LockKeyhole size={11} color={theme.accent} />
+                      <Text
+                        className="text-[10px] font-semibold"
+                        style={{ color: theme.accent }}
+                      >
+                        Premium
+                      </Text>
+                    </View>
+                  ) : null}
+                  {!subject.isLocked &&
+                  subject.hasPremiumContent &&
+                  !isPremiumUser ? (
+                    <View className="bg-primary/8 rounded-full px-2 py-0.5">
+                      <Text className="text-[10px] font-semibold text-primary">
+                        {subject.freeMaterialCount} free ·{" "}
+                        {subject.premiumMaterialCount} premium
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
               </View>
             </View>
-            <View className="h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-              {subject.isLocked ? (
-                <LockKeyhole size={14} color={primaryColor} />
-              ) : (
-                <ChevronRight size={14} color={primaryColor} />
-              )}
-            </View>
-          </View>
 
-          <Text className="text-[12px] leading-5 text-muted-foreground">
-            {subject.isLocked
-              ? "This subject currently contains premium-only materials."
-              : subject.description || "No subject description added yet."}
-          </Text>
+            <Text className="text-[12px] leading-[18px] text-muted-foreground">
+              {subject.isLocked
+                ? "This subject currently contains premium-only materials."
+                : subject.description || "No subject description added yet."}
+            </Text>
 
-          <View className="flex-row gap-2">
-            <View className="rounded-full border border-border bg-background px-2.5 py-1.5">
-              <Text className="text-[11px] font-bold uppercase tracking-[1px] text-muted-foreground">
-                {subject.topicCount} topics
-              </Text>
+            <View className="flex-row gap-2">
+              <View className="rounded-full bg-muted px-2.5 py-1">
+                <Text className="text-[11px] font-semibold text-muted-foreground">
+                  {subject.topicCount} topics
+                </Text>
+              </View>
+              <View className="rounded-full bg-muted px-2.5 py-1">
+                <Text className="text-[11px] font-semibold text-muted-foreground">
+                  {subject.freeMaterialCount}/{subject.materialCount} visible
+                </Text>
+              </View>
             </View>
-            <View className="rounded-full border border-border bg-background px-2.5 py-1.5">
-              <Text className="text-[11px] font-bold uppercase tracking-[1px] text-muted-foreground">
-                {subject.freeMaterialCount}/{subject.materialCount} visible
-              </Text>
-            </View>
-          </View>
-        </View>
-      </Pressable>
+          </CardContent>
+        </Card>
+      </MotionPressable>
     ),
-    [isPremiumUser, primaryColor, router]
+    [isPremiumUser, primaryColor, router, theme]
   )
 
   return (
@@ -141,37 +172,19 @@ export default function LearningCenterScreen() {
         keyExtractor={(item) => item.id}
         renderItem={renderSubjectItem}
         ListHeaderComponent={
-          <View className="gap-4 px-4 pt-4">
-            <View className="gap-2">
-              <Text className="text-[11px] font-black uppercase tracking-[1.6px] text-primary">
-                Review Content
-              </Text>
-              <Text className="text-[23px] font-black leading-7 text-foreground">
-                Learning Material Library
-              </Text>
-              <Text className="text-[13px] leading-5 text-muted-foreground">
-                Browse subjects, open a topic cluster, then move into the linked
-                learning materials.
-              </Text>
-              <View className="mt-1.5 flex-row gap-2">
-                <View className="rounded-full border border-border bg-card px-3 py-2">
-                  <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-muted-foreground">
-                    {subjects.length} subjects
-                  </Text>
-                </View>
-                <View className="rounded-full border border-border bg-card px-3 py-2">
-                  <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-muted-foreground">
-                    {totals.totalTopics} topics
-                  </Text>
-                </View>
-                <View className="rounded-full border border-border bg-card px-3 py-2">
-                  <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-muted-foreground">
-                    {totals.totalMaterials} materials
-                  </Text>
-                </View>
-              </View>
+          <FadeInView delay={getStaggerDelay(0)}>
+            <View className="px-4 pt-4">
+              <AppShellHeader
+                eyebrow="Review Content"
+                title="Learning Material Library"
+                subtitle="Browse a cleaner, subject-first library, open topic clusters, and move directly into the linked learning materials."
+                avatarLabel="LC"
+                badgeLabel="Access"
+                badgeValue={isPremiumUser ? "Premium plan" : "Free plan"}
+                stats={headerStats}
+              />
             </View>
-          </View>
+          </FadeInView>
         }
         ItemSeparatorComponent={() => <View className="h-3" />}
         ListEmptyComponent={
@@ -216,7 +229,7 @@ export default function LearningCenterScreen() {
             ) : null}
           </View>
         }
-        contentContainerStyle={{ paddingBottom: 28, paddingHorizontal: 16 }}
+        contentContainerStyle={{ paddingBottom: 128, paddingHorizontal: 16 }}
         showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>

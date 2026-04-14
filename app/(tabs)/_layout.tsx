@@ -7,9 +7,10 @@ import {
   Newspaper,
   User,
 } from "lucide-react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { APP_FONTS } from "@/lib/fonts"
-import { THEME } from "@/lib/theme"
+import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { HapticTab } from "@/components/haptic-tab"
 
@@ -19,6 +20,9 @@ export default function TabLayout() {
   const theme = isDark ? THEME.dark : THEME.light
   const activeTint = theme.primary
   const inactiveTint = theme.mutedForeground
+  const insets = useSafeAreaInsets()
+  // Ensure at least 4px bottom padding on devices with no home indicator
+  const paddingBottom = Math.max(insets.bottom, 4)
 
   return (
     <>
@@ -29,26 +33,22 @@ export default function TabLayout() {
           tabBarActiveTintColor: activeTint,
           tabBarInactiveTintColor: inactiveTint,
           tabBarHideOnKeyboard: true,
+          tabBarActiveBackgroundColor: withOpacity(theme.primary, 0.1),
           tabBarStyle: {
-            backgroundColor: isDark ? theme.card : "#ffffff",
-            borderTopColor: theme.border,
-            borderTopWidth: 1,
-            height: 80,
-            paddingBottom: 12,
-            paddingTop: 8,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: -4 },
-            shadowOpacity: isDark ? 0.22 : 0.07,
-            shadowRadius: 16,
-            elevation: 12,
+            backgroundColor: theme.card,
+            borderTopWidth: 0,
+            height: 56 + paddingBottom,
+            paddingBottom,
+            paddingTop: 6,
+            paddingHorizontal: 4,
           },
           tabBarItemStyle: {
-            borderRadius: 14,
+            borderRadius: 12,
             marginHorizontal: 2,
           },
           tabBarLabelStyle: {
             fontFamily: APP_FONTS.semiBold,
-            fontSize: 10.5,
+            fontSize: 10,
             marginTop: 1,
           },
           headerShown: false,
@@ -76,7 +76,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="community"
           options={{
-            title: "Community",
+            title: "Chat",
             tabBarIcon: ({ color }) => (
               <MessagesSquare size={22} color={color} strokeWidth={2.3} />
             ),

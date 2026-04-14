@@ -9,21 +9,19 @@ import { useRouter } from "expo-router"
 import {
   Activity,
   ArrowLeft,
-  EllipsisVertical,
+  BookOpen,
   Flame,
-  Search,
-  Sparkles,
   Target,
   TrendingUp,
-  UserCircle2,
+  Zap,
 } from "lucide-react-native"
-import { Pressable, ScrollView, View } from "react-native"
+import { Pressable, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
-import { Card, CardContent } from "@/components/ui/card"
 import { Text } from "@/components/ui/text"
+import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 
 const WINDOWS: { label: string; value: PerformanceWindow }[] = [
   { label: "Week", value: "week" },
@@ -55,274 +53,268 @@ export default function DashboardScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView
-        contentContainerClassName="gap-4 px-4 pb-28 pt-5"
+        contentContainerClassName="pb-28"
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
       >
-        <View className="flex-row items-center justify-between gap-3">
+        {/* Header */}
+        <View className="flex-row items-center gap-3 px-4 pb-3 pt-4">
           <Pressable
-            className="h-10 w-10 items-center justify-center rounded-2xl"
+            className="h-10 w-10 items-center justify-center rounded-full"
+            style={{ backgroundColor: withOpacity(theme.primary, 0.1) }}
             onPress={() => {
               if (router.canGoBack()) {
                 router.back()
                 return
               }
-
               router.replace("/(tabs)")
             }}
           >
-            <ArrowLeft size={22} color={theme.primary} strokeWidth={2.5} />
+            <ArrowLeft size={18} color={theme.primary} strokeWidth={2.5} />
           </Pressable>
-
-          <View className="flex-row items-center gap-4">
-            <Search size={20} color={theme.primary} strokeWidth={2.2} />
-            <UserCircle2 size={22} color={theme.primary} strokeWidth={2.1} />
-            <EllipsisVertical
-              size={20}
-              color={theme.primary}
-              strokeWidth={2.2}
-            />
+          <View className="flex-1">
+            <Text className="text-[20px] font-black text-foreground">
+              Dashboard
+            </Text>
           </View>
         </View>
 
-        {/* Header */}
-        <View className="gap-0.5">
-          <Text className="text-[11px] font-black uppercase tracking-[1.8px] text-primary">
-            Performance
-          </Text>
-          <Text className="text-[22px] font-black leading-tight text-foreground">
-            Your Dashboard
-          </Text>
-          <Text className="text-[13px] leading-5 text-muted-foreground">
-            Track your progress, strengths, and areas for improvement.
+        {/* Accuracy hero */}
+        <View className="items-center py-4">
+          <View
+            className="h-28 w-28 items-center justify-center rounded-full"
+            style={{
+              backgroundColor: withOpacity(theme.primary, 0.1),
+              borderWidth: 3,
+              borderColor: withOpacity(theme.primary, 0.3),
+            }}
+          >
+            <Text className="text-[32px] font-black text-primary">
+              {metric?.averageScore ?? 0}%
+            </Text>
+          </View>
+          <Text className="mt-2 text-[13px] font-semibold text-muted-foreground">
+            Overall Accuracy
           </Text>
         </View>
 
-        {/* Streak + Focus row */}
-        <View className="flex-row gap-2.5">
+        {/* Quick stats row */}
+        <View className="flex-row gap-2 px-4">
           <View
-            className="flex-1 gap-1 rounded-3xl p-4"
-            style={{
-              backgroundColor: withOpacity(theme.accent, 0.18),
-              borderWidth: 1,
-              borderColor: withOpacity(theme.accent, 0.3),
-            }}
+            className="flex-1 items-center gap-1 rounded-2xl py-3"
+            style={{ backgroundColor: withOpacity(theme.primary, 0.08) }}
           >
-            <View className="flex-row items-center gap-1.5">
-              <Flame size={14} color={theme.accent} />
-              <Text
-                className="text-[10px] font-black uppercase tracking-widest"
-                style={{ color: theme.accent }}
-              >
-                Streak
-              </Text>
-            </View>
-            <Text className="text-2xl font-black text-foreground">
+            <BookOpen size={16} color={theme.primary} />
+            <Text className="text-[16px] font-black text-foreground">
+              {metric?.questionsAnswered ?? 0}
+            </Text>
+            <Text className="text-[10px] font-semibold text-muted-foreground">
+              Questions
+            </Text>
+          </View>
+          <View
+            className="flex-1 items-center gap-1 rounded-2xl py-3"
+            style={{ backgroundColor: withOpacity(theme.accent, 0.1) }}
+          >
+            <Flame size={16} color={theme.accent} />
+            <Text className="text-[16px] font-black text-foreground">
               {DAILY_TRACKER.streakDays}
             </Text>
-            <Text className="text-[11px] text-muted-foreground">
-              {DAILY_TRACKER.completedSessions}/{DAILY_TRACKER.targetSessions}{" "}
-              today
+            <Text className="text-[10px] font-semibold text-muted-foreground">
+              Day Streak
             </Text>
           </View>
-
           <View
-            className="flex-1 gap-1 rounded-3xl p-4"
-            style={{
-              backgroundColor: withOpacity(theme.primary, 0.12),
-              borderWidth: 1,
-              borderColor: withOpacity(theme.primary, 0.25),
-            }}
+            className="flex-1 items-center gap-1 rounded-2xl py-3"
+            style={{ backgroundColor: withOpacity(theme.primary, 0.08) }}
           >
-            <View className="flex-row items-center gap-1.5">
-              <Target size={14} color={theme.primary} />
-              <Text className="text-[10px] font-black uppercase tracking-widest text-primary">
-                Focus
-              </Text>
-            </View>
-            <Text
-              className="text-[13px] font-black text-foreground"
-              numberOfLines={2}
-            >
-              {DAILY_TRACKER.focusLabel}
+            <Zap size={16} color={theme.primary} />
+            <Text className="text-[16px] font-black text-foreground">
+              {metric?.examSimulations ?? 0}
             </Text>
-            <Text className="text-[11px] text-muted-foreground">
-              Next block
+            <Text className="text-[10px] font-semibold text-muted-foreground">
+              Exam Runs
             </Text>
           </View>
         </View>
 
-        {/* Time window tabs */}
+        {/* Period toggle */}
         <View
-          className="flex-row gap-1 rounded-2xl p-1"
-          style={{ backgroundColor: theme.muted }}
+          className="mx-4 mt-4 flex-row gap-1 rounded-2xl p-1"
+          style={{ backgroundColor: withOpacity(theme.primary, 0.06) }}
         >
-          {WINDOWS.map((w) => {
-            const isActive = activeWindow === w.value
+          {WINDOWS.map((windowOption) => {
+            const isActive = activeWindow === windowOption.value
             return (
               <Pressable
-                key={w.value}
-                onPress={() => setActiveWindow(w.value)}
+                key={windowOption.value}
+                onPress={() => setActiveWindow(windowOption.value)}
                 className="flex-1 items-center justify-center rounded-xl py-2.5"
                 style={{
                   backgroundColor: isActive ? theme.card : "transparent",
                   shadowColor: isActive ? "#000" : "transparent",
                   shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: isActive ? 0.08 : 0,
-                  shadowRadius: 3,
+                  shadowOpacity: isActive ? 0.06 : 0,
+                  shadowRadius: 4,
                   elevation: isActive ? 2 : 0,
                 }}
               >
                 <Text
-                  className="text-[13px] font-black"
+                  className="text-[13px] font-bold"
                   style={{
                     color: isActive ? theme.primary : theme.mutedForeground,
                   }}
                 >
-                  {w.label}
+                  {windowOption.label}
                 </Text>
               </Pressable>
             )
           })}
         </View>
 
-        {/* Metric summary card */}
-        {metric ? (
-          <Card className="rounded-3xl">
-            <CardContent className="gap-3 px-4 py-4">
-              <View className="flex-row items-center justify-between">
-                <View className="gap-0.5">
-                  <Text className="text-base font-extrabold text-card-foreground">
-                    {WINDOWS.find((w) => w.value === activeWindow)?.label}{" "}
-                    Overview
-                  </Text>
-                  <Text className="text-[13px] text-muted-foreground">
-                    {metric.questionsAnswered} answered ·{" "}
-                    {metric.examSimulations} exam runs
-                  </Text>
-                </View>
-                <View
-                  className="rounded-2xl px-3 py-1.5"
-                  style={{
-                    backgroundColor: withOpacity(theme.primary, 0.15),
-                    borderWidth: 1,
-                    borderColor: withOpacity(theme.primary, 0.3),
-                  }}
-                >
-                  <Text className="text-lg font-black text-primary">
-                    {metric.averageScore}%
-                  </Text>
-                </View>
-              </View>
-
-              {/* Strongest / Weakest */}
-              <View className="flex-row gap-3">
-                <View
-                  className="flex-1 gap-1 rounded-2xl p-3"
-                  style={{ borderWidth: 1, borderColor: theme.border }}
-                >
-                  <View className="flex-row items-center gap-1.5">
-                    <TrendingUp size={13} color={theme.primary} />
-                    <Text className="text-[10px] font-bold uppercase tracking-wide text-primary">
-                      Strongest
-                    </Text>
-                  </View>
-                  <Text
-                    className="text-[13px] font-bold text-card-foreground"
-                    numberOfLines={2}
-                  >
-                    {strongest?.title ?? "—"}
-                  </Text>
-                </View>
-                <View
-                  className="flex-1 gap-1 rounded-2xl p-3"
-                  style={{ borderWidth: 1, borderColor: theme.border }}
-                >
-                  <View className="flex-row items-center gap-1.5">
-                    <Activity size={13} color={theme.destructive} />
-                    <Text className="text-[10px] font-bold uppercase tracking-wide text-destructive">
-                      Needs Work
-                    </Text>
-                  </View>
-                  <Text
-                    className="text-[13px] font-bold text-card-foreground"
-                    numberOfLines={2}
-                  >
-                    {weakest?.title ?? "—"}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Category ranking with progress bars */}
-              <View
-                className="gap-3 rounded-2xl p-3"
-                style={{
-                  backgroundColor: isDark ? theme.muted : "hsl(243 30% 97%)",
-                  borderWidth: 1,
-                  borderColor: theme.border,
-                }}
+        {/* Strongest / Weakest */}
+        <View className="mt-4 flex-row gap-2.5 px-4">
+          <View
+            className="flex-1 gap-2 rounded-2xl p-3.5"
+            style={{ backgroundColor: withOpacity(theme.success, 0.08) }}
+          >
+            <View className="flex-row items-center gap-1.5">
+              <TrendingUp size={14} color={theme.success} />
+              <Text
+                className="text-[10px] font-black uppercase tracking-widest"
+                style={{ color: theme.success }}
               >
-                <View className="flex-row items-center gap-2">
-                  <Sparkles size={14} color={theme.primary} />
-                  <Text className="text-xs font-black uppercase tracking-[1.4px] text-primary">
-                    Category Ranking
-                  </Text>
-                </View>
+                Strongest
+              </Text>
+            </View>
+            <Text
+              className="text-[14px] font-bold text-foreground"
+              numberOfLines={2}
+            >
+              {strongest?.title ?? "—"}
+            </Text>
+          </View>
+          <View
+            className="flex-1 gap-2 rounded-2xl p-3.5"
+            style={{ backgroundColor: withOpacity(theme.destructive, 0.08) }}
+          >
+            <View className="flex-row items-center gap-1.5">
+              <Activity size={14} color={theme.destructive} />
+              <Text
+                className="text-[10px] font-black uppercase tracking-widest"
+                style={{ color: theme.destructive }}
+              >
+                Needs Work
+              </Text>
+            </View>
+            <Text
+              className="text-[14px] font-bold text-foreground"
+              numberOfLines={2}
+            >
+              {weakest?.title ?? "—"}
+            </Text>
+          </View>
+        </View>
 
-                {rankedCategories.map((catMetric, index) => {
-                  const category = CATEGORIES.find(
-                    (c) => c.id === catMetric.categoryId
-                  )
-                  return (
-                    <View key={catMetric.categoryId} className="gap-1.5">
-                      <View className="flex-row items-center justify-between">
-                        <View className="flex-1 flex-row items-center gap-2">
-                          <View
-                            className="h-7 w-7 items-center justify-center rounded-xl"
-                            style={{
-                              backgroundColor: withOpacity(theme.primary, 0.15),
-                            }}
-                          >
-                            <Text className="text-[11px] font-black text-primary">
-                              {String(index + 1).padStart(2, "0")}
-                            </Text>
-                          </View>
+        {/* Focus card */}
+        <View
+          className="mx-4 mt-3 flex-row items-center gap-3 rounded-2xl px-4 py-3.5"
+          style={{
+            backgroundColor: withOpacity(theme.primary, 0.08),
+            borderWidth: 1,
+            borderColor: withOpacity(theme.primary, 0.15),
+          }}
+        >
+          <Target size={18} color={theme.primary} />
+          <View className="flex-1">
+            <Text className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Current Focus
+            </Text>
+            <Text
+              className="text-[14px] font-bold text-foreground"
+              numberOfLines={1}
+            >
+              {DAILY_TRACKER.focusLabel}
+            </Text>
+          </View>
+          <Text className="text-[12px] font-semibold text-muted-foreground">
+            {DAILY_TRACKER.completedSessions}/{DAILY_TRACKER.targetSessions}{" "}
+            today
+          </Text>
+        </View>
+
+        {/* Category ranking */}
+        {metric ? (
+          <View className="mt-5 px-4">
+            <Text className="mb-3 text-[11px] font-black uppercase tracking-[1.4px] text-muted-foreground">
+              Category Performance
+            </Text>
+            <View className="gap-2.5">
+              {rankedCategories.map((catMetric, index) => {
+                const category = CATEGORIES.find(
+                  (item) => item.id === catMetric.categoryId
+                )
+                const barColor =
+                  catMetric.accuracy >= 80
+                    ? theme.success
+                    : catMetric.accuracy >= 65
+                      ? theme.primary
+                      : theme.destructive
+
+                return (
+                  <View
+                    key={catMetric.categoryId}
+                    className="gap-2 rounded-2xl px-3.5 py-3"
+                    style={{ backgroundColor: theme.card }}
+                  >
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-1 flex-row items-center gap-2.5">
+                        <View
+                          className="h-7 w-7 items-center justify-center rounded-lg"
+                          style={{
+                            backgroundColor: withOpacity(barColor, 0.12),
+                          }}
+                        >
                           <Text
-                            className="flex-1 text-[13px] font-bold text-card-foreground"
+                            className="text-[11px] font-black"
+                            style={{ color: barColor }}
+                          >
+                            {index + 1}
+                          </Text>
+                        </View>
+                        <View className="flex-1">
+                          <Text
+                            className="text-[13px] font-bold text-foreground"
                             numberOfLines={1}
                           >
                             {category?.title ?? catMetric.categoryId}
                           </Text>
+                          <Text className="text-[11px] text-muted-foreground">
+                            {catMetric.answered} answered
+                          </Text>
                         </View>
-                        <Text className="ml-2 text-[13px] font-black text-primary">
-                          {catMetric.accuracy}%
-                        </Text>
                       </View>
-
-                      {/* Progress bar */}
-                      <View className="h-1.5 overflow-hidden rounded-full bg-muted">
-                        <View
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${catMetric.accuracy}%`,
-                            backgroundColor:
-                              catMetric.accuracy >= 80
-                                ? theme.success
-                                : catMetric.accuracy >= 65
-                                  ? theme.primary
-                                  : theme.destructive,
-                          }}
-                        />
-                      </View>
-                      <Text className="text-[11px] text-muted-foreground">
-                        {catMetric.answered} answered · {category?.groupLabel}
+                      <Text
+                        className="text-[15px] font-black"
+                        style={{ color: barColor }}
+                      >
+                        {catMetric.accuracy}%
                       </Text>
                     </View>
-                  )
-                })}
-              </View>
-            </CardContent>
-          </Card>
+                    <View className="h-1.5 overflow-hidden rounded-full bg-muted">
+                      <View
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${catMetric.accuracy}%`,
+                          backgroundColor: barColor,
+                        }}
+                      />
+                    </View>
+                  </View>
+                )
+              })}
+            </View>
+          </View>
         ) : null}
       </ScrollView>
     </SafeAreaView>

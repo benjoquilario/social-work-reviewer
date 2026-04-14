@@ -1,5 +1,8 @@
+import { type ReactNode } from "react"
 import { View } from "react-native"
 
+import { THEME, withOpacity } from "@/lib/theme"
+import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Text } from "@/components/ui/text"
 
 type HeaderStat = {
@@ -8,10 +11,12 @@ type HeaderStat = {
 }
 
 type AppShellHeaderProps = {
-  eyebrow?: string
-  title: string
-  subtitle: string
+  eyebrow?: ReactNode
+  title: ReactNode
+  subtitle: ReactNode
   avatarLabel?: string
+  badgeLabel?: string
+  badgeValue?: string
   stats?: HeaderStat[]
   compact?: boolean
 }
@@ -21,74 +26,79 @@ export function AppShellHeader({
   title,
   subtitle,
   avatarLabel = "RV",
+  badgeLabel,
+  badgeValue,
   stats,
   compact = false,
 }: AppShellHeaderProps) {
+  const colorScheme = useColorScheme()
+  const theme = colorScheme === "dark" ? THEME.dark : THEME.light
+
   return (
-    <View
-      className={
-        compact
-          ? "overflow-hidden rounded-[24px] border border-border bg-card px-4 py-4"
-          : "overflow-hidden rounded-[26px] border border-border bg-card px-4 py-4"
-      }
-    >
-      <View
-        className={
-          compact
-            ? "absolute -right-7 -top-7 h-24 w-24 rounded-full bg-primary/10"
-            : "absolute -right-8 -top-8 h-24 w-24 rounded-full bg-primary/10"
-        }
-      />
-      <View
-        className={
-          compact
-            ? "bg-chart2/15 absolute -bottom-8 -left-8 h-20 w-20 rounded-full"
-            : "bg-chart2/15 absolute -bottom-9 -left-8 h-20 w-20 rounded-full"
-        }
-      />
+    <View className={compact ? "gap-4 px-1" : "gap-5 px-1"}>
+      <View className="flex-row items-start justify-between gap-4">
+        <View className="flex-1 gap-1.5">
+          {eyebrow ? (
+            <Text className="text-[11px] font-bold uppercase tracking-[1.6px] text-primary">
+              {eyebrow}
+            </Text>
+          ) : null}
 
-      {eyebrow ? (
-        <Text
-          className={
-            compact
-              ? "mt-4 text-[11px] font-black uppercase tracking-[1.6px] text-primary"
-              : "mt-4 text-[11px] font-black uppercase tracking-[1.6px] text-primary"
-          }
+          <Text
+            className={
+              compact
+                ? "text-[22px] font-extrabold leading-7 text-foreground"
+                : "text-[24px] font-extrabold leading-8 text-foreground"
+            }
+          >
+            {title}
+          </Text>
+          <Text className="text-[13px] leading-5 text-muted-foreground">
+            {subtitle}
+          </Text>
+        </View>
+
+        <View
+          className="items-center gap-1.5 rounded-2xl px-3 py-2.5"
+          style={{
+            backgroundColor: withOpacity(theme.primary, 0.08),
+          }}
         >
-          {eyebrow}
-        </Text>
-      ) : null}
-
-      <Text
-        className={
-          compact
-            ? "mt-2 text-[24px] font-black leading-8 text-card-foreground"
-            : "mt-2 text-[24px] font-black leading-8 text-card-foreground"
-        }
-      >
-        {title}
-      </Text>
-      <Text className="mt-2 text-[13px] leading-5 text-muted-foreground">
-        {subtitle}
-      </Text>
+          <View
+            className="h-10 w-10 items-center justify-center rounded-xl"
+            style={{ backgroundColor: withOpacity(theme.primary, 0.15) }}
+          >
+            <Text className="text-xs font-bold uppercase text-primary">
+              {avatarLabel}
+            </Text>
+          </View>
+          {badgeLabel ? (
+            <Text className="text-[10px] font-bold uppercase tracking-[1.2px] text-primary">
+              {badgeLabel}
+            </Text>
+          ) : null}
+          {badgeValue ? (
+            <Text className="max-w-[80px] text-center text-[11px] font-semibold leading-4 text-muted-foreground">
+              {badgeValue}
+            </Text>
+          ) : null}
+        </View>
+      </View>
 
       {stats?.length ? (
-        <View
-          className={compact ? "mt-4 flex-row gap-2" : "mt-4 flex-row gap-1.5"}
-        >
+        <View className="flex-row gap-2">
           {stats.slice(0, 3).map((stat) => (
             <View
               key={stat.label}
-              className={
-                compact
-                  ? "flex-1 rounded-2xl border border-border/80 bg-background/80 px-3 py-2.5"
-                  : "flex-1 rounded-2xl border border-border/80 bg-background/80 px-3 py-3"
-              }
+              className="flex-1 rounded-xl px-3 py-2.5"
+              style={{
+                backgroundColor: withOpacity(theme.muted, 0.7),
+              }}
             >
-              <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-muted-foreground">
+              <Text className="text-[10px] font-bold uppercase tracking-[1px] text-muted-foreground">
                 {stat.label}
               </Text>
-              <Text className="mt-1 text-sm font-black text-card-foreground">
+              <Text className="mt-1 text-sm font-extrabold text-foreground">
                 {stat.value}
               </Text>
             </View>

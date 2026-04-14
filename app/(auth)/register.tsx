@@ -14,7 +14,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   TextInput,
   View,
 } from "react-native"
@@ -23,10 +22,11 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { THEME } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Text } from "@/components/ui/text"
+import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 
 export default function RegisterScreen() {
   const router = useRouter()
-  const { register } = useAuth()
+  const register = useAuth((state) => state.register)
   const colorScheme = useColorScheme()
   const isDark = colorScheme === "dark"
   const theme = isDark ? THEME.dark : THEME.light

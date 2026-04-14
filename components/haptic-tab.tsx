@@ -5,13 +5,15 @@ import * as Haptics from "expo-haptics"
 import { useAppPreferences } from "@/lib/app-preferences"
 
 export function HapticTab(props: BottomTabBarButtonProps) {
-  const { preferences } = useAppPreferences()
+  const hapticsEnabled = useAppPreferences(
+    (state) => state.preferences.hapticsEnabled
+  )
 
   return (
     <PlatformPressable
       {...props}
       onPressIn={(ev) => {
-        if (process.env.EXPO_OS === "ios" && preferences.hapticsEnabled) {
+        if (process.env.EXPO_OS === "ios" && hapticsEnabled) {
           // Add a soft haptic feedback when pressing down on the tabs.
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
         }

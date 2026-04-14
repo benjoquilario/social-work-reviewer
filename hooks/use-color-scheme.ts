@@ -1,11 +1,13 @@
-import { useContext } from "react"
 import { useColorScheme as useNativeColorScheme } from "react-native"
 
-import { AppPreferencesContext } from "@/lib/app-preferences"
+import { useAppPreferences } from "@/lib/app-preferences"
 
 export function useColorScheme() {
   const nativeColorScheme = useNativeColorScheme() ?? "light"
-  const preferences = useContext(AppPreferencesContext)
+  const isReady = useAppPreferences((state) => state.isReady)
+  const resolvedColorScheme = useAppPreferences(
+    (state) => state.resolvedColorScheme
+  )
 
-  return preferences?.resolvedColorScheme ?? nativeColorScheme
+  return isReady ? resolvedColorScheme : nativeColorScheme
 }

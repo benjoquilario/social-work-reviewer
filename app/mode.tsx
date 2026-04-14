@@ -1,28 +1,69 @@
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { QUIZ_MODES } from "@/data/reviewer-data"
 import { useQuery } from "@tanstack/react-query"
 import { useLocalSearchParams, useRouter } from "expo-router"
-import { ChevronLeft, Clock3, ListChecks } from "lucide-react-native"
-import { Pressable, ScrollView, View } from "react-native"
+import {
+  ChevronLeft,
+  Clock3,
+  FileQuestion,
+  ListChecks,
+  LockKeyhole,
+} from "lucide-react-native"
+import { Pressable, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import { getQuizCategoryDetail } from "@/lib/quiz-content"
-import { THEME } from "@/lib/theme"
+import {
+  getQuizCategoryDetail,
+  listQuizExamsBySubjectId,
+  type QuizExamSummary,
+} from "@/lib/quiz-content"
+import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
+import { ScrollView } from "@/components/ui/virtualized-scroll-view"
+import { AppShellHeader } from "@/components/app-shell-header"
+
+function getExamTypeLabel(type: QuizExamSummary["type"]) {
+  if (type === "practice") {
+    return "Questions & Answers"
+  }
+
+  if (type === "topic") {
+    return "Topic Drill"
+  }
+
+  return "Mock Exam"
+}
+
+function getExamStatusCopy(exam: QuizExamSummary) {
+  if (exam.isLocked) {
+    return "Premium exam. Upgrade to open this question set."
+  }
+
+  if (exam.availableQuestionCount === 0) {
+    return "No published questions and choices are available for this exam yet."
+  }
+
+  const visibilityCopy =
+    exam.availableQuestionCount === exam.totalQuestionCount
+      ? `${exam.availableQuestionCount} questions ready.`
+      : `${exam.availableQuestionCount} of ${exam.totalQuestionCount} questions visible.`
+
+  return `${visibilityCopy} ${exam.shouldShuffle ? "Shuffled order." : "Fixed order."}`
+}
 
 export default function ModeSelectionScreen() {
   const router = useRouter()
-  const { isAuthenticated, profile, refreshProfile } = useAuth()
+  const isAuthenticated = useAuth((state) => state.isAuthenticated)
+  const profile = useAuth((state) => state.profile)
+  const refreshProfile = useAuth((state) => state.refreshProfile)
   const colorScheme = useColorScheme()
-  const iconColor =
-    colorScheme === "dark"
-      ? THEME.dark.mutedForeground
-      : THEME.light.mutedForeground
+  const isDark = colorScheme === "dark"
+  const theme = isDark ? THEME.dark : THEME.light
+  const iconColor = theme.mutedForeground
   const params = useLocalSearchParams<{ categoryId?: string }>()
   const categoryId = params.categoryId ?? ""
   const isPremiumUser = profile?.isPremium === true
@@ -33,141 +74,259 @@ export default function ModeSelectionScreen() {
     }
   }, [isAuthenticated, profile, refreshProfile])
 
-  const categoryQuery = useQuery({
-    queryKey: ["quiz-category", categoryId, isPremiumUser],
+  const examPickerQuery = useQuery({
+    queryKey: ["quiz-category-exams", categoryId, isPremiumUser],
     enabled: Boolean(categoryId),
-    queryFn: () =>
-      getQuizCategoryDetail(categoryId, { viewerIsPremium: isPremiumUser }),
+    queryFn: async () => {
+      const [category, exams] = await Promise.all([
+        getQuizCategoryDetail(categoryId, { viewerIsPremium: isPremiumUser }),
+        listQuizExamsBySubjectId(categoryId, {
+          viewerIsPremium: isPremiumUser,
+        }),
+      ])
+
+      return { category, exams }
+    },
   })
 
-  const category = categoryQuery.data ?? null
-  const isCategoryLocked = category?.isLocked === true
-  const isCategoryUnavailable =
-    !category || (!isCategoryLocked && category.availableQuestionCount === 0)
+  const category = examPickerQuery.data?.category ?? null
+  const exams = useMemo(
+    () => examPickerQuery.data?.exams ?? [],
+    [examPickerQuery.data?.exams]
+  )
+  const examStats = useMemo(
+    () => [
+      { label: "Exams", value: String(exams.length) },
+      {
+        label: "Ready",
+        value: String(
+          exams.filter(
+            (exam) => !exam.isLocked && exam.availableQuestionCount > 0
+          ).length
+        ),
+      },
+      {
+        label: "Locked",
+        value: String(exams.filter((exam) => exam.isLocked).length),
+      },
+    ],
+    [exams]
+  )
+  const headerSubtitle = category
+    ? `Choose an exam under ${category.name}. Each item launches a question-and-answer`
+    : "Choose a subject exam questions and choices."
 
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="gap-3.5 px-4 py-4"
+        contentContainerClassName="gap-4 px-4 py-4"
       >
-        <Text className="text-[24px] font-extrabold text-foreground">
-          Select Quiz Mode
-        </Text>
+        <AppShellHeader
+          eyebrow="Questions and Answers"
+          title="Choose an Exam"
+          subtitle={headerSubtitle}
+          avatarLabel="QA"
+          badgeLabel="Subject"
+          badgeValue={category ? `${exams.length} exams` : "Preparing"}
+          stats={examStats}
+        />
 
-        {categoryQuery.isLoading ? (
+        {examPickerQuery.isLoading ? (
           <View className="gap-3">
             <Skeleton className="h-5 w-full rounded-lg" />
             <Skeleton className="h-24 rounded-2xl" />
+            <Skeleton className="h-24 rounded-2xl" />
           </View>
-        ) : categoryQuery.error ? (
+        ) : examPickerQuery.error ? (
           <Card>
             <CardContent className="gap-2 px-3.5 py-3.5">
               <Text className="text-[15px] font-bold text-destructive">
-                Quiz category unavailable
+                Subject exams unavailable
               </Text>
               <Text className="text-[12px] leading-5 text-muted-foreground">
-                {categoryQuery.error instanceof Error
-                  ? categoryQuery.error.message
-                  : "Unable to load quiz category from Appwrite."}
+                {examPickerQuery.error instanceof Error
+                  ? examPickerQuery.error.message
+                  : "Unable to load exams from Appwrite."}
               </Text>
             </CardContent>
           </Card>
-        ) : (
-          <Text className="text-[13px] leading-5 text-muted-foreground">
-            {category
-              ? `Category: ${category.name} • ${category.availableQuestionCount} available questions • ${category.totalQuestionCount} total in Appwrite`
-              : "Pick a mode to start your timed review session."}
-          </Text>
-        )}
+        ) : null}
 
-        <Card>
-          <CardContent className="overflow-hidden px-0 py-0">
-            {QUIZ_MODES.map((mode) => (
-              <Pressable
-                key={mode.id}
-                className="gap-1 border-b border-border px-3.5 py-3.5"
-                disabled={isCategoryUnavailable}
-                onPress={() => {
-                  if (!category) {
-                    return
-                  }
-
-                  if (category.isLocked) {
-                    router.push({
-                      pathname: "/premium",
-                      params: {
-                        source: "quiz-category",
-                        title: category.name,
-                        categoryId: category.id,
-                      },
-                    })
-                    return
-                  }
-
-                  router.push({
-                    pathname: "/quiz",
-                    params: {
-                      categoryId: category.id,
-                      totalQuestions: String(mode.totalQuestions),
-                      minutes: String(mode.minutes),
-                    },
-                  })
-                }}
-                style={{
-                  opacity:
-                    isCategoryUnavailable || category?.isLocked ? 0.55 : 1,
-                }}
-              >
-                <Text className="text-[15px] font-bold text-card-foreground">
-                  {mode.totalQuestions} Questions / {mode.minutes} Minutes
-                </Text>
-                <View className="flex-row items-center gap-2">
-                  <ListChecks size={14} color={iconColor} />
-                  <Clock3 size={14} color={iconColor} />
-                  <Text className="text-[12px] font-semibold text-muted-foreground">
-                    Timed reviewer mode
-                  </Text>
-                </View>
-                <Text className="text-[12px] text-muted-foreground">
-                  Focus mode for memorization and board-exam style pacing.
-                </Text>
-              </Pressable>
-            ))}
-          </CardContent>
-        </Card>
-
-        {category ? (
+        {/* {category ? (
           <Card>
-            <CardContent className="gap-2 px-3.5 py-3.5">
+            <CardContent className="gap-2 px-4 py-3.5">
               <Text className="text-[15px] font-bold text-card-foreground">
-                What this category covers
+                {category.name}
               </Text>
               <Text className="text-[12px] leading-5 text-muted-foreground">
-                {category.description || "No subject description added yet."}
+                {category.description ||
+                  "Choose an exam below to open its question-and-answer set."}
               </Text>
-              <Text className="text-[12px] font-semibold uppercase tracking-wide text-primary">
-                {category.freeQuestionCount} free •{" "}
-                {category.premiumQuestionCount} premium
+              <Text className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+                {category.availableQuestionCount} visible questions •{" "}
+                {category.totalQuestionCount} total in Appwrite
               </Text>
-              {category.isLocked ? (
-                <Text className="text-[12px] leading-5 text-muted-foreground">
-                  This category is currently premium-only for free users.
-                </Text>
-              ) : null}
-              {!category.isLocked && category.availableQuestionCount === 0 ? (
-                <Text className="text-[12px] leading-5 text-muted-foreground">
-                  No eligible Appwrite questions are available for this category
-                  yet.
-                </Text>
-              ) : null}
+            </CardContent>
+          </Card>
+        ) : null} */}
+
+        {exams.length > 0 ? (
+          <Card>
+            <CardContent className="overflow-hidden px-0 py-0">
+              {exams.map((exam, index) => {
+                const isUnavailable =
+                  !exam.isLocked && exam.availableQuestionCount === 0
+
+                return (
+                  <Pressable
+                    key={exam.id}
+                    className="gap-2 px-4 py-4"
+                    disabled={isUnavailable}
+                    onPress={() => {
+                      if (exam.isLocked) {
+                        router.push({
+                          pathname: "/premium",
+                          params: {
+                            source: "exam",
+                            title: exam.title,
+                            categoryId,
+                          },
+                        })
+                        return
+                      }
+
+                      if (exam.availableQuestionCount === 0) {
+                        return
+                      }
+
+                      router.push({
+                        pathname: "/quiz",
+                        params: {
+                          categoryId,
+                          examId: exam.id,
+                          totalQuestions: String(exam.availableQuestionCount),
+                          minutes: String(exam.timeLimit),
+                        },
+                      })
+                    }}
+                    style={{
+                      opacity: isUnavailable ? 0.58 : 1,
+                      borderBottomWidth: index === exams.length - 1 ? 0 : 1,
+                      borderBottomColor: withOpacity(
+                        theme.border,
+                        isDark ? 0.6 : 0.85
+                      ),
+                      backgroundColor:
+                        index % 2 === 0
+                          ? withOpacity(theme.primary, 0.03)
+                          : "transparent",
+                    }}
+                  >
+                    <View className="flex-row items-start justify-between gap-3">
+                      <View className="flex-1 gap-1.5">
+                        <View className="flex-row flex-wrap items-center gap-2">
+                          <Text className="text-[15px] font-bold text-card-foreground">
+                            {exam.title}
+                          </Text>
+                          <View
+                            className="rounded-full px-2.5 py-1"
+                            style={{
+                              backgroundColor: withOpacity(
+                                exam.isLocked ? theme.accent : theme.primary,
+                                0.12
+                              ),
+                            }}
+                          >
+                            <Text
+                              className="text-[10px] font-black uppercase tracking-[1.2px]"
+                              style={{
+                                color: exam.isLocked
+                                  ? theme.accent
+                                  : theme.primary,
+                              }}
+                            >
+                              {getExamTypeLabel(exam.type)}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View className="flex-row items-center gap-2">
+                          <FileQuestion size={14} color={iconColor} />
+                          <Clock3 size={14} color={iconColor} />
+                          <Text className="text-[12px] font-semibold text-muted-foreground">
+                            Question and choice based exam
+                          </Text>
+                        </View>
+
+                        <Text className="text-[12px] leading-5 text-muted-foreground">
+                          {getExamStatusCopy(exam)}
+                        </Text>
+
+                        <View className="flex-row flex-wrap items-center gap-2.5">
+                          <Text className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+                            {exam.timeLimit} min
+                          </Text>
+                          <Text
+                            className="text-[11px] font-semibold uppercase tracking-wide"
+                            style={{ color: theme.accent }}
+                          >
+                            {exam.availableQuestionCount} visible
+                          </Text>
+                          <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {exam.premiumQuestionCount > 0
+                              ? `${exam.premiumQuestionCount} premium`
+                              : `${exam.freeQuestionCount} free`}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View
+                        className="flex-row items-center gap-1 rounded-full px-3 py-1"
+                        style={{
+                          backgroundColor: withOpacity(
+                            exam.isLocked ? theme.accent : theme.primary,
+                            0.12
+                          ),
+                        }}
+                      >
+                        {exam.isLocked ? (
+                          <LockKeyhole size={12} color={theme.accent} />
+                        ) : (
+                          <ListChecks size={12} color={theme.primary} />
+                        )}
+                        <Text
+                          className="text-[10px] font-black uppercase tracking-[1.2px]"
+                          style={{
+                            color: exam.isLocked ? theme.accent : theme.primary,
+                          }}
+                        >
+                          {exam.isLocked ? "Locked" : "Open"}
+                        </Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                )
+              })}
+            </CardContent>
+          </Card>
+        ) : !examPickerQuery.isLoading && !examPickerQuery.error ? (
+          <Card>
+            <CardContent className="gap-2 px-4 py-3.5">
+              <Text className="text-[15px] font-bold text-card-foreground">
+                No exams yet
+              </Text>
+              <Text className="text-[12px] leading-5 text-muted-foreground">
+                Add exam records and exam-question assignments in Appwrite for
+                this subject to show question-and-answer sets here.
+              </Text>
             </CardContent>
           </Card>
         ) : null}
 
         <Button
           variant="outline"
-          className="h-10"
+          className="h-11 rounded-2xl"
           onPress={() => router.back()}
         >
           <ChevronLeft size={16} color={iconColor} />

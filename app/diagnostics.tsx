@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "expo-router"
 import { ArrowLeft, RefreshCcw } from "lucide-react-native"
-import { Pressable, ScrollView, View } from "react-native"
+import { Pressable, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import {
@@ -12,6 +12,7 @@ import { THEME } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Card, CardContent } from "@/components/ui/card"
 import { Text } from "@/components/ui/text"
+import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 
 const STATUS_STYLES = {
   success: {

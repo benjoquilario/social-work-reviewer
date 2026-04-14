@@ -54,8 +54,8 @@ function RootNavigator() {
     PlusJakartaSans_700Bold: require("../assets/fonts/PlusJakartaSans_700Bold.ttf"),
     PlusJakartaSans_800ExtraBold: require("../assets/fonts/PlusJakartaSans_800ExtraBold.ttf"),
   })
-  const { isReady } = useAppPreferences()
-  const { authState } = useAuth()
+  const isReady = useAppPreferences((state) => state.isReady)
+  const authState = useAuth((state) => state.authState)
   const colorScheme = useColorScheme()
   const navTheme = colorScheme === "dark" ? NAV_THEME.dark : NAV_THEME.light
   const nativewindThemeVariables = vars(
@@ -104,10 +104,12 @@ function RootNavigator() {
           <Stack
             screenOptions={{
               headerShadowVisible: false,
-              headerStyle: { backgroundColor: navTheme.colors.card },
-              headerTintColor: navTheme.colors.text,
+              headerStyle: { backgroundColor: navTheme.colors.background },
+              headerTintColor: navTheme.colors.primary,
+              headerBackButtonDisplayMode: "minimal",
               headerTitleStyle: {
-                fontFamily: APP_FONTS.bold,
+                fontFamily: APP_FONTS.extraBold,
+                fontSize: 18,
               },
             }}
           >
@@ -175,6 +177,12 @@ function RootNavigator() {
             />
             <Stack.Screen
               name="premium"
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="community/[postId]"
               options={{
                 headerShown: false,
               }}

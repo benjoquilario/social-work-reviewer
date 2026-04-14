@@ -1,6 +1,5 @@
 import { Link } from "expo-router"
 import { ArrowLeft } from "lucide-react-native"
-import { ScrollView } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { THEME } from "@/lib/theme"
@@ -8,6 +7,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Text } from "@/components/ui/text"
+import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 
 export default function ModalScreen() {
   const colorScheme = useColorScheme()

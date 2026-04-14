@@ -166,7 +166,7 @@ export const reviewerCmsSchema = {
     fields: [
       {
         key: "subjectId",
-        label: "Subject ID",
+        label: "Subject",
         kind: "string",
         required: true,
         size: 64,
@@ -205,7 +205,7 @@ export const reviewerCmsSchema = {
     fields: [
       {
         key: "topicId",
-        label: "Topic ID",
+        label: "Topic",
         kind: "string",
         required: true,
         size: 64,
@@ -262,13 +262,6 @@ export const reviewerCmsSchema = {
     group: "assessment",
     fields: [
       {
-        key: "topicId",
-        label: "Topic ID",
-        kind: "string",
-        required: true,
-        size: 64,
-      },
-      {
         key: "subjectId",
         label: "Subject ID",
         kind: "string",
@@ -302,7 +295,7 @@ export const reviewerCmsSchema = {
         key: "explanation",
         label: "Explanation",
         kind: "richtext",
-        required: true,
+        required: false,
         size: 7000,
       },
       {

@@ -4,7 +4,7 @@ import { COLLECTIONS, DB_ID, ID, Query, tablesDB } from "./appwrite"
 
 export type QuizResultPayload = {
   userId: string
-  subjectId: string
+  examId: string
   score: number
   totalItems: number
   timeTaken: number // seconds
@@ -24,7 +24,7 @@ export type ExamAttempt = {
 }
 
 export type UserProgressSummary = {
-  subjectId: string
+  examId: string
   totalAttempts: number
   totalCorrect: number
   totalItems: number
@@ -36,7 +36,6 @@ export type UserProgressSummary = {
 
 /**
  * Saves a completed quiz result as an exam_attempt document.
- * examId is set to the categoryId since we're using local questions.
  */
 export async function saveQuizResult(
   payload: QuizResultPayload
@@ -49,7 +48,7 @@ export async function saveQuizResult(
     rowId: ID.unique(),
     data: {
       userId: payload.userId,
-      examId: payload.subjectId, // maps to local categoryId
+      examId: payload.examId,
       score: payload.score,
       totalItems: payload.totalItems,
       timeTaken: payload.timeTaken,
@@ -81,12 +80,12 @@ export async function getUserAttempts(userId: string): Promise<ExamAttempt[]> {
 }
 
 /**
- * Aggregates attempts into per-subject progress summaries.
+ * Aggregates attempts into per-exam progress summaries.
  */
 export function aggregateProgress(
   attempts: ExamAttempt[]
 ): UserProgressSummary[] {
-  const subjectMap = new Map<
+  const examMap = new Map<
     string,
     { correct: number; total: number; lastStudied: string }
   >()
@@ -94,7 +93,7 @@ export function aggregateProgress(
   for (const attempt of attempts) {
     if (attempt.status !== "done") continue
 
-    const existing = subjectMap.get(attempt.examId) ?? {
+    const existing = examMap.get(attempt.examId) ?? {
       correct: 0,
       total: 0,
       lastStudied: attempt.finishedAt ?? attempt.startedAt,
@@ -106,12 +105,12 @@ export function aggregateProgress(
       existing.lastStudied = attempt.finishedAt
     }
 
-    subjectMap.set(attempt.examId, existing)
+    examMap.set(attempt.examId, existing)
   }
 
-  return Array.from(subjectMap.entries()).map(([subjectId, data]) => ({
-    subjectId,
-    totalAttempts: attempts.filter((a) => a.examId === subjectId).length,
+  return Array.from(examMap.entries()).map(([examId, data]) => ({
+    examId,
+    totalAttempts: attempts.filter((a) => a.examId === examId).length,
     totalCorrect: data.correct,
     totalItems: data.total,
     averageScore:

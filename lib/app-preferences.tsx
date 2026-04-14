@@ -1,17 +1,11 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type PropsWithChildren,
-} from "react"
+import { useEffect, type PropsWithChildren } from "react"
 import { colorScheme } from "nativewind"
 import {
   NativeModules,
   TurboModuleRegistry,
   useColorScheme as useNativeColorScheme,
 } from "react-native"
+import { create } from "zustand"
 
 export type ThemeMode = "system" | "light" | "dark"
 
@@ -20,6 +14,7 @@ export type AppPreferences = {
   showExplanations: boolean
   soundEffects: boolean
   hapticsEnabled: boolean
+  animationsEnabled: boolean
   dailyReminder: boolean
   strictMode: boolean
 }
@@ -31,6 +26,7 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   showExplanations: true,
   soundEffects: false,
   hapticsEnabled: true,
+  animationsEnabled: true,
   dailyReminder: true,
   strictMode: false,
 }
@@ -137,10 +133,13 @@ function createNativeStorage(
 
 const appStorage = createNativeStorage(getNativeAsyncStorageModule())
 
-type AppPreferencesContextValue = {
+type AppPreferencesStore = {
   isReady: boolean
+  systemColorScheme: "light" | "dark"
   preferences: AppPreferences
   resolvedColorScheme: "light" | "dark"
+  initialize: (systemColorScheme: "light" | "dark") => Promise<void>
+  setSystemColorScheme: (systemColorScheme: "light" | "dark") => void
   setThemeMode: (themeMode: ThemeMode) => void
   setPreference: <K extends keyof AppPreferences>(
     key: K,
@@ -149,107 +148,176 @@ type AppPreferencesContextValue = {
   resetPreferences: () => void
 }
 
-export const AppPreferencesContext = createContext<
-  AppPreferencesContextValue | undefined
->(undefined)
+function resolveColorScheme(
+  preferences: AppPreferences,
+  systemColorScheme: "light" | "dark"
+) {
+  return preferences.themeMode === "system"
+    ? systemColorScheme
+    : preferences.themeMode
+}
+
+async function loadStoredPreferences() {
+  try {
+    const stored = await appStorage.getItem(STORAGE_KEY)
+
+    if (!stored) {
+      return DEFAULT_APP_PREFERENCES
+    }
+
+    const parsed = JSON.parse(stored) as Partial<AppPreferences>
+
+    return {
+      ...DEFAULT_APP_PREFERENCES,
+      ...parsed,
+    }
+  } catch {
+    return DEFAULT_APP_PREFERENCES
+  }
+}
+
+function persistPreferences(preferences: AppPreferences) {
+  appStorage
+    .setItem(STORAGE_KEY, JSON.stringify(preferences))
+    .catch(() => undefined)
+}
+
+let initializePromise: Promise<void> | null = null
+
+export const useAppPreferencesStore = create<AppPreferencesStore>(
+  (set, get) => ({
+    isReady: false,
+    systemColorScheme: "light",
+    preferences: DEFAULT_APP_PREFERENCES,
+    resolvedColorScheme: "light",
+    initialize: async (systemColorScheme) => {
+      if (get().isReady) {
+        get().setSystemColorScheme(systemColorScheme)
+        return
+      }
+
+      if (initializePromise) {
+        return initializePromise
+      }
+
+      initializePromise = (async () => {
+        const preferences = await loadStoredPreferences()
+        colorScheme.set(preferences.themeMode)
+
+        set({
+          isReady: true,
+          systemColorScheme,
+          preferences,
+          resolvedColorScheme: resolveColorScheme(
+            preferences,
+            systemColorScheme
+          ),
+        })
+
+        initializePromise = null
+      })()
+
+      return initializePromise
+    },
+    setSystemColorScheme: (systemColorScheme) => {
+      set((state) => ({
+        systemColorScheme,
+        resolvedColorScheme: resolveColorScheme(
+          state.preferences,
+          systemColorScheme
+        ),
+      }))
+    },
+    setThemeMode: (themeMode) => {
+      colorScheme.set(themeMode)
+
+      set((state) => {
+        const preferences = {
+          ...state.preferences,
+          themeMode,
+        }
+
+        if (state.isReady) {
+          persistPreferences(preferences)
+        }
+
+        return {
+          preferences,
+          resolvedColorScheme: resolveColorScheme(
+            preferences,
+            state.systemColorScheme
+          ),
+        }
+      })
+    },
+    setPreference: (key, value) => {
+      set((state) => {
+        const preferences = {
+          ...state.preferences,
+          [key]: value,
+        }
+
+        if (state.isReady) {
+          persistPreferences(preferences)
+        }
+
+        return {
+          preferences,
+          resolvedColorScheme: resolveColorScheme(
+            preferences,
+            state.systemColorScheme
+          ),
+        }
+      })
+    },
+    resetPreferences: () => {
+      colorScheme.set(DEFAULT_APP_PREFERENCES.themeMode)
+
+      set((state) => {
+        if (state.isReady) {
+          persistPreferences(DEFAULT_APP_PREFERENCES)
+        }
+
+        return {
+          preferences: DEFAULT_APP_PREFERENCES,
+          resolvedColorScheme: resolveColorScheme(
+            DEFAULT_APP_PREFERENCES,
+            state.systemColorScheme
+          ),
+        }
+      })
+    },
+  })
+)
 
 export function AppPreferencesProvider({ children }: PropsWithChildren) {
   const systemColorScheme = useNativeColorScheme() ?? "light"
-  const [preferences, setPreferences] = useState(DEFAULT_APP_PREFERENCES)
-  const [isReady, setIsReady] = useState(false)
-
-  useEffect(() => {
-    let isMounted = true
-
-    async function loadPreferences() {
-      try {
-        const stored = await appStorage.getItem(STORAGE_KEY)
-
-        if (!stored) {
-          return
-        }
-
-        const parsed = JSON.parse(stored) as Partial<AppPreferences>
-
-        if (isMounted) {
-          setPreferences((current) => ({
-            ...current,
-            ...parsed,
-          }))
-        }
-      } catch {
-      } finally {
-        if (isMounted) {
-          setIsReady(true)
-        }
-      }
-    }
-
-    loadPreferences()
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!isReady) {
-      return
-    }
-
-    appStorage
-      .setItem(STORAGE_KEY, JSON.stringify(preferences))
-      .catch(() => undefined)
-  }, [isReady, preferences])
-
-  useEffect(() => {
-    colorScheme.set(preferences.themeMode)
-  }, [preferences.themeMode])
-
-  const resolvedColorScheme =
-    preferences.themeMode === "system"
-      ? systemColorScheme
-      : preferences.themeMode
-
-  const value = useMemo<AppPreferencesContextValue>(
-    () => ({
-      isReady,
-      preferences,
-      resolvedColorScheme,
-      setThemeMode: (themeMode) => {
-        setPreferences((current) => ({
-          ...current,
-          themeMode,
-        }))
-      },
-      setPreference: (key, value) => {
-        setPreferences((current) => ({
-          ...current,
-          [key]: value,
-        }))
-      },
-      resetPreferences: () => {
-        setPreferences(DEFAULT_APP_PREFERENCES)
-      },
-    }),
-    [isReady, preferences, resolvedColorScheme]
+  const initialize = useAppPreferencesStore((state) => state.initialize)
+  const setSystemColorScheme = useAppPreferencesStore(
+    (state) => state.setSystemColorScheme
   )
 
-  return (
-    <AppPreferencesContext.Provider value={value}>
-      {children}
-    </AppPreferencesContext.Provider>
-  )
+  useEffect(() => {
+    void initialize(systemColorScheme)
+  }, [initialize, systemColorScheme])
+
+  useEffect(() => {
+    setSystemColorScheme(systemColorScheme)
+  }, [setSystemColorScheme, systemColorScheme])
+
+  return <>{children}</>
 }
 
-export function useAppPreferences() {
-  const context = useContext(AppPreferencesContext)
+const selectAppPreferencesStore = (state: AppPreferencesStore) => state
 
-  if (!context) {
-    throw new Error(
-      "useAppPreferences must be used within AppPreferencesProvider"
-    )
-  }
-
-  return context
+export function useAppPreferences(): AppPreferencesStore
+export function useAppPreferences<T>(
+  selector: (state: AppPreferencesStore) => T
+): T
+export function useAppPreferences<T = AppPreferencesStore>(
+  selector?: (state: AppPreferencesStore) => T
+) {
+  return useAppPreferencesStore(
+    (selector ?? selectAppPreferencesStore) as (state: AppPreferencesStore) => T
+  )
 }

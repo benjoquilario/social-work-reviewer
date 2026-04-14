@@ -10,20 +10,24 @@ import {
   Search,
   UserCircle2,
 } from "lucide-react-native"
-import { Pressable, ScrollView, View } from "react-native"
+import { Pressable, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { getLearningTopicDetail } from "@/lib/learning-content"
 import { THEME } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
+import { ScrollView } from "@/components/ui/virtualized-scroll-view"
+
+import { getMaterialContentPreview } from "../../../lib/learning-material-content"
 
 export default function TopicDetailScreen() {
   const router = useRouter()
-  const { isAuthenticated, profile, refreshProfile } = useAuth()
+  const isAuthenticated = useAuth((state) => state.isAuthenticated)
+  const profile = useAuth((state) => state.profile)
+  const refreshProfile = useAuth((state) => state.refreshProfile)
   const params = useLocalSearchParams<{ topicId?: string }>()
   const colorScheme = useColorScheme()
   const primaryColor =
@@ -143,28 +147,7 @@ export default function TopicDetailScreen() {
           <Text className="text-[21px] font-black leading-7 text-foreground">
             {topicDetail.topic.title}
           </Text>
-          <Text className="text-[13px] leading-5 text-muted-foreground">
-            {topicDetail.topic.description || "No topic description added yet."}
-          </Text>
         </View>
-
-        <Card>
-          <CardContent className="gap-2.5 px-3.5 py-3.5">
-            <Text className="text-sm font-black text-card-foreground">
-              Learning Materials
-            </Text>
-            <Text className="text-[12px] leading-5 text-muted-foreground">
-              {topicDetail.materials.length} material
-              {topicDetail.materials.length === 1 ? "" : "s"} in this topic.
-            </Text>
-            {!isPremiumUser && topicDetail.topic.hasPremiumContent ? (
-              <Text className="text-[12px] leading-5 text-primary">
-                Free plan view hides premium details and keeps premium-only
-                entries locked.
-              </Text>
-            ) : null}
-          </CardContent>
-        </Card>
 
         <View className="overflow-hidden rounded-[20px] border border-border bg-card">
           {topicDetail.materials.length === 0 ? (
@@ -175,68 +158,73 @@ export default function TopicDetailScreen() {
             </View>
           ) : null}
 
-          {topicDetail.materials.map((material, index) => (
-            <Pressable
-              key={material.id}
-              className="border-b border-border/80 px-3.5 py-3.5"
-              onPress={() => {
-                if (material.isLocked) {
+          {topicDetail.materials.map((material, index) => {
+            const materialPreview = material.isLocked
+              ? "Premium content is locked for free users."
+              : getMaterialContentPreview(material.content) ||
+                "No content preview added yet."
+
+            return (
+              <Pressable
+                key={material.id}
+                className="border-b border-border/80 px-3.5 py-3.5"
+                onPress={() => {
+                  if (material.isLocked) {
+                    router.push({
+                      pathname: "/premium",
+                      params: {
+                        source: "material",
+                        title: material.title,
+                        topicId,
+                      },
+                    })
+                    return
+                  }
+
                   router.push({
-                    pathname: "/premium",
-                    params: {
-                      source: "material",
-                      title: material.title,
-                      topicId,
-                    },
+                    pathname: "/learn/[lessonId]",
+                    params: { lessonId: material.id },
                   })
-                  return
-                }
+                }}
+                style={{
+                  borderBottomWidth:
+                    index === topicDetail.materials.length - 1 ? 0 : 1,
+                  opacity: material.isLocked ? 0.7 : 1,
+                }}
+              >
+                <View className="flex-row items-start gap-3">
+                  <View className="flex-1 gap-1.5">
+                    <Text className="text-sm font-semibold leading-6 text-card-foreground">
+                      {material.title}
+                    </Text>
 
-                router.push({
-                  pathname: "/learn/[lessonId]",
-                  params: { lessonId: material.id },
-                })
-              }}
-              style={{
-                borderBottomWidth:
-                  index === topicDetail.materials.length - 1 ? 0 : 1,
-                opacity: material.isLocked ? 0.7 : 1,
-              }}
-            >
-              <View className="flex-row items-start gap-3">
-                <View className="flex-1 gap-1.5">
-                  <Text className="text-sm font-semibold leading-6 text-card-foreground">
-                    {material.title}
-                  </Text>
+                    <Text
+                      className="text-[12px] leading-5 text-muted-foreground"
+                      numberOfLines={2}
+                    >
+                      {materialPreview}
+                    </Text>
+                  </View>
 
-                  <Text
-                    className="text-[12px] leading-5 text-muted-foreground"
-                    numberOfLines={2}
-                  >
-                    {material.isLocked
-                      ? "Premium content is locked for free users."
-                      : material.content || "No content preview added yet."}
-                  </Text>
+                  <View className="pt-0.5">
+                    {material.isLocked ? (
+                      <LockKeyhole
+                        size={20}
+                        color={primaryColor}
+                        strokeWidth={2.1}
+                      />
+                    ) : (
+                      <ChevronRight
+                        size={20}
+                        color={primaryColor}
+                        strokeWidth={2.1}
+                      />
+                    )}
+                  </View>
                 </View>
-
-                <View className="pt-0.5">
-                  {material.isLocked ? (
-                    <LockKeyhole
-                      size={20}
-                      color={primaryColor}
-                      strokeWidth={2.1}
-                    />
-                  ) : (
-                    <ChevronRight
-                      size={20}
-                      color={primaryColor}
-                      strokeWidth={2.1}
-                    />
-                  )}
-                </View>
-              </View>
-            </Pressable>
-          ))}
+              </Pressable>
+            )
+          })}
         </View>
       </ScrollView>
     </SafeAreaView>

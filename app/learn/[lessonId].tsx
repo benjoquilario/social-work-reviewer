@@ -11,7 +11,7 @@ import {
   FileText,
   Info,
 } from "lucide-react-native"
-import { Pressable, ScrollView, View } from "react-native"
+import { Pressable, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { getLearningMaterialDetail } from "@/lib/learning-content"
@@ -27,264 +27,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { MarkdownContent } from "@/components/ui/markdown-content"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
+import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 
-type ContentBlock =
-  | { kind: "heading"; text: string }
-  | { kind: "paragraph"; text: string }
-  | { kind: "bullet-list"; items: string[] }
-  | { kind: "numbered-list"; items: string[] }
-  | { kind: "quote"; text: string }
-  | { kind: "code"; text: string }
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
-
-function decodeHtmlEntities(value: string) {
-  return value
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-}
-
-function normalizeInlineText(value: string) {
-  return decodeHtmlEntities(value).replace(/\s+/g, " ").trim()
-}
-
-function extractNodeText(node: unknown): string {
-  if (typeof node === "string") {
-    return normalizeInlineText(node)
-  }
-
-  if (typeof node === "number" || typeof node === "boolean") {
-    return String(node)
-  }
-
-  if (Array.isArray(node)) {
-    return node
-      .map((entry) => extractNodeText(entry))
-      .filter(Boolean)
-      .join(" ")
-      .trim()
-  }
-
-  if (!isRecord(node)) {
-    return ""
-  }
-
-  const textCandidates = [
-    node.text,
-    node.value,
-    node.alt,
-    node.label,
-    node.name,
-  ]
-    .filter((candidate): candidate is string => typeof candidate === "string")
-    .map((candidate) => normalizeInlineText(candidate))
-    .filter(Boolean)
-
-  const childText = [node.children, node.content, node.items, node.blocks]
-    .map((candidate) => extractNodeText(candidate))
-    .filter(Boolean)
-
-  return [...textCandidates, ...childText].join(" ").trim()
-}
-
-function parseBlocksFromSections(input: string): ContentBlock[] {
-  const sections = input
-    .replace(/\r\n/g, "\n")
-    .split(/\n\s*\n/g)
-    .map((section) => section.trim())
-    .filter(Boolean)
-
-  return sections.reduce<ContentBlock[]>((blocks, section) => {
-    const lines = section
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-
-    if (lines.length === 0) {
-      return blocks
-    }
-
-    if (
-      lines[0].startsWith("```") &&
-      lines[lines.length - 1]?.startsWith("```")
-    ) {
-      blocks.push({
-        kind: "code",
-        text: lines.slice(1, -1).join("\n").trim(),
-      })
-      return blocks
-    }
-
-    if (lines.every((line) => /^[-*•]\s+/.test(line))) {
-      blocks.push({
-        kind: "bullet-list",
-        items: lines.map((line) => line.replace(/^[-*•]\s+/, "").trim()),
-      })
-      return blocks
-    }
-
-    if (lines.every((line) => /^\d+[.)]\s+/.test(line))) {
-      blocks.push({
-        kind: "numbered-list",
-        items: lines.map((line) => line.replace(/^\d+[.)]\s+/, "").trim()),
-      })
-      return blocks
-    }
-
-    if (lines.every((line) => line.startsWith(">"))) {
-      blocks.push({
-        kind: "quote",
-        text: lines
-          .map((line) => line.replace(/^>\s?/, "").trim())
-          .join(" ")
-          .trim(),
-      })
-      return blocks
-    }
-
-    if (/^#{1,6}\s+/.test(lines[0])) {
-      const heading = lines[0].replace(/^#{1,6}\s+/, "").trim()
-      const rest = lines.slice(1).join(" ").trim()
-
-      blocks.push({ kind: "heading", text: heading })
-
-      if (rest) {
-        blocks.push({ kind: "paragraph", text: rest })
-      }
-
-      return blocks
-    }
-
-    blocks.push({
-      kind: "paragraph",
-      text: lines.join(" ").trim(),
-    })
-
-    return blocks
-  }, [])
-}
-
-function htmlToTextSections(input: string) {
-  return decodeHtmlEntities(
-    input
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(
-        /<\/(p|div|section|article|blockquote|pre|ul|ol|li|h[1-6])>/gi,
-        "\n"
-      )
-      .replace(/<li[^>]*>/gi, "- ")
-      .replace(/<blockquote[^>]*>/gi, "> ")
-      .replace(/<h1[^>]*>/gi, "# ")
-      .replace(/<h2[^>]*>/gi, "## ")
-      .replace(/<h3[^>]*>/gi, "### ")
-      .replace(/<h4[^>]*>/gi, "#### ")
-      .replace(/<h5[^>]*>/gi, "##### ")
-      .replace(/<h6[^>]*>/gi, "###### ")
-      .replace(/<[^>]+>/g, " ")
-  )
-}
-
-function blocksFromRichJson(node: unknown): ContentBlock[] {
-  if (typeof node === "string") {
-    return parseBlocksFromSections(node)
-  }
-
-  if (Array.isArray(node)) {
-    return node.flatMap((entry) => blocksFromRichJson(entry))
-  }
-
-  if (!isRecord(node)) {
-    return []
-  }
-
-  const nodeType = String(node.type ?? node.nodeType ?? "").toLowerCase()
-  const children = node.children ?? node.content ?? node.blocks ?? node.items
-
-  if (
-    nodeType.includes("bullet") ||
-    nodeType === "ul" ||
-    nodeType === "unordered-list"
-  ) {
-    const items = Array.isArray(children)
-      ? children.map((item) => extractNodeText(item)).filter(Boolean)
-      : []
-
-    return items.length ? [{ kind: "bullet-list", items }] : []
-  }
-
-  if (
-    nodeType.includes("ordered") ||
-    nodeType === "ol" ||
-    nodeType === "numbered-list"
-  ) {
-    const items = Array.isArray(children)
-      ? children.map((item) => extractNodeText(item)).filter(Boolean)
-      : []
-
-    return items.length ? [{ kind: "numbered-list", items }] : []
-  }
-
-  if (nodeType.includes("heading") || /^h[1-6]$/.test(nodeType)) {
-    const text = extractNodeText(node)
-    return text ? [{ kind: "heading", text }] : []
-  }
-
-  if (nodeType.includes("quote")) {
-    const text = extractNodeText(node)
-    return text ? [{ kind: "quote", text }] : []
-  }
-
-  if (nodeType.includes("code")) {
-    const text = extractNodeText(node)
-    return text ? [{ kind: "code", text }] : []
-  }
-
-  if (nodeType.includes("paragraph") || nodeType === "p") {
-    const text = extractNodeText(node)
-    return text ? [{ kind: "paragraph", text }] : []
-  }
-
-  const nestedBlocks = blocksFromRichJson(children)
-  if (nestedBlocks.length > 0) {
-    return nestedBlocks
-  }
-
-  const fallbackText = extractNodeText(node)
-  return fallbackText ? [{ kind: "paragraph", text: fallbackText }] : []
-}
-
-function parseRichContentBlocks(content: string): ContentBlock[] {
-  const trimmed = content.trim()
-
-  if (!trimmed) {
-    return []
-  }
-
-  try {
-    const parsed = JSON.parse(trimmed) as unknown
-    const jsonBlocks = blocksFromRichJson(parsed)
-
-    if (jsonBlocks.length > 0) {
-      return jsonBlocks
-    }
-  } catch {
-    // Fall through to HTML/markdown/plain-text parsing.
-  }
-
-  const normalizedText = /<\/?[a-z][\s\S]*>/i.test(trimmed)
-    ? htmlToTextSections(trimmed)
-    : trimmed
-
-  return parseBlocksFromSections(normalizedText)
-}
+import { normalizeMaterialContentToMarkdown } from "../../lib/learning-material-content"
 
 function formatCreatedAt(value: string) {
   const parsed = new Date(value)
@@ -319,74 +67,11 @@ function getMaterialActionIcon(type: string, color: string) {
   return <FileText size={16} color={color} strokeWidth={2.2} />
 }
 
-function renderContentBlock(block: ContentBlock, index: number) {
-  if (block.kind === "heading") {
-    return (
-      <Text
-        key={`heading-${index}`}
-        className="text-[17px] font-black leading-7 text-card-foreground"
-      >
-        {block.text}
-      </Text>
-    )
-  }
-
-  if (block.kind === "quote") {
-    return (
-      <View
-        key={`quote-${index}`}
-        className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3"
-      >
-        <Text className="text-[13px] leading-6 text-card-foreground">
-          {block.text}
-        </Text>
-      </View>
-    )
-  }
-
-  if (block.kind === "code") {
-    return (
-      <View
-        key={`code-${index}`}
-        className="rounded-2xl border border-border bg-background px-4 py-3"
-      >
-        <Text className="font-mono text-[12px] leading-6 text-card-foreground">
-          {block.text}
-        </Text>
-      </View>
-    )
-  }
-
-  if (block.kind === "bullet-list" || block.kind === "numbered-list") {
-    return (
-      <View key={`list-${index}`} className="gap-2">
-        {block.items.map((item, itemIndex) => (
-          <View key={`${index}-${itemIndex}`} className="flex-row gap-3">
-            <Text className="mt-0.5 text-[13px] font-bold text-primary">
-              {block.kind === "bullet-list" ? "•" : `${itemIndex + 1}.`}
-            </Text>
-            <Text className="flex-1 text-[13px] leading-6 text-card-foreground">
-              {item}
-            </Text>
-          </View>
-        ))}
-      </View>
-    )
-  }
-
-  return (
-    <Text
-      key={`paragraph-${index}`}
-      className="text-[14px] leading-7 text-card-foreground"
-    >
-      {block.text}
-    </Text>
-  )
-}
-
 export default function LessonDetailScreen() {
   const router = useRouter()
-  const { isAuthenticated, profile, refreshProfile } = useAuth()
+  const isAuthenticated = useAuth((state) => state.isAuthenticated)
+  const profile = useAuth((state) => state.profile)
+  const refreshProfile = useAuth((state) => state.refreshProfile)
   const params = useLocalSearchParams<{ lessonId?: string }>()
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const colorScheme = useColorScheme()
@@ -411,11 +96,13 @@ export default function LessonDetailScreen() {
 
   const materialDetail = materialQuery.data ?? null
 
-  const contentBlocks = useMemo<ContentBlock[]>(() => {
-    return parseRichContentBlocks(materialDetail?.material.content ?? "")
+  const materialMarkdown = useMemo(() => {
+    return normalizeMaterialContentToMarkdown(
+      materialDetail?.material.content ?? ""
+    )
   }, [materialDetail?.material.content])
 
-  const hasRenderableNote = contentBlocks.length > 0
+  const hasRenderableNote = Boolean(materialMarkdown)
   const hasExternalResource = Boolean(materialDetail?.material.fileUrl)
 
   async function handleOpenResource() {
@@ -568,7 +255,7 @@ export default function LessonDetailScreen() {
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="gap-4 px-4 pb-7 pt-3"
+        contentContainerClassName="gap-4 px-3 pb-7 pt-3"
       >
         <View className="flex-row items-center justify-between gap-3">
           <Pressable
@@ -610,14 +297,14 @@ export default function LessonDetailScreen() {
             {materialDetail.material.type}
           </Text>
 
-          <Text className="text-[16px] font-black leading-7 text-foreground">
+          <Text className="text-[17px] font-black leading-7 text-foreground">
             {materialDetail.material.title}
           </Text>
-          <Text className="text-[13px] leading-6 text-muted-foreground">
-            {materialDetail.material.type === "note"
-              ? "Formatted directly from your note content."
-              : "This material is linked to an external learning resource."}
-          </Text>
+          {materialDetail.material.type !== "note" ? (
+            <Text className="text-[13px] leading-6 text-muted-foreground">
+              This material is linked to an external learning resource.
+            </Text>
+          ) : null}
         </View>
 
         {hasExternalResource ? (
@@ -653,14 +340,10 @@ export default function LessonDetailScreen() {
           </Card>
         ) : null}
 
-        <Card className="border-0 bg-background py-0">
-          <CardContent className="gap-3 border-none bg-background px-3.5 py-3.5">
+        <Card className="rounded-none border-0 bg-background py-0 shadow-none">
+          <CardContent className="gap-2 border-none bg-background px-1 py-2">
             {hasRenderableNote ? (
-              <View className="gap-3">
-                {contentBlocks.map((block, index) =>
-                  renderContentBlock(block, index)
-                )}
-              </View>
+              <MarkdownContent markdown={materialMarkdown} />
             ) : (
               <Text className="text-[13px] leading-6 text-muted-foreground">
                 {hasExternalResource

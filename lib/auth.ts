@@ -20,7 +20,9 @@ import {
   tablesDB,
 } from "./appwrite"
 
-const APPWRITE_REQUEST_TIMEOUT_MS = 15000
+const REQUEST_TIMEOUT_MS = 12_000
+const RETRY_COUNT = 2
+const RETRY_BASE_DELAY_MS = 800
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -118,30 +120,59 @@ function getVerificationRedirectUrl() {
   return redirectUrl
 }
 
-async function withRequestTimeout<T>(
-  label: string,
-  request: Promise<T>
-): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof Error && error.message.includes("timed out")) return true
+  if (error instanceof AppwriteException) {
+    // 408 Request Timeout, 429 Too Many Requests, 5xx server errors
+    return error.code === 408 || error.code === 429 || error.code >= 500
+  }
+  // Network errors (fetch failures, DNS, etc.) don't have a code
+  if (
+    error instanceof TypeError &&
+    /network|fetch|aborted/i.test(error.message)
+  )
+    return true
+  return false
+}
 
-  try {
-    return await Promise.race([
-      request,
-      new Promise<T>((_, reject) => {
-        timeoutId = setTimeout(() => {
+function withTimeout<T>(label: string, promise: Promise<T>): Promise<T> {
+  let id: ReturnType<typeof setTimeout> | undefined
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      id = setTimeout(
+        () =>
           reject(
             new Error(
               `${label} timed out. Check your Appwrite endpoint, project ID, and platform IDs in Appwrite Console.`
             )
-          )
-        }, APPWRITE_REQUEST_TIMEOUT_MS)
-      }),
-    ])
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId)
+          ),
+        REQUEST_TIMEOUT_MS
+      )
+    }),
+  ]).finally(() => id && clearTimeout(id))
+}
+
+async function withRetry<T>(
+  label: string,
+  fn: () => Promise<T>,
+  retries = RETRY_COUNT
+): Promise<T> {
+  let lastError: unknown
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await withTimeout(label, fn())
+    } catch (error) {
+      lastError = error
+      if (attempt < retries && isRetryableError(error)) {
+        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt)
+        await new Promise((r) => setTimeout(r, delay))
+        continue
+      }
+      throw error
     }
   }
+  throw lastError
 }
 
 function getUserOwnedPermissions(userId: string) {
@@ -192,8 +223,7 @@ async function createUserProfileDocument(
   fullName?: string,
   email?: string
 ) {
-  return withRequestTimeout(
-    "Profile creation",
+  return withRetry("Profile creation", () =>
     tablesDB.createRow({
       databaseId: DB_ID,
       tableId: COLLECTIONS.USER_PROFILES,
@@ -205,8 +235,7 @@ async function createUserProfileDocument(
 }
 
 async function createUserRoleDocument(userId: string) {
-  return withRequestTimeout(
-    "Role creation",
+  return withRetry("Role creation", () =>
     tablesDB.createRow({
       databaseId: DB_ID,
       tableId: COLLECTIONS.USER_ROLES,
@@ -229,9 +258,9 @@ export async function ensureUserProfileSetup(
   fullName?: string,
   email?: string
 ): Promise<UserProfile | null> {
+  // 1. Fast path — try direct document fetch
   try {
-    const profile = await withRequestTimeout(
-      "Profile lookup",
+    const profile = await withRetry("Profile lookup", () =>
       tablesDB.getRow({
         databaseId: DB_ID,
         tableId: COLLECTIONS.USER_PROFILES,
@@ -253,28 +282,30 @@ export async function ensureUserProfileSetup(
     }
   }
 
-  try {
-    await createUserProfileDocument(user, fullName, email)
-  } catch (error) {
+  // 2. Profile doesn't exist yet — create profile + role in parallel
+  const [profileResult, roleResult] = await Promise.allSettled([
+    createUserProfileDocument(user, fullName, email),
+    createUserRoleDocument(user.$id),
+  ])
+
+  if (profileResult.status === "rejected") {
+    const error = profileResult.reason
     if (error instanceof AppwriteException && error.code !== 409) {
       if (isAppwriteUnauthorizedError(error)) {
         throw new Error(getBootstrapFailureMessage())
       }
-
       throw new Error(
         toErrorMessage(error, "Unable to create the user profile document.")
       )
     }
   }
 
-  try {
-    await createUserRoleDocument(user.$id)
-  } catch (error) {
+  if (roleResult.status === "rejected") {
+    const error = roleResult.reason
     if (error instanceof AppwriteException && error.code !== 409) {
       if (isAppwriteUnauthorizedError(error)) {
         throw new Error(getBootstrapFailureMessage())
       }
-
       console.warn(
         "[Auth] Unable to create default user role:",
         toErrorMessage(error, "Unknown Appwrite error.")
@@ -295,32 +326,23 @@ export async function createAccount(
   assertAppwriteConfigured()
 
   const userId = ID.unique()
-  await withRequestTimeout(
-    "Account creation",
-    account.create({
-      userId,
-      email,
-      password,
-      name: fullName,
-    })
+  await withRetry("Account creation", () =>
+    account.create({ userId, email, password, name: fullName })
   )
 
-  // Auto-login after register
-  await withRequestTimeout(
-    "Login",
+  await withRetry("Login", () =>
     account.createEmailPasswordSession({ email, password })
   )
 
-  const newUser = await withRequestTimeout("Session lookup", account.get())
+  const newUser = await withRetry("Session lookup", () => account.get())
 
-  try {
-    await ensureUserProfileSetup(newUser, fullName, email)
-  } catch (error) {
+  // Fire-and-forget profile bootstrap — don't block registration
+  ensureUserProfileSetup(newUser, fullName, email).catch((error) =>
     console.warn(
-      "[Auth] Profile bootstrap failed after successful registration:",
+      "[Auth] Profile bootstrap failed after registration:",
       toErrorMessage(error, "Unknown Appwrite error.")
     )
-  }
+  )
 
   return newUser
 }
@@ -331,22 +353,18 @@ export async function login(
 ): Promise<AuthUser> {
   assertAppwriteConfigured()
 
-  await withRequestTimeout(
-    "Login",
+  await withRetry("Login", () =>
     account.createEmailPasswordSession({ email, password })
   )
 
-  return withRequestTimeout("Session lookup", account.get())
+  return withRetry("Session lookup", () => account.get())
 }
 
 export async function logout(): Promise<void> {
   assertAppwriteConfigured()
 
   try {
-    await withRequestTimeout(
-      "Logout",
-      account.deleteSession({ sessionId: "current" })
-    )
+    await withTimeout("Logout", account.deleteSession({ sessionId: "current" }))
   } catch {
     // Ignore if session already expired
   }
@@ -363,7 +381,7 @@ export async function updateCurrentProfile(
     throw new Error("Full name is required.")
   }
 
-  const currentUser = await withRequestTimeout("Session lookup", account.get())
+  const currentUser = await withRetry("Session lookup", () => account.get())
   const schoolName = normalizeOptionalString(input.schoolName)
   const reviewType = normalizeOptionalString(input.reviewType)
   const avatarUrl = normalizeOptionalString(input.avatarUrl)
@@ -371,8 +389,7 @@ export async function updateCurrentProfile(
   const updatedUser =
     fullName === (currentUser.name ?? "")
       ? currentUser
-      : await withRequestTimeout(
-          "Profile name update",
+      : await withRetry("Profile name update", () =>
           account.updateName({ name: fullName })
         )
 
@@ -386,8 +403,7 @@ export async function updateCurrentProfile(
     throw new Error("Unable to load your Appwrite profile document.")
   }
 
-  const updatedProfile = await withRequestTimeout(
-    "Profile update",
+  const updatedProfile = await withRetry("Profile update", () =>
     tablesDB.updateRow({
       databaseId: DB_ID,
       tableId: COLLECTIONS.USER_PROFILES,
@@ -424,8 +440,7 @@ export async function updateCurrentEmail(
     throw new Error("Current password is required to change your email.")
   }
 
-  const updatedUser = await withRequestTimeout(
-    "Email update",
+  const updatedUser = await withRetry("Email update", () =>
     account.updateEmail({ email, password: currentPassword })
   )
 
@@ -439,8 +454,7 @@ export async function updateCurrentEmail(
     throw new Error("Unable to load your Appwrite profile document.")
   }
 
-  const updatedProfile = await withRequestTimeout(
-    "Profile email update",
+  const updatedProfile = await withRetry("Profile email update", () =>
     tablesDB.updateRow({
       databaseId: DB_ID,
       tableId: COLLECTIONS.USER_PROFILES,
@@ -480,9 +494,8 @@ export async function uploadCurrentUserProfilePhoto(
     throw new Error("Profile photos must be 5 MB or smaller.")
   }
 
-  const currentUser = await withRequestTimeout("Session lookup", account.get())
-  const uploadedFile = await withRequestTimeout(
-    "Profile photo upload",
+  const currentUser = await withRetry("Session lookup", () => account.get())
+  const uploadedFile = await withRetry("Profile photo upload", () =>
     storage.createFile({
       bucketId,
       fileId: ID.unique(),
@@ -502,8 +515,7 @@ export async function uploadCurrentUserProfilePhoto(
 export async function sendCurrentUserVerificationEmail(): Promise<void> {
   assertAppwriteConfigured()
 
-  await withRequestTimeout(
-    "Email verification",
+  await withRetry("Email verification", () =>
     account.createEmailVerification({ url: getVerificationRedirectUrl() })
   )
 }
@@ -514,12 +526,11 @@ export async function completeCurrentUserEmailVerification(
 ): Promise<AuthUser> {
   assertAppwriteConfigured()
 
-  await withRequestTimeout(
-    "Email verification completion",
+  await withRetry("Email verification completion", () =>
     account.updateEmailVerification({ userId, secret })
   )
 
-  return withRequestTimeout("Session lookup", account.get())
+  return withRetry("Session lookup", () => account.get())
 }
 
 export async function changeCurrentUserPassword(
@@ -545,8 +556,7 @@ export async function changeCurrentUserPassword(
     )
   }
 
-  await withRequestTimeout(
-    "Password update",
+  await withRetry("Password update", () =>
     account.updatePassword({ password, oldPassword })
   )
 }
@@ -562,8 +572,7 @@ export async function deleteCurrentAccount(): Promise<void> {
     )
   }
 
-  const execution = await withRequestTimeout(
-    "Delete account",
+  const execution = await withRetry("Delete account", () =>
     functions.createExecution({
       functionId,
       body: JSON.stringify({ action: "delete-account" }),
@@ -602,7 +611,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   assertAppwriteConfigured()
 
   try {
-    return await withRequestTimeout("Session check", account.get())
+    return await withRetry("Session check", () => account.get())
   } catch (error) {
     if (!isUnauthorizedError(error)) {
       throw new Error(
@@ -619,8 +628,7 @@ export async function getUserProfile(
 ): Promise<UserProfile | null> {
   try {
     try {
-      const profile = await withRequestTimeout(
-        "Profile lookup",
+      const profile = await withRetry("Profile lookup", () =>
         tablesDB.getRow({
           databaseId: DB_ID,
           tableId: COLLECTIONS.USER_PROFILES,
@@ -634,8 +642,7 @@ export async function getUserProfile(
         throw error
       }
 
-      const { rows } = await withRequestTimeout(
-        "Profile lookup",
+      const { rows } = await withRetry("Profile lookup", () =>
         tablesDB.listRows({
           databaseId: DB_ID,
           tableId: COLLECTIONS.USER_PROFILES,

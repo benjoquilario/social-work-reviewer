@@ -8,7 +8,7 @@ import {
   Trash2,
   TriangleAlert,
 } from "lucide-react-native"
-import { Alert, Pressable, ScrollView, TextInput, View } from "react-native"
+import { Alert, Pressable, TextInput, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { useAppPreferences, type ThemeMode } from "@/lib/app-preferences"
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
 import { Text } from "@/components/ui/text"
+import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 
 const APPEARANCE_OPTIONS: {
   label: string
@@ -120,21 +121,19 @@ function SettingsInput({
 
 export default function SettingsScreen() {
   const router = useRouter()
-  const {
-    preferences,
-    resolvedColorScheme,
-    setPreference,
-    setThemeMode,
-    resetPreferences,
-  } = useAppPreferences()
-  const {
-    user,
-    logout,
-    updateEmail,
-    sendVerificationEmail,
-    changePassword,
-    deleteAccount,
-  } = useAuth()
+  const preferences = useAppPreferences((state) => state.preferences)
+  const resolvedColorScheme = useAppPreferences(
+    (state) => state.resolvedColorScheme
+  )
+  const setPreference = useAppPreferences((state) => state.setPreference)
+  const setThemeMode = useAppPreferences((state) => state.setThemeMode)
+  const resetPreferences = useAppPreferences((state) => state.resetPreferences)
+  const user = useAuth((state) => state.user)
+  const logout = useAuth((state) => state.logout)
+  const updateEmail = useAuth((state) => state.updateEmail)
+  const sendVerificationEmail = useAuth((state) => state.sendVerificationEmail)
+  const changePassword = useAuth((state) => state.changePassword)
+  const deleteAccount = useAuth((state) => state.deleteAccount)
   const colorScheme = useColorScheme()
   const isDark = colorScheme === "dark"
   const theme = isDark ? THEME.dark : THEME.light
@@ -419,6 +418,14 @@ export default function SettingsScreen() {
             <Text className="text-base font-black text-card-foreground">
               Accessibility & Focus
             </Text>
+            <SettingRow
+              label="Light animations"
+              description="Use subtle transitions and press feedback across the app."
+              value={preferences.animationsEnabled}
+              onValueChange={(value) =>
+                setPreference("animationsEnabled", value)
+              }
+            />
             <SettingRow
               label="Haptic feedback"
               description="Tactile cues when selecting options."

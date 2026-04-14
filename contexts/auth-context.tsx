@@ -1,12 +1,5 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type PropsWithChildren,
-} from "react"
+import { useEffect, type PropsWithChildren } from "react"
+import { create } from "zustand"
 
 import {
   changeCurrentUserPassword,
@@ -15,8 +8,8 @@ import {
   deleteCurrentAccount,
   ensureUserProfileSetup,
   getCurrentUser,
-  login,
-  logout,
+  login as loginWithPassword,
+  logout as logoutSession,
   sendCurrentUserVerificationEmail,
   updateCurrentEmail,
   updateCurrentProfile,
@@ -35,12 +28,13 @@ type AuthState =
   | { status: "unauthenticated" }
   | { status: "authenticated"; user: AuthUser; profile: UserProfile | null }
 
-type AuthContextValue = {
+type AuthStore = {
   authState: AuthState
   isLoading: boolean
   isAuthenticated: boolean
   user: AuthUser | null
   profile: UserProfile | null
+  initialize: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, fullName: string) => Promise<void>
   logout: () => Promise<void>
@@ -57,225 +51,199 @@ type AuthContextValue = {
   deleteAccount: () => Promise<void>
 }
 
-// ─── Context ──────────────────────────────────────────────────────────────────
+function toAuthSnapshot(authState: AuthState) {
+  return {
+    authState,
+    isLoading: authState.status === "loading",
+    isAuthenticated: authState.status === "authenticated",
+    user: authState.status === "authenticated" ? authState.user : null,
+    profile: authState.status === "authenticated" ? authState.profile : null,
+  }
+}
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined)
+async function bootstrapProfileSafely(
+  user: AuthUser,
+  fullName?: string,
+  email?: string
+): Promise<UserProfile | null> {
+  try {
+    return await ensureUserProfileSetup(user, fullName, email)
+  } catch (error) {
+    console.warn("[Auth] Profile bootstrap failed:", error)
+    return null
+  }
+}
 
-export function AuthProvider({ children }: PropsWithChildren) {
-  const [authState, setAuthState] = useState<AuthState>({ status: "loading" })
+let initializePromise: Promise<void> | null = null
+const MAX_INIT_RETRIES = 2
 
-  const bootstrapProfileSafely = useCallback(
-    async (
-      user: AuthUser,
-      fullName?: string,
-      email?: string
-    ): Promise<UserProfile | null> => {
-      try {
-        return await ensureUserProfileSetup(user, fullName, email)
-      } catch (error) {
-        console.warn("[Auth] Profile bootstrap failed:", error)
-        return null
-      }
-    },
-    []
-  )
+export const useAuthStore = create<AuthStore>((set, get) => ({
+  ...toAuthSnapshot({ status: "loading" }),
+  initialize: async () => {
+    if (get().authState.status !== "loading") {
+      return
+    }
 
-  // On mount: check for an existing session.
-  useEffect(() => {
-    let cancelled = false
+    if (initializePromise) {
+      return initializePromise
+    }
 
-    async function checkSession() {
-      try {
-        const user = await getCurrentUser()
+    initializePromise = (async () => {
+      let lastError: unknown
 
-        if (cancelled) return
+      for (let attempt = 0; attempt <= MAX_INIT_RETRIES; attempt++) {
+        try {
+          const user = await getCurrentUser()
 
-        if (!user) {
-          setAuthState({ status: "unauthenticated" })
+          if (!user) {
+            set(toAuthSnapshot({ status: "unauthenticated" }))
+            return
+          }
+
+          // Show authenticated immediately, load profile in background
+          set(toAuthSnapshot({ status: "authenticated", user, profile: null }))
+
+          const profile = await bootstrapProfileSafely(user)
+          set(toAuthSnapshot({ status: "authenticated", user, profile }))
           return
-        }
+        } catch (error) {
+          lastError = error
 
-        const profile = await bootstrapProfileSafely(user)
-
-        if (cancelled) return
-        setAuthState({ status: "authenticated", user, profile })
-      } catch (err) {
-        console.warn("[Auth] Session check failed:", err)
-        if (!cancelled) {
-          setAuthState({ status: "unauthenticated" })
+          if (attempt < MAX_INIT_RETRIES) {
+            const delay = 1000 * Math.pow(2, attempt)
+            await new Promise((r) => setTimeout(r, delay))
+            continue
+          }
         }
       }
+
+      console.warn("[Auth] Session check failed after retries:", lastError)
+      set(toAuthSnapshot({ status: "unauthenticated" }))
+    })()
+
+    return initializePromise.finally(() => {
+      initializePromise = null
+    })
+  },
+  login: async (email, password) => {
+    try {
+      const user = await loginWithPassword(email, password)
+      // Show authenticated immediately — profile loads in background
+      set(toAuthSnapshot({ status: "authenticated", user, profile: null }))
+
+      bootstrapProfileSafely(user, undefined, email).then((profile) => {
+        if (profile && get().authState.status === "authenticated") {
+          set(
+            toAuthSnapshot({
+              status: "authenticated",
+              user: get().user ?? user,
+              profile,
+            })
+          )
+        }
+      })
+    } catch (error) {
+      console.warn("[Auth] Login failed:", error)
+      throw error
+    }
+  },
+  register: async (email, password, fullName) => {
+    const user = await createAccount(email, password, fullName)
+    const profile = await bootstrapProfileSafely(user, fullName, email)
+    set(toAuthSnapshot({ status: "authenticated", user, profile }))
+  },
+  logout: async () => {
+    await logoutSession()
+    set(toAuthSnapshot({ status: "unauthenticated" }))
+  },
+  refreshProfile: async () => {
+    const user = get().user
+
+    if (!user) {
+      return
     }
 
-    checkSession()
-    return () => {
-      cancelled = true
+    const profile = await bootstrapProfileSafely(user)
+    set(toAuthSnapshot({ status: "authenticated", user, profile }))
+  },
+  updateProfile: async (input) => {
+    if (get().authState.status !== "authenticated") {
+      throw new Error("You need to sign in again to update your profile.")
     }
-  }, [])
 
-  const handleLogin = useCallback(
-    async (email: string, password: string) => {
-      try {
-        const user = await login(email, password)
-        const profile = await bootstrapProfileSafely(user, undefined, email)
-        setAuthState({ status: "authenticated", user, profile })
-      } catch (err) {
-        console.warn("[Auth] Login failed:", err)
-        throw err // Re-throw so the login screen can display the error
-      }
-    },
-    [bootstrapProfileSafely]
-  )
-
-  const handleRegister = useCallback(
-    async (email: string, password: string, fullName: string) => {
-      const user = await createAccount(email, password, fullName)
-      const profile = await bootstrapProfileSafely(user, fullName, email)
-      setAuthState({ status: "authenticated", user, profile })
-    },
-    [bootstrapProfileSafely]
-  )
-
-  const handleLogout = useCallback(async () => {
-    await logout()
-    setAuthState({ status: "unauthenticated" })
-  }, [])
-
-  const handleUpdateProfile = useCallback(
-    async (input: UpdateProfileInput) => {
-      if (authState.status !== "authenticated") {
-        throw new Error("You need to sign in again to update your profile.")
-      }
-
-      const result = await updateCurrentProfile(input)
-      setAuthState({
+    const result = await updateCurrentProfile(input)
+    set(
+      toAuthSnapshot({
         status: "authenticated",
         user: result.user,
         profile: result.profile,
       })
-    },
-    [authState]
-  )
+    )
+  },
+  updateEmail: async (input) => {
+    if (get().authState.status !== "authenticated") {
+      throw new Error("You need to sign in again to update your email.")
+    }
 
-  const handleUpdateEmail = useCallback(
-    async (input: UpdateEmailInput) => {
-      if (authState.status !== "authenticated") {
-        throw new Error("You need to sign in again to update your email.")
-      }
-
-      const result = await updateCurrentEmail(input)
-      setAuthState({
+    const result = await updateCurrentEmail(input)
+    set(
+      toAuthSnapshot({
         status: "authenticated",
         user: result.user,
         profile: result.profile,
       })
-    },
-    [authState]
-  )
+    )
+  },
+  uploadProfilePhoto: async (input) => {
+    if (get().authState.status !== "authenticated") {
+      throw new Error("You need to sign in again to upload a profile photo.")
+    }
 
-  const handleUploadProfilePhoto = useCallback(
-    async (input: UploadProfilePhotoInput) => {
-      if (authState.status !== "authenticated") {
-        throw new Error("You need to sign in again to upload a profile photo.")
-      }
-
-      return uploadCurrentUserProfilePhoto(input)
-    },
-    [authState]
-  )
-
-  const handleSendVerificationEmail = useCallback(async () => {
-    if (authState.status !== "authenticated") {
+    return uploadCurrentUserProfilePhoto(input)
+  },
+  sendVerificationEmail: async () => {
+    if (get().authState.status !== "authenticated") {
       throw new Error("You need to sign in again to verify your email.")
     }
 
     await sendCurrentUserVerificationEmail()
-  }, [authState])
+  },
+  completeEmailVerification: async (userId, secret) => {
+    const user = await completeCurrentUserEmailVerification(userId, secret)
+    const profile = await bootstrapProfileSafely(user)
+    set(toAuthSnapshot({ status: "authenticated", user, profile }))
+  },
+  changePassword: async (currentPassword, nextPassword) => {
+    if (get().authState.status !== "authenticated") {
+      throw new Error("You need to sign in again to change your password.")
+    }
 
-  const handleCompleteEmailVerification = useCallback(
-    async (userId: string, secret: string) => {
-      const freshUser = await completeCurrentUserEmailVerification(
-        userId,
-        secret
-      )
-      const profile = await bootstrapProfileSafely(freshUser)
-      setAuthState({ status: "authenticated", user: freshUser, profile })
-    },
-    [bootstrapProfileSafely]
-  )
-
-  const handleChangePassword = useCallback(
-    async (currentPassword: string, nextPassword: string) => {
-      if (authState.status !== "authenticated") {
-        throw new Error("You need to sign in again to change your password.")
-      }
-
-      await changeCurrentUserPassword(currentPassword, nextPassword)
-    },
-    [authState]
-  )
-
-  const handleDeleteAccount = useCallback(async () => {
-    if (authState.status !== "authenticated") {
+    await changeCurrentUserPassword(currentPassword, nextPassword)
+  },
+  deleteAccount: async () => {
+    if (get().authState.status !== "authenticated") {
       throw new Error("You need to sign in again to delete your account.")
     }
 
     await deleteCurrentAccount()
-    setAuthState({ status: "unauthenticated" })
-  }, [authState])
+    set(toAuthSnapshot({ status: "unauthenticated" }))
+  },
+}))
 
-  const refreshProfile = useCallback(async () => {
-    if (authState.status !== "authenticated") return
-    const profile = await bootstrapProfileSafely(authState.user)
-    setAuthState((prev) =>
-      prev.status === "authenticated" ? { ...prev, profile } : prev
-    )
-  }, [authState, bootstrapProfileSafely])
+export function AuthProvider({ children }: PropsWithChildren) {
+  const initialize = useAuthStore((state) => state.initialize)
 
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      authState,
-      isLoading: authState.status === "loading",
-      isAuthenticated: authState.status === "authenticated",
-      user: authState.status === "authenticated" ? authState.user : null,
-      profile: authState.status === "authenticated" ? authState.profile : null,
-      login: handleLogin,
-      register: handleRegister,
-      logout: handleLogout,
-      refreshProfile,
-      updateProfile: handleUpdateProfile,
-      updateEmail: handleUpdateEmail,
-      uploadProfilePhoto: handleUploadProfilePhoto,
-      sendVerificationEmail: handleSendVerificationEmail,
-      completeEmailVerification: handleCompleteEmailVerification,
-      changePassword: handleChangePassword,
-      deleteAccount: handleDeleteAccount,
-    }),
-    [
-      authState,
-      handleChangePassword,
-      handleCompleteEmailVerification,
-      handleDeleteAccount,
-      handleLogin,
-      handleLogout,
-      handleRegister,
-      handleSendVerificationEmail,
-      handleUploadProfilePhoto,
-      handleUpdateEmail,
-      handleUpdateProfile,
-      refreshProfile,
-    ]
-  )
+  useEffect(() => {
+    void initialize()
+  }, [initialize])
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return <>{children}</>
 }
 
-export function useAuth(): AuthContextValue {
-  const context = useContext(AuthContext)
+const selectAuthStore = (state: AuthStore) => state
 
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider")
-  }
-
-  return context
+export function useAuth(): AuthStore
+export function useAuth<T>(selector: (state: AuthStore) => T): T
+export function useAuth<T = AuthStore>(selector?: (state: AuthStore) => T) {
+  return useAuthStore((selector ?? selectAuthStore) as (state: AuthStore) => T)
 }

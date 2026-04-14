@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react-native"
-import { Pressable, ScrollView, View } from "react-native"
+import { Pressable, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { THEME, withOpacity } from "@/lib/theme"
@@ -18,6 +18,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Text } from "@/components/ui/text"
+import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 
 function readFirstParam(value?: string | string[]) {
   if (Array.isArray(value)) {
@@ -30,6 +31,10 @@ function readFirstParam(value?: string | string[]) {
 function toSourceLabel(source: string) {
   if (source === "subject") {
     return "Subject"
+  }
+
+  if (source === "exam") {
+    return "Exam"
   }
 
   if (source === "topic") {
@@ -49,7 +54,7 @@ function toSourceLabel(source: string) {
 
 export default function PremiumSubscriptionScreen() {
   const router = useRouter()
-  const { profile } = useAuth()
+  const profile = useAuth((state) => state.profile)
   const params = useLocalSearchParams<{
     title?: string | string[]
     source?: string | string[]
@@ -62,7 +67,8 @@ export default function PremiumSubscriptionScreen() {
   const isPremiumUser = profile?.isPremium === true
 
   const lockedTitle = readFirstParam(params.title) || "premium content"
-  const sourceLabel = toSourceLabel(readFirstParam(params.source))
+  const source = readFirstParam(params.source)
+  const sourceLabel = toSourceLabel(source)
   const categoryId = readFirstParam(params.categoryId)
   const topicId = readFirstParam(params.topicId)
 
@@ -76,7 +82,7 @@ export default function PremiumSubscriptionScreen() {
       },
       {
         icon: <ShieldCheck size={16} color={theme.primary} strokeWidth={2.2} />,
-        label: "Access premium-only quiz categories",
+        label: "Access premium-only exams and quiz categories",
       },
       {
         icon: <Sparkles size={16} color={theme.primary} strokeWidth={2.2} />,
@@ -89,6 +95,11 @@ export default function PremiumSubscriptionScreen() {
   function handleBackToContext() {
     if (topicId) {
       router.push({ pathname: "/learn/topic/[topicId]", params: { topicId } })
+      return
+    }
+
+    if (categoryId && (source === "exam" || source === "quiz-category")) {
+      router.push({ pathname: "/mode", params: { categoryId } })
       return
     }
 
