@@ -14,7 +14,8 @@ import { Pressable, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { getLearningTopicDetail } from "@/lib/learning-content"
-import { THEME } from "@/lib/theme"
+import { listLearningMaterialStatusesByTopic } from "@/lib/progress"
+import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -25,13 +26,14 @@ import { getMaterialContentPreview } from "../../../lib/learning-material-conten
 
 export default function TopicDetailScreen() {
   const router = useRouter()
+  const user = useAuth((state) => state.user)
   const isAuthenticated = useAuth((state) => state.isAuthenticated)
   const profile = useAuth((state) => state.profile)
   const refreshProfile = useAuth((state) => state.refreshProfile)
   const params = useLocalSearchParams<{ topicId?: string }>()
   const colorScheme = useColorScheme()
-  const primaryColor =
-    colorScheme === "dark" ? THEME.dark.primary : THEME.light.primary
+  const activeTheme = colorScheme === "dark" ? THEME.dark : THEME.light
+  const primaryColor = activeTheme.primary
 
   const topicId = params.topicId ?? ""
   const isPremiumUser = profile?.isPremium === true
@@ -49,7 +51,19 @@ export default function TopicDetailScreen() {
       getLearningTopicDetail(topicId, { viewerIsPremium: isPremiumUser }),
   })
 
+  const materialStatusesQuery = useQuery({
+    queryKey: ["topic-learning-material-statuses", user?.$id, topicId],
+    enabled: Boolean(user?.$id) && Boolean(topicId),
+    staleTime: 0,
+    refetchOnMount: "always",
+    queryFn: () =>
+      listLearningMaterialStatusesByTopic(user?.$id ?? "", topicId),
+  })
+
   const topicDetail = topicQuery.data ?? null
+  const materialStatusById = materialStatusesQuery.data ?? {}
+  const shouldShowStatusChips =
+    Boolean(user) && !materialStatusesQuery.isLoading
 
   if (topicQuery.isLoading) {
     return (
@@ -163,6 +177,35 @@ export default function TopicDetailScreen() {
               ? "Premium content is locked for free users."
               : getMaterialContentPreview(material.content) ||
                 "No content preview added yet."
+            const status = materialStatusById[material.id]
+            const statusChip = !material.isLocked
+              ? status?.status === "completed"
+                ? {
+                    label: "Completed",
+                    textColor: activeTheme.success,
+                    backgroundColor: withOpacity(activeTheme.success, 0.16),
+                  }
+                : status?.status === "paused"
+                  ? {
+                      label: `Paused ${Math.round(status.progressPercent)}%`,
+                      textColor: activeTheme.warning,
+                      backgroundColor: withOpacity(activeTheme.warning, 0.18),
+                    }
+                  : status
+                    ? {
+                        label: `In progress ${Math.round(status.progressPercent)}%`,
+                        textColor: activeTheme.primary,
+                        backgroundColor: withOpacity(activeTheme.primary, 0.14),
+                      }
+                    : {
+                        label: "Not started",
+                        textColor: activeTheme.mutedForeground,
+                        backgroundColor: withOpacity(
+                          activeTheme.mutedForeground,
+                          0.16
+                        ),
+                      }
+              : null
 
             return (
               <Pressable
@@ -197,6 +240,20 @@ export default function TopicDetailScreen() {
                     <Text className="text-sm font-semibold leading-6 text-card-foreground">
                       {material.title}
                     </Text>
+
+                    {shouldShowStatusChips && statusChip ? (
+                      <View
+                        className="self-start rounded-full px-2.5 py-1"
+                        style={{ backgroundColor: statusChip.backgroundColor }}
+                      >
+                        <Text
+                          className="text-[10px] font-black uppercase tracking-[0.8px]"
+                          style={{ color: statusChip.textColor }}
+                        >
+                          {statusChip.label}
+                        </Text>
+                      </View>
+                    ) : null}
 
                     <Text
                       className="text-[12px] leading-5 text-muted-foreground"

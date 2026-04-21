@@ -25,7 +25,15 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import { saveQuizResult } from "@/lib/progress"
+import {
+  completeQuizAttempt,
+  getLatestResumableAttempt,
+  listAttemptAnswers,
+  recordQuizAnswer,
+  saveQuizResult,
+  startQuizAttempt,
+  syncOngoingAttemptProgress,
+} from "@/lib/progress"
 import {
   buildAppwriteQuizQuestions,
   getQuizCategoryDetail,
@@ -323,6 +331,9 @@ export default function QuizScreen() {
   const flatListRef = useRef<FlatList<QuizQuestion>>(null)
   const { width: screenWidth } = useWindowDimensions()
   const startTimeRef = useRef(Date.now())
+  const hydratedAttemptKeyRef = useRef<string | null>(null)
+  const activeIndexRef = useRef(0)
+  const isSubmittedRef = useRef(false)
 
   const params = useLocalSearchParams<{
     categoryId?: string
@@ -335,6 +346,7 @@ export default function QuizScreen() {
   const totalQuestions = Number(params.totalQuestions ?? "0")
   const minutes = Number(params.minutes ?? "0")
   const examId = params.examId ?? ""
+  const activeExamId = examId || categoryId
   const totalSeconds = Math.max(minutes, 0) * 60
   const isPremiumUser = profile?.isPremium === true
 
@@ -380,10 +392,18 @@ export default function QuizScreen() {
       }),
   })
 
-  const questions = useMemo(
+  const rawQuestions = useMemo(
     () => questionsQuery.data ?? [],
     [questionsQuery.data]
   )
+  const [questions, setQuestions] = useState<QuizQuestion[]>([])
+
+  // Sync questions from query data (will be reordered on resume)
+  useEffect(() => {
+    if (rawQuestions.length > 0) {
+      setQuestions(rawQuestions)
+    }
+  }, [rawQuestions])
   const quizTitle =
     examQuery.data?.title ??
     (categoryId === "all-categories"
@@ -395,13 +415,220 @@ export default function QuizScreen() {
   const [answers, setAnswers] = useState<UserAnswers>({})
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [showSubmitModal, setShowSubmitModal] = useState(false)
+  const [attemptId, setAttemptId] = useState<string | null>(null)
+  const [isAttemptHydrating, setIsAttemptHydrating] = useState(false)
+  const [didResumeAttempt, setDidResumeAttempt] = useState(false)
+  const questionSignature = useMemo(
+    () => rawQuestions.map((question) => question.questionId).join("|"),
+    [rawQuestions]
+  )
 
   useEffect(() => {
     setActiveIndex(0)
     setAnswers({})
     setIsSubmitted(false)
+    setAttemptId(null)
+    setIsAttemptHydrating(false)
+    setDidResumeAttempt(false)
+    hydratedAttemptKeyRef.current = null
+    activeIndexRef.current = 0
+    isSubmittedRef.current = false
     startTimeRef.current = Date.now()
   }, [totalSeconds, categoryId, examId, totalQuestions])
+
+  useEffect(() => {
+    activeIndexRef.current = activeIndex
+  }, [activeIndex])
+
+  useEffect(() => {
+    isSubmittedRef.current = isSubmitted
+  }, [isSubmitted])
+
+  useEffect(() => {
+    if (!user || !activeExamId || questions.length === 0 || isSubmitted) {
+      return
+    }
+
+    const attemptKey = `${user.$id}:${activeExamId}:${questionSignature}:${totalSeconds}`
+    if (hydratedAttemptKeyRef.current === attemptKey) {
+      return
+    }
+    hydratedAttemptKeyRef.current = attemptKey
+
+    let isCancelled = false
+    setIsAttemptHydrating(true)
+
+    void (async () => {
+      try {
+        const resumableAttempt = await getLatestResumableAttempt(
+          user.$id,
+          activeExamId
+        )
+
+        if (isCancelled) {
+          return
+        }
+
+        if (resumableAttempt) {
+          const answerRows = await listAttemptAnswers(resumableAttempt.$id)
+          if (isCancelled) {
+            return
+          }
+
+          const choiceIdByQuestionId = new Map(
+            answerRows.map((answerRow) => [
+              answerRow.questionId,
+              answerRow.choiceId,
+            ])
+          )
+          // Build a map of which questions were answered
+          const answeredIndices: number[] = []
+          const unansweredIndices: number[] = []
+          const restoredAnswersByOriginalIndex: UserAnswers = {}
+
+          for (let index = 0; index < questions.length; index += 1) {
+            const question = questions[index]
+            const selectedChoiceId = choiceIdByQuestionId.get(
+              question.questionId
+            )
+
+            if (!selectedChoiceId) {
+              unansweredIndices.push(index)
+              continue
+            }
+
+            const selectedChoiceIndex =
+              question.choiceIds.indexOf(selectedChoiceId)
+            if (selectedChoiceIndex >= 0) {
+              restoredAnswersByOriginalIndex[index] = selectedChoiceIndex
+              answeredIndices.push(index)
+            } else {
+              unansweredIndices.push(index)
+            }
+          }
+
+          // Reorder: answered first, then unanswered (preserving relative order within each group)
+          const reorderedIndices = [...answeredIndices, ...unansweredIndices]
+          const reorderedQuestions = reorderedIndices.map((i) => questions[i])
+
+          // Remap answers to new indices
+          const remappedAnswers: UserAnswers = {}
+          for (let newIndex = 0; newIndex < reorderedIndices.length; newIndex++) {
+            const originalIndex = reorderedIndices[newIndex]
+            if (typeof restoredAnswersByOriginalIndex[originalIndex] === "number") {
+              remappedAnswers[newIndex] = restoredAnswersByOriginalIndex[originalIndex]
+            }
+          }
+
+          // Start at the first unanswered question
+          const firstUnansweredIndex = answeredIndices.length
+          const safeIndex = Math.min(
+            firstUnansweredIndex,
+            Math.max(reorderedQuestions.length - 1, 0)
+          )
+
+          setQuestions(reorderedQuestions)
+          setAttemptId(resumableAttempt.$id)
+          setAnswers(remappedAnswers)
+          setActiveIndex(safeIndex)
+          setDidResumeAttempt(true)
+          activeIndexRef.current = safeIndex
+          startTimeRef.current =
+            Date.now() - Math.max(resumableAttempt.timeTaken, 0) * 1000
+
+          requestAnimationFrame(() => {
+            flatListRef.current?.scrollToIndex({
+              index: safeIndex,
+              animated: false,
+            })
+          })
+
+          return
+        }
+
+        const nextAttemptId = await startQuizAttempt({
+          userId: user.$id,
+          examId: activeExamId,
+          totalItems: questions.length,
+        })
+
+        if (!isCancelled) {
+          setAttemptId(nextAttemptId)
+          setDidResumeAttempt(false)
+        }
+      } catch {
+        if (isCancelled) {
+          return
+        }
+
+        try {
+          const nextAttemptId = await startQuizAttempt({
+            userId: user.$id,
+            examId: activeExamId,
+            totalItems: questions.length,
+          })
+          if (!isCancelled) {
+            setAttemptId(nextAttemptId)
+            setDidResumeAttempt(false)
+          }
+        } catch {
+          // Best-effort only. Quiz flow should continue even if tracking fails.
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsAttemptHydrating(false)
+        }
+      }
+    })()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [
+    activeExamId,
+    isSubmitted,
+    questionSignature,
+    questions,
+    totalSeconds,
+    user,
+  ])
+
+  useEffect(() => {
+    if (!attemptId || isSubmitted) {
+      return
+    }
+
+    const timeoutId = setTimeout(() => {
+      const elapsedSeconds = Math.round(
+        (Date.now() - startTimeRef.current) / 1000
+      )
+
+      void syncOngoingAttemptProgress({
+        attemptId,
+        timeTaken: elapsedSeconds,
+        currentQuestionIndex: activeIndexRef.current,
+      })
+    }, 900)
+
+    return () => clearTimeout(timeoutId)
+  }, [activeIndex, attemptId, isSubmitted])
+
+  useEffect(() => {
+    return () => {
+      if (!attemptId || isSubmittedRef.current) {
+        return
+      }
+
+      const elapsedSeconds = Math.round(
+        (Date.now() - startTimeRef.current) / 1000
+      )
+      void syncOngoingAttemptProgress({
+        attemptId,
+        timeTaken: elapsedSeconds,
+        currentQuestionIndex: activeIndexRef.current,
+      })
+    }
+  }, [attemptId])
 
   const answeredCount = Object.values(answers).filter(
     (v) => typeof v === "number"
@@ -421,20 +648,59 @@ export default function QuizScreen() {
 
     if (user && (examId || categoryId)) {
       const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000)
+      const activeExamId = examId || categoryId
+      const trackedSubjectId =
+        categoryId && categoryId !== "all-categories" ? categoryId : undefined
+
       try {
-        await saveQuizResult({
-          userId: user.$id,
-          examId: examId || categoryId,
-          score: result.correct,
-          totalItems: questions.length,
-          timeTaken,
-          status: "done",
-        })
+        if (attemptId) {
+          await completeQuizAttempt({
+            attemptId,
+            userId: user.$id,
+            examId: activeExamId,
+            score: result.correct,
+            totalItems: questions.length,
+            timeTaken,
+            subjectId: trackedSubjectId,
+            topicId: activeExamId,
+            profileSnapshot: {
+              fullName: profile?.fullName,
+              schoolName: profile?.schoolName,
+              reviewType: profile?.reviewType,
+              avatarUrl: profile?.avatarUrl,
+            },
+          })
+        } else {
+          await saveQuizResult({
+            userId: user.$id,
+            examId: activeExamId,
+            score: result.correct,
+            totalItems: questions.length,
+            timeTaken,
+            status: "done",
+            subjectId: trackedSubjectId,
+            topicId: activeExamId,
+            profileSnapshot: {
+              fullName: profile?.fullName,
+              schoolName: profile?.schoolName,
+              reviewType: profile?.reviewType,
+              avatarUrl: profile?.avatarUrl,
+            },
+          })
+        }
       } catch {
         // Best-effort: don't block the results UI
       }
     }
-  }, [categoryId, examId, questions.length, result.correct, user])
+  }, [
+    attemptId,
+    categoryId,
+    examId,
+    profile,
+    questions.length,
+    result.correct,
+    user,
+  ])
 
   const handleSelectAnswer = useCallback(
     (questionIndex: number, choiceIndex: number) => {
@@ -448,8 +714,28 @@ export default function QuizScreen() {
           [questionIndex]: choiceIndex,
         }
       })
+
+      if (!attemptId) {
+        return
+      }
+
+      const question = questions[questionIndex]
+      const choiceId = question?.choiceIds[choiceIndex]
+
+      if (!question || !choiceId) {
+        return
+      }
+
+      void recordQuizAnswer({
+        attemptId,
+        userId: user?.$id,
+        questionId: question.questionId,
+        choiceId,
+        isCorrect: choiceIndex === question.answerIndex,
+        currentQuestionIndex: questionIndex,
+      })
     },
-    []
+    [attemptId, questions, user?.$id]
   )
 
   const scrollToIndex = useCallback((index: number) => {
@@ -564,7 +850,8 @@ export default function QuizScreen() {
   if (
     questionsQuery.isLoading ||
     (categoryId !== "all-categories" && categoryQuery.isLoading) ||
-    examQuery.isLoading
+    examQuery.isLoading ||
+    (isAttemptHydrating && !attemptId)
   ) {
     return (
       <SafeAreaView className="flex-1 bg-background">
@@ -778,6 +1065,11 @@ export default function QuizScreen() {
         <Text className="text-xs font-semibold text-muted-foreground">
           {answeredCount}/{questions.length} answered
         </Text>
+        {didResumeAttempt ? (
+          <Text className="text-[11px] font-semibold text-primary">
+            Resumed from your last ongoing attempt.
+          </Text>
+        ) : null}
       </View>
 
       {/* Question FlatList */}

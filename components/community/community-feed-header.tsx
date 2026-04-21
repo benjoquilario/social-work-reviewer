@@ -44,14 +44,21 @@ export function CommunityFeedHeader({
         </Text>
         <View
           className="h-9 w-9 items-center justify-center rounded-full"
-          style={{ backgroundColor: withOpacity(theme.muted, 0.8) }}
+          style={{
+            backgroundColor: withOpacity(theme.muted, 0.8),
+            borderWidth: 1,
+            borderColor: theme.border,
+          }}
         >
           <Search size={16} color={theme.mutedForeground} />
         </View>
       </View>
 
       {/* Composer prompt */}
-      <View className="flex-row items-center gap-3 rounded-2xl border border-border/60 bg-card px-3.5 py-3">
+      <View
+        className="flex-row items-center gap-3 rounded-2xl bg-card px-3.5 py-3"
+        style={{ borderWidth: 1, borderColor: theme.border }}
+      >
         <CommunityAvatar
           label={currentUserAvatar ?? "RV"}
           theme={theme}
@@ -74,7 +81,11 @@ export function CommunityFeedHeader({
       <View className="flex-row gap-2">
         <View
           className="flex-1 items-center rounded-2xl py-2.5"
-          style={{ backgroundColor: withOpacity(theme.primary, 0.08) }}
+          style={{
+            backgroundColor: withOpacity(theme.primary, 0.08),
+            borderWidth: 1,
+            borderColor: theme.border,
+          }}
         >
           <Text className="text-[15px] font-black text-primary">
             {totalPosts}
@@ -85,7 +96,11 @@ export function CommunityFeedHeader({
         </View>
         <View
           className="flex-1 items-center rounded-2xl py-2.5"
-          style={{ backgroundColor: withOpacity(theme.primary, 0.08) }}
+          style={{
+            backgroundColor: withOpacity(theme.primary, 0.08),
+            borderWidth: 1,
+            borderColor: theme.border,
+          }}
         >
           <Text className="text-[15px] font-black text-primary">
             {stats?.activeLearners ?? 0}
@@ -96,7 +111,11 @@ export function CommunityFeedHeader({
         </View>
         <View
           className="flex-1 items-center rounded-2xl py-2.5"
-          style={{ backgroundColor: withOpacity(theme.primary, 0.08) }}
+          style={{
+            backgroundColor: withOpacity(theme.primary, 0.08),
+            borderWidth: 1,
+            borderColor: theme.border,
+          }}
         >
           <Text className="text-[15px] font-black text-primary">
             {stats?.answeredToday ?? 0}

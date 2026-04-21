@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import {
   COMMUNITY_FEED_FILTERS,
@@ -7,11 +7,15 @@ import {
 } from "@/contexts/community-context"
 import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list"
 import { useQuery } from "@tanstack/react-query"
+import * as ImagePicker from "expo-image-picker"
 import { useRouter } from "expo-router"
 import { Alert, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import { type CommunityPostItem } from "@/lib/community"
+import {
+  uploadCommunityPostPhoto,
+  type CommunityPostItem,
+} from "@/lib/community"
 import { listLearningSubjects } from "@/lib/learning-content"
 import { THEME } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
@@ -45,6 +49,7 @@ export default function CommunityScreen() {
   const profile = useAuth((s) => s.profile)
   const colorScheme = useColorScheme()
   const theme = colorScheme === "dark" ? THEME.dark : THEME.light
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
 
   // Zustand store
   const feed = useCommunity((s) => s.feed)
@@ -145,6 +150,68 @@ export default function CommunityScreen() {
       : null
     void submitPost(user.$id, author, subjectName)
   }, [profile, selectedSubjectId, submitPost, subjectsQuery.data, user])
+
+  const handlePickComposerPhoto = useCallback(async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+
+    if (!permission.granted) {
+      Alert.alert(
+        "Permission needed",
+        "Allow photo library access to upload a thread image."
+      )
+      return
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      quality: 0.75,
+      selectionLimit: 1,
+    })
+
+    if (result.canceled || result.assets.length === 0) {
+      return
+    }
+
+    const asset = result.assets[0]
+    const fileSize = asset.fileSize ?? 0
+    const mimeType = asset.mimeType ?? "image/jpeg"
+    const fileName =
+      asset.fileName ??
+      `thread-${Date.now()}.${mimeType.split("/")[1] ?? "jpg"}`
+
+    if (!fileSize) {
+      Alert.alert(
+        "Upload failed",
+        "The selected image does not include a readable file size."
+      )
+      return
+    }
+
+    setIsUploadingPhoto(true)
+    try {
+      const uploadedUrl = await uploadCommunityPostPhoto({
+        uri: asset.uri,
+        name: fileName,
+        type: mimeType,
+        size: fileSize,
+      })
+      setPhotoUrlDraft(uploadedUrl)
+    } catch (error) {
+      Alert.alert(
+        "Upload failed",
+        error instanceof Error
+          ? error.message
+          : "Unable to upload your thread image right now."
+      )
+    } finally {
+      setIsUploadingPhoto(false)
+    }
+  }, [setPhotoUrlDraft])
+
+  const handleRemoveComposerPhoto = useCallback(() => {
+    setPhotoUrlDraft("")
+  }, [setPhotoUrlDraft])
 
   const header = useMemo(
     () => (
@@ -247,9 +314,11 @@ export default function CommunityScreen() {
         categories={["question", "discussion", "tip"]}
         contentDraft={contentDraft}
         isPending={isCreatingPost}
+        isUploadingPhoto={isUploadingPhoto}
         onChangeContentDraft={setContentDraft}
-        onChangePhotoUrlDraft={setPhotoUrlDraft}
         onChangeTitleDraft={setTitleDraft}
+        onPickPhoto={handlePickComposerPhoto}
+        onRemovePhoto={handleRemoveComposerPhoto}
         onSelectCategory={(c) =>
           setSelectedCategory(c as "question" | "discussion" | "tip")
         }

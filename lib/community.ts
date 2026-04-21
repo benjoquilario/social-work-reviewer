@@ -1,4 +1,5 @@
 import {
+  APPWRITE_CONFIG,
   COLLECTIONS,
   createAppwriteContentError,
   createAppwritePermissionMessage,
@@ -9,6 +10,7 @@ import {
   Permission,
   Query,
   Role,
+  storage,
   tablesDB,
 } from "./appwrite"
 import {
@@ -86,6 +88,31 @@ export type CreateCommunityPostInput = {
   photoUrl?: string
 }
 
+export type UploadCommunityPostPhotoInput = {
+  uri: string
+  name: string
+  type: string
+  size: number
+}
+
+function getCommunityPostImagesBucketId() {
+  const configured = APPWRITE_CONFIG.communityPostImagesBucketId.trim()
+
+  if (configured) {
+    return configured
+  }
+
+  const fallback = APPWRITE_CONFIG.profileImagesBucketId.trim()
+  if (fallback) {
+    return fallback
+  }
+
+  throw createAppwriteContentError(
+    "config",
+    "Missing EXPO_PUBLIC_APPWRITE_COMMUNITY_POST_IMAGES_BUCKET_ID."
+  )
+}
+
 function ensureCommunityConfigured() {
   const configError = getAppwriteConfigurationError()
 
@@ -132,6 +159,58 @@ function normalizePhotoUrl(value?: string): string | null {
   }
 
   return trimmed
+}
+
+export async function uploadCommunityPostPhoto(
+  input: UploadCommunityPostPhotoInput
+): Promise<string> {
+  ensureCommunityConfigured()
+
+  const bucketId = getCommunityPostImagesBucketId()
+
+  if (!input.uri.trim()) {
+    throw createAppwriteContentError(
+      "request",
+      "Selected image is missing a valid local URI."
+    )
+  }
+
+  if (!input.type.trim().startsWith("image/")) {
+    throw createAppwriteContentError(
+      "request",
+      "Only image uploads are allowed for thread photos."
+    )
+  }
+
+  if (input.size <= 0) {
+    throw createAppwriteContentError(
+      "request",
+      "Unable to determine the selected image size."
+    )
+  }
+
+  if (input.size > 8 * 1024 * 1024) {
+    throw createAppwriteContentError(
+      "request",
+      "Thread photos must be 8 MB or smaller."
+    )
+  }
+
+  const uploadedFile = await storage.createFile({
+    bucketId,
+    fileId: ID.unique(),
+    file: {
+      uri: input.uri,
+      name: input.name,
+      type: input.type,
+      size: input.size,
+    },
+    permissions: [Permission.read(Role.any())],
+  })
+
+  return storage
+    .getFilePreviewURL(bucketId, uploadedFile.$id, 1200, 1200)
+    .toString()
 }
 
 function getOwnerPermissions(userId: string) {

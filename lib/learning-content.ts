@@ -58,6 +58,7 @@ export type LearningMaterial = {
   id: string
   topicId: string
   title: string
+  order: number
   type: LearningMaterialType
   fileUrl: string | null
   content: string
@@ -85,6 +86,7 @@ type PremiumMaterialFunctionResponse = {
     id: string
     topicId: string
     title: string
+    order?: number
     type: LearningMaterialType
     fileUrl: string | null
     content: string
@@ -170,6 +172,7 @@ function mapMaterialDocument(
     id: material.$id,
     topicId: material.topicId,
     title: material.title,
+    order: material.order,
     type: material.type,
     fileUrl: isLocked ? null : (material.fileUrl ?? null),
     content: isLocked ? "" : (material.content ?? ""),
@@ -186,6 +189,7 @@ function mapPremiumMaterialPayload(
     id: material.id,
     topicId: material.topicId,
     title: material.title,
+    order: material.order ?? 1,
     type: material.type,
     fileUrl: material.fileUrl,
     content: material.content,
@@ -205,6 +209,10 @@ function sortTopics(topics: TopicDocument[]) {
 
 function sortMaterials(materials: LearningMaterialDocument[]) {
   return [...materials].sort((left, right) => {
+    if (left.order !== right.order) {
+      return left.order - right.order
+    }
+
     return (
       new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
     )
@@ -357,7 +365,11 @@ async function listRemoteMaterials() {
   const { rows } = await tablesDB.listRows({
     databaseId: DB_ID,
     tableId: COLLECTIONS.LEARNING_MATERIALS,
-    queries: [Query.orderAsc("createdAt"), Query.limit(CONTENT_QUERY_LIMIT)],
+    queries: [
+      Query.orderAsc("order"),
+      Query.orderAsc("createdAt"),
+      Query.limit(CONTENT_QUERY_LIMIT),
+    ],
   })
 
   return rows as unknown as LearningMaterialDocument[]
@@ -371,6 +383,7 @@ async function listRemoteMaterialsByTopicId(topicId: string) {
     tableId: COLLECTIONS.LEARNING_MATERIALS,
     queries: [
       Query.equal("topicId", topicId),
+      Query.orderAsc("order"),
       Query.orderAsc("createdAt"),
       Query.limit(CONTENT_QUERY_LIMIT),
     ],

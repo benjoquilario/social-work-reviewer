@@ -33,6 +33,7 @@ export type QuizQuestion = {
   categoryId: string
   prompt: string
   choices: string[]
+  choiceIds: string[]
   answerIndex: number
   explanation: string
 }
@@ -241,6 +242,7 @@ function toQuizQuestion(
     categoryId: question.subjectId,
     prompt: question.questionText,
     choices: questionChoices.map((choice) => choice.choiceText),
+    choiceIds: questionChoices.map((choice) => choice.$id),
     answerIndex,
     explanation: question.explanation ?? "No explanation added yet.",
   }

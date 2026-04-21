@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
+import { useQuery } from "@tanstack/react-query"
 import * as ImagePicker from "expo-image-picker"
 import { useRouter } from "expo-router"
 import {
+  Award,
   BadgeCheck,
   BookOpen,
   Calendar,
   Camera,
+  CheckCircle2,
+  Clock3,
   Flame,
   GraduationCap,
   Settings,
@@ -17,9 +21,12 @@ import { Alert, Image, Pressable, TextInput, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { getAvatarUrl, getInitials } from "@/lib/auth"
+import { getOverallPerformanceStats } from "@/lib/performance-stats"
+import { getUserActivityFeed, type ActivityAchievement } from "@/lib/progress"
 import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Button } from "@/components/ui/button"
+import { CircularProgress } from "@/components/ui/circular-progress"
 import {
   Dialog,
   DialogContent,
@@ -30,6 +37,7 @@ import {
 } from "@/components/ui/dialog"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
+import { OverallPerformanceSection } from "@/app/dashboard"
 
 function formatMemberSince(value: string | undefined) {
   if (!value) return "Not available"
@@ -39,6 +47,218 @@ function formatMemberSince(value: string | undefined) {
     year: "numeric",
     month: "long",
   }).format(parsed)
+}
+
+function formatActivityDate(value: string | null | undefined) {
+  if (!value) {
+    return "Not available"
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return "Not available"
+  }
+
+  return new Intl.DateTimeFormat("en-PH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(parsed)
+}
+
+function formatDuration(seconds: number) {
+  const safeSeconds = Math.max(seconds, 0)
+  const minutes = Math.floor(safeSeconds / 60)
+  const remainderSeconds = safeSeconds % 60
+
+  if (minutes === 0) {
+    return `${remainderSeconds}s`
+  }
+
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60)
+    const remainingMinutes = minutes % 60
+    return `${hours}h ${remainingMinutes}m`
+  }
+
+  return `${minutes}m ${remainderSeconds}s`
+}
+
+const ACTIVITY_PAGE_SIZE = 6
+
+type AchievementBadgeIcon = "flame" | "check" | "book" | "star" | "award"
+
+type AchievementBadgeMeta = {
+  badgeName: string
+  icon: AchievementBadgeIcon
+  tone: "primary" | "accent" | "success" | "warning"
+}
+
+function getAchievementBadgeMeta(
+  achievement: ActivityAchievement
+): AchievementBadgeMeta {
+  const metric = Math.round(achievement.metricValue)
+
+  if (achievement.achievementType === "streak") {
+    if (metric >= 100) {
+      return {
+        badgeName: "Century Scholar",
+        icon: "flame",
+        tone: "warning",
+      }
+    }
+
+    if (metric >= 60) {
+      return {
+        badgeName: "Discipline Vanguard",
+        icon: "flame",
+        tone: "success",
+      }
+    }
+
+    if (metric >= 30) {
+      return {
+        badgeName: "Monthly Momentum",
+        icon: "flame",
+        tone: "primary",
+      }
+    }
+
+    return {
+      badgeName: "Streak Builder",
+      icon: "flame",
+      tone: "accent",
+    }
+  }
+
+  if (achievement.achievementType === "consistency") {
+    if (metric >= 100) {
+      return {
+        badgeName: "Perfect Ace",
+        icon: "star",
+        tone: "warning",
+      }
+    }
+
+    if (metric >= 85) {
+      return {
+        badgeName: "Silver Strategist",
+        icon: "check",
+        tone: "success",
+      }
+    }
+
+    return {
+      badgeName: "Bronze Breakthrough",
+      icon: "check",
+      tone: "primary",
+    }
+  }
+
+  if (achievement.achievementType === "quiz_completion") {
+    if (metric >= 50) {
+      return {
+        badgeName: "Grand Examiner",
+        icon: "award",
+        tone: "warning",
+      }
+    }
+
+    if (metric >= 25) {
+      return {
+        badgeName: "Exam Pathfinder",
+        icon: "award",
+        tone: "success",
+      }
+    }
+
+    if (metric >= 10) {
+      return {
+        badgeName: "Quiz Specialist",
+        icon: "check",
+        tone: "primary",
+      }
+    }
+
+    return {
+      badgeName: "Quiz Cadet",
+      icon: "check",
+      tone: "accent",
+    }
+  }
+
+  if (achievement.achievementType === "completion") {
+    if (metric >= 50) {
+      return {
+        badgeName: "Master of Modules",
+        icon: "book",
+        tone: "warning",
+      }
+    }
+
+    if (metric >= 25) {
+      return {
+        badgeName: "Curriculum Conqueror",
+        icon: "book",
+        tone: "success",
+      }
+    }
+
+    if (metric >= 10) {
+      return {
+        badgeName: "Study Architect",
+        icon: "book",
+        tone: "primary",
+      }
+    }
+
+    return {
+      badgeName: "Lesson Explorer",
+      icon: "book",
+      tone: "accent",
+    }
+  }
+
+  if (achievement.achievementType === "weekly_average") {
+    if (metric >= 90) {
+      return {
+        badgeName: "Elite Accuracy",
+        icon: "award",
+        tone: "warning",
+      }
+    }
+
+    return {
+      badgeName: "Strong Weekly Average",
+      icon: "award",
+      tone: "success",
+    }
+  }
+
+  return {
+    badgeName: "Milestone Unlocked",
+    icon: "award",
+    tone: "primary",
+  }
+}
+
+function renderAchievementBadgeIcon(icon: AchievementBadgeIcon, color: string) {
+  if (icon === "flame") {
+    return <Flame size={13} color={color} />
+  }
+
+  if (icon === "check") {
+    return <CheckCircle2 size={13} color={color} />
+  }
+
+  if (icon === "book") {
+    return <BookOpen size={13} color={color} />
+  }
+
+  if (icon === "star") {
+    return <Star size={13} color={color} />
+  }
+
+  return <Award size={13} color={color} />
 }
 
 function ProfileInput({
@@ -103,7 +323,11 @@ export default function ProfileScreen() {
   const [reviewType, setReviewType] = useState("")
   const [avatarUrl, setAvatarUrl] = useState("")
   const [imageFailed, setImageFailed] = useState(false)
-  const [activeTab, setActiveTab] = useState<"details" | "activity">("details")
+  const [activeTab, setActiveTab] = useState<"details" | "activity" | "performance">("details")
+  const [quizAttemptsLimit, setQuizAttemptsLimit] = useState(ACTIVITY_PAGE_SIZE)
+  const [learningHistoryLimit, setLearningHistoryLimit] =
+    useState(ACTIVITY_PAGE_SIZE)
+  const [achievementsLimit, setAchievementsLimit] = useState(ACTIVITY_PAGE_SIZE)
 
   useEffect(() => {
     if (!profile) void refreshProfile()
@@ -112,6 +336,12 @@ export default function ProfileScreen() {
   useEffect(() => {
     setImageFailed(false)
   }, [profile?.avatarUrl, user?.name])
+
+  useEffect(() => {
+    setQuizAttemptsLimit(ACTIVITY_PAGE_SIZE)
+    setLearningHistoryLimit(ACTIVITY_PAGE_SIZE)
+    setAchievementsLimit(ACTIVITY_PAGE_SIZE)
+  }, [user?.$id])
 
   const displayName = profile?.fullName ?? user?.name ?? "Reviewer"
   const email = profile?.email ?? user?.email ?? ""
@@ -122,6 +352,77 @@ export default function ProfileScreen() {
   )
   const memberSince = formatMemberSince(profile?.createdAt)
   const initials = getInitials(displayName)
+  const activityQuery = useQuery({
+    queryKey: [
+      "profile-activity",
+      user?.$id,
+      quizAttemptsLimit,
+      learningHistoryLimit,
+      achievementsLimit,
+    ],
+    enabled: Boolean(user?.$id),
+    queryFn: () =>
+      getUserActivityFeed(user?.$id ?? "", {
+        quizAttemptsLimit,
+        learningHistoryLimit,
+        achievementsLimit,
+      }),
+  })
+
+  const performanceQuery = useQuery({
+    queryKey: ["profile-overall-performance", user?.$id],
+    enabled: Boolean(user?.$id),
+    queryFn: () => getOverallPerformanceStats(user?.$id ?? ""),
+    staleTime: 1000 * 15,
+  })
+  const activityFeed = activityQuery.data ?? null
+  const recentActivityItems = useMemo(() => {
+    if (!activityFeed) {
+      return []
+    }
+
+    const quizItems = activityFeed.quizAttempts.map((attempt) => {
+      const timestamp = attempt.finishedAt ?? attempt.startedAt
+      const metric = `${attempt.percent}% • ${formatDuration(attempt.timeTaken)}`
+      const statusText =
+        attempt.status === "done"
+          ? `Finished ${formatActivityDate(attempt.finishedAt)}`
+          : `Paused at question ${attempt.currentQuestionIndex + 1}`
+
+      return {
+        id: `quiz-${attempt.id}`,
+        title: attempt.examTitle,
+        kindLabel: "Quiz",
+        metric,
+        statusText,
+        timestamp,
+        tone: theme.primary,
+      }
+    })
+
+    const learningItems = activityFeed.learningHistory.map((entry) => ({
+      id: `learn-${entry.id}`,
+      title: entry.materialTitle,
+      kindLabel: "Learning",
+      metric: `${Math.round(entry.progressPercent)}% complete`,
+      statusText: `Last opened ${formatActivityDate(entry.lastAccessedAt)}`,
+      timestamp: entry.lastAccessedAt,
+      tone:
+        entry.status === "completed"
+          ? theme.success
+          : entry.status === "paused"
+            ? theme.warning
+            : theme.primary,
+    }))
+
+    return [...quizItems, ...learningItems]
+      .sort(
+        (left, right) =>
+          new Date(right.timestamp).getTime() -
+          new Date(left.timestamp).getTime()
+      )
+      .slice(0, 10)
+  }, [activityFeed, theme.primary, theme.success, theme.warning])
 
   function openEditDialog() {
     setFullName(profile?.fullName ?? user?.name ?? "")
@@ -348,7 +649,6 @@ export default function ProfileScreen() {
           </Button>
         </View>
 
-        {/* Tabs */}
         <View className="mt-4 flex-row border-b border-border/40">
           <Pressable
             className="flex-1 items-center pb-3"
@@ -394,13 +694,35 @@ export default function ProfileScreen() {
               />
             ) : null}
           </Pressable>
+          <Pressable
+            className="flex-1 items-center pb-3"
+            onPress={() => setActiveTab("performance")}
+          >
+            <Text
+              className="text-[13px] font-bold"
+              style={{
+                color:
+                  activeTab === "performance"
+                    ? theme.primary
+                    : theme.mutedForeground,
+              }}
+            >
+              Performance
+            </Text>
+            {activeTab === "performance" ? (
+              <View
+                className="absolute bottom-0 h-0.5 w-12 rounded-full"
+                style={{ backgroundColor: theme.primary }}
+              />
+            ) : null}
+          </Pressable>
         </View>
 
         {/* Tab content */}
         <View className="gap-3 px-4 pt-4">
           {activeTab === "details" ? (
             <>
-              {/* Info rows */}
+              {/* Info rows -- details tab */}
               <View className="flex-row items-center gap-3 py-2">
                 <View
                   className="h-9 w-9 items-center justify-center rounded-full"
@@ -503,23 +825,277 @@ export default function ProfileScreen() {
                 </View>
               </View>
             </>
-          ) : (
+          ) : activeTab === "activity" ? (
             /* Activity tab */
-            <View className="items-center gap-3 py-8">
-              <View
-                className="h-14 w-14 items-center justify-center rounded-full"
-                style={{ backgroundColor: withOpacity(theme.primary, 0.1) }}
-              >
-                <Flame size={24} color={theme.primary} />
-              </View>
-              <Text className="text-center text-[14px] font-bold text-foreground">
-                Activity Coming Soon
-              </Text>
-              <Text className="text-center text-[13px] text-muted-foreground">
-                Your quiz history, streaks, and study activity will appear here.
-              </Text>
+            <View className="gap-3 py-1">
+              {activityQuery.isLoading ? (
+                <View className="gap-2.5">
+                  <View
+                    className="h-20 rounded-2xl border"
+                    style={{
+                      backgroundColor: withOpacity(theme.primary, 0.08),
+                      borderColor: theme.border,
+                    }}
+                  />
+                  <View
+                    className="h-24 rounded-2xl border"
+                    style={{
+                      backgroundColor: withOpacity(theme.primary, 0.08),
+                      borderColor: theme.border,
+                    }}
+                  />
+                  <View
+                    className="h-32 rounded-2xl border"
+                    style={{
+                      backgroundColor: withOpacity(theme.primary, 0.08),
+                      borderColor: theme.border,
+                    }}
+                  />
+                </View>
+              ) : activityQuery.error ? (
+                <View className="items-center gap-2 rounded-2xl border border-border bg-card px-4 py-4">
+                  <Text className="text-[14px] font-bold text-foreground">
+                    Activity unavailable
+                  </Text>
+                  <Text className="text-center text-[12px] leading-5 text-muted-foreground">
+                    {activityQuery.error instanceof Error
+                      ? activityQuery.error.message
+                      : "Unable to load your recent activity right now."}
+                  </Text>
+                </View>
+              ) : activityFeed ? (
+                <>
+                  <View className="rounded-2xl border border-border bg-card px-3.5 py-3.5">
+                    <Text className="text-[11px] font-black uppercase tracking-[1.3px] text-primary">
+                      Activity Overview
+                    </Text>
+                    <View className="mt-2 flex-row gap-2.5">
+                      <View className="flex-1 rounded-xl border border-border bg-background px-3 py-2.5">
+                        <View className="flex-row items-center gap-1.5">
+                          <Flame size={14} color={theme.primary} />
+                          <Text className="text-[10px] font-bold uppercase tracking-[1.1px] text-muted-foreground">
+                            Streak
+                          </Text>
+                        </View>
+                        <Text className="mt-1 text-[20px] font-black text-card-foreground">
+                          {activityFeed.dayStreak}
+                        </Text>
+                        <Text className="text-[11px] text-muted-foreground">
+                          days active
+                        </Text>
+                      </View>
+                      <View className="flex-1 rounded-xl border border-border bg-background px-3 py-2.5">
+                        <View className="flex-row items-center gap-1.5">
+                          <CheckCircle2 size={14} color={theme.success} />
+                          <Text className="text-[10px] font-bold uppercase tracking-[1.1px] text-muted-foreground">
+                            Weekly Avg
+                          </Text>
+                        </View>
+                        <Text className="mt-1 text-[20px] font-black text-card-foreground">
+                          {activityFeed.weeklyAverageScore}%
+                        </Text>
+                        <Text className="text-[11px] text-muted-foreground">
+                          score this week
+                        </Text>
+                      </View>
+                    </View>
+                    <View className="mt-2 rounded-xl border border-border bg-background px-3 py-2.5">
+                      <Text className="text-[10px] font-bold uppercase tracking-[1.1px] text-muted-foreground">
+                        Completed
+                      </Text>
+                      <Text className="mt-1 text-[13px] font-semibold text-card-foreground">
+                        {activityFeed.completedQuizzes} quizzes ·{" "}
+                        {activityFeed.completedMaterials} materials
+                      </Text>
+                      <Text className="mt-0.5 text-[11px] text-muted-foreground">
+                        Last active{" "}
+                        {formatActivityDate(activityFeed.lastActiveAt)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View className="rounded-2xl border border-border bg-card px-3.5 py-3.5">
+                    <View className="mb-2 flex-row items-center gap-2">
+                      <Award size={15} color={theme.primary} />
+                      <Text className="text-[13px] font-bold text-card-foreground">
+                        Recent Achievements
+                      </Text>
+                    </View>
+
+                    {activityFeed.achievements.length === 0 ? (
+                      <Text className="text-[12px] leading-5 text-muted-foreground">
+                        No achievements yet. Keep practicing to unlock badges.
+                      </Text>
+                    ) : (
+                      activityFeed.achievements.map((achievement, index) => {
+                        const badgeMeta = getAchievementBadgeMeta(achievement)
+                        const badgeTone =
+                          badgeMeta.tone === "success"
+                            ? theme.success
+                            : badgeMeta.tone === "warning"
+                              ? theme.warning
+                              : badgeMeta.tone === "accent"
+                                ? theme.accent
+                                : theme.primary
+
+                        return (
+                          <View
+                            key={achievement.id}
+                            className="py-2"
+                            style={{
+                              borderBottomWidth:
+                                index === activityFeed.achievements.length - 1
+                                  ? 0
+                                  : 1,
+                              borderBottomColor: withOpacity(theme.border, 0.8),
+                            }}
+                          >
+                            <View className="flex-row items-center gap-2">
+                              <View
+                                className="h-6 w-6 items-center justify-center rounded-full"
+                                style={{
+                                  backgroundColor: withOpacity(badgeTone, 0.15),
+                                }}
+                              >
+                                {renderAchievementBadgeIcon(
+                                  badgeMeta.icon,
+                                  badgeTone
+                                )}
+                              </View>
+                              <Text
+                                className="text-[11px] font-black uppercase tracking-[1.1px]"
+                                style={{ color: badgeTone }}
+                              >
+                                {badgeMeta.badgeName}
+                              </Text>
+                            </View>
+                            <Text className="mt-1 text-[12px] font-bold text-card-foreground">
+                              {achievement.title}
+                            </Text>
+                            <Text className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+                              {achievement.description ?? "Milestone unlocked"}
+                            </Text>
+                            <Text className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                              {achievement.metricValue} ·{" "}
+                              {formatActivityDate(achievement.earnedAt)}
+                            </Text>
+                          </View>
+                        )
+                      })
+                    )}
+
+                    {activityFeed.achievementsHasMore ? (
+                      <Button
+                        variant="outline"
+                        className="mt-2 h-9 rounded-xl"
+                        onPress={() =>
+                          setAchievementsLimit(
+                            (previousValue) =>
+                              previousValue + ACTIVITY_PAGE_SIZE
+                          )
+                        }
+                      >
+                        <Text className="text-[11px] font-bold">
+                          Load more achievements
+                        </Text>
+                      </Button>
+                    ) : null}
+                  </View>
+
+                  <View className="rounded-2xl border border-border bg-card px-3.5 py-3.5">
+                    <View className="mb-2 flex-row items-center gap-2">
+                      <Clock3 size={14} color={theme.primary} />
+                      <Text className="text-[13px] font-bold text-card-foreground">
+                        Recent Activity Timeline
+                      </Text>
+                    </View>
+
+                    {recentActivityItems.length === 0 ? (
+                      <Text className="text-[12px] leading-5 text-muted-foreground">
+                        No recent quiz or learning activity yet.
+                      </Text>
+                    ) : (
+                      recentActivityItems.map((item, index) => (
+                        <View
+                          key={item.id}
+                          className="flex-row gap-2.5 py-2"
+                          style={{
+                            borderBottomWidth:
+                              index === recentActivityItems.length - 1 ? 0 : 1,
+                            borderBottomColor: withOpacity(theme.border, 0.8),
+                          }}
+                        >
+                          <View
+                            className="mt-1 h-2.5 w-2.5 rounded-full"
+                            style={{ backgroundColor: item.tone }}
+                          />
+                          <View className="flex-1 gap-0.5">
+                            <View className="flex-row items-center justify-between gap-2">
+                              <Text
+                                className="flex-1 text-[12px] font-semibold text-card-foreground"
+                                numberOfLines={2}
+                              >
+                                {item.title}
+                              </Text>
+                              <Text
+                                className="text-[10px] font-black uppercase tracking-[1px]"
+                                style={{ color: item.tone }}
+                              >
+                                {item.kindLabel}
+                              </Text>
+                            </View>
+                            <Text className="text-[11px] text-muted-foreground">
+                              {item.metric}
+                            </Text>
+                            <Text className="text-[10px] leading-4 text-muted-foreground">
+                              {item.statusText}
+                            </Text>
+                          </View>
+                        </View>
+                      ))
+                    )}
+                  </View>
+
+                  <View className="flex-row gap-2.5">
+                    {activityFeed.quizAttemptsHasMore ? (
+                      <Button
+                        variant="outline"
+                        className="h-10 flex-1 rounded-xl"
+                        onPress={() =>
+                          setQuizAttemptsLimit(
+                            (previousValue) =>
+                              previousValue + ACTIVITY_PAGE_SIZE
+                          )
+                        }
+                      >
+                        <Text className="text-[11px] font-bold">
+                          More Quiz Data
+                        </Text>
+                      </Button>
+                    ) : null}
+
+                    {activityFeed.learningHistoryHasMore ? (
+                      <Button
+                        variant="outline"
+                        className="h-10 flex-1 rounded-xl"
+                        onPress={() =>
+                          setLearningHistoryLimit(
+                            (previousValue) =>
+                              previousValue + ACTIVITY_PAGE_SIZE
+                          )
+                        }
+                      >
+                        <Text className="text-[11px] font-bold">
+                          More Learning Data
+                        </Text>
+                      </Button>
+                    ) : null}
+                  </View>
+                </>
+              ) : null}
+
               <Button
-                className="mt-2 h-11 rounded-xl px-6"
+                className="mt-1 h-11 rounded-xl px-6"
                 onPress={() => router.push("/dashboard")}
               >
                 <Text className="text-[13px] font-bold text-primary-foreground">
@@ -527,7 +1103,54 @@ export default function ProfileScreen() {
                 </Text>
               </Button>
             </View>
-          )}
+          ) : activeTab === "performance" ? (
+            /* Performance tab */
+            <View className="gap-3 py-1">
+              {performanceQuery.isLoading ? (
+                <View className="gap-2.5">
+                  <View
+                    className="h-40 rounded-2xl border"
+                    style={{
+                      backgroundColor: withOpacity(theme.primary, 0.08),
+                      borderColor: theme.border,
+                    }}
+                  />
+                  <View
+                    className="h-32 rounded-2xl border"
+                    style={{
+                      backgroundColor: withOpacity(theme.primary, 0.08),
+                      borderColor: theme.border,
+                    }}
+                  />
+                </View>
+              ) : performanceQuery.error ? (
+                <View className="items-center gap-2 rounded-2xl border border-border bg-card px-4 py-4">
+                  <Text className="text-[14px] font-bold text-foreground">
+                    Performance unavailable
+                  </Text>
+                  <Text className="text-center text-[12px] leading-5 text-muted-foreground">
+                    {performanceQuery.error instanceof Error
+                      ? performanceQuery.error.message
+                      : "Unable to load your performance data right now."}
+                  </Text>
+                </View>
+              ) : performanceQuery.data ? (
+                <OverallPerformanceSection
+                  stats={performanceQuery.data}
+                  theme={theme}
+                />
+              ) : null}
+
+              <Button
+                className="mt-1 h-11 rounded-xl px-6"
+                onPress={() => router.push("/dashboard")}
+              >
+                <Text className="text-[13px] font-bold text-primary-foreground">
+                  Full Dashboard
+                </Text>
+              </Button>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 

@@ -36,7 +36,10 @@ export const CommunityThreadCard = memo(function CommunityThreadCard({
   const categoryColor = CATEGORY_COLORS[post.category] ?? theme.primary
 
   return (
-    <View className="bg-card">
+    <View
+      className="overflow-hidden rounded-[24px] bg-card"
+      style={{ borderWidth: 1, borderColor: theme.border }}
+    >
       {/* Author header */}
       <Pressable className="gap-3 px-4 pt-3.5" onPress={() => onOpen(post.id)}>
         <View className="flex-row items-center gap-2.5">
@@ -109,6 +112,9 @@ export const CommunityThreadCard = memo(function CommunityThreadCard({
               width: "100%",
               aspectRatio: 1.5,
               backgroundColor: withOpacity(theme.muted, 0.6),
+              borderTopWidth: 1,
+              borderBottomWidth: 1,
+              borderColor: theme.border,
             }}
             contentFit="cover"
             transition={120}
@@ -136,10 +142,16 @@ export const CommunityThreadCard = memo(function CommunityThreadCard({
       </View>
 
       {/* Divider */}
-      <View className="mx-4 h-px bg-border/40" />
+      {/* <View className="mx-4 h-px" style={{ backgroundColor: theme.border+ }} /> */}
 
       {/* Action buttons row */}
-      <View className="flex-row px-2 py-1">
+      <View
+        className="flex-row px-2 py-1"
+        style={{
+          borderTopWidth: 1,
+          borderColor: theme.border,
+        }}
+      >
         <Pressable
           className="flex-1 flex-row items-center justify-center gap-2 py-2.5"
           onPress={() => onLike(post)}

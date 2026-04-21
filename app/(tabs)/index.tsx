@@ -21,6 +21,11 @@ import {
   type LearningSubject,
 } from "@/lib/learning-content"
 import { getStaggerDelay } from "@/lib/motion"
+import {
+  getUserActivityFeed,
+  type ActivityLearningHistory,
+  type ActivityQuizAttempt,
+} from "@/lib/progress"
 import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Card, CardContent } from "@/components/ui/card"
@@ -33,6 +38,8 @@ import { AppShellHeader } from "@/components/app-shell-header"
 const SubjectCardSeparator = memo(function SubjectCardSeparator() {
   return <View className="w-2.5" />
 })
+
+const DAILY_ACTIVITY_TARGET = 4
 
 type ThemePalette = (typeof THEME)["light"] | (typeof THEME)["dark"]
 
@@ -49,19 +56,32 @@ const HomeSubjectCard = memo(function HomeSubjectCard({
 }) {
   const isLocked = subject.isLocked
   const tone = isLocked ? theme.accent : theme.primary
-  const description = isLocked
-    ? "Premium-only. Unlock to access drills and all topic material."
-    : subject.description || "No description added yet."
+  const badgeBg = isLocked ? withOpacity(theme.accent, 0.14) : theme.secondary
+  const badgeText = isLocked ? theme.accent : theme.secondaryForeground
+  const primaryCtaBg = isLocked ? theme.secondary : tone
+  const primaryCtaText = isLocked
+    ? theme.secondaryForeground
+    : theme.primaryForeground
 
   return (
-    <View className="w-[240px]">
-      <Card>
-        <CardContent className="gap-3 px-4 py-4">
-          {/* Header row */}
-          <View className="flex-row items-center gap-3">
+    <View className="w-[300px]">
+      <Card
+        className="overflow-hidden rounded-[26px]"
+        style={{
+          borderWidth: 1,
+          borderColor: theme.border,
+          backgroundColor: theme.card,
+        }}
+      >
+        <CardContent className="gap-4 px-4 py-4">
+          <View className="flex-row items-start gap-3">
             <View
-              className="h-10 w-10 items-center justify-center rounded-2xl"
-              style={{ backgroundColor: withOpacity(tone, 0.12) }}
+              className="h-12 w-12 items-center justify-center rounded-2xl"
+              style={{
+                backgroundColor: isLocked
+                  ? withOpacity(theme.accent, 0.14)
+                  : withOpacity(theme.primary, 0.12),
+              }}
             >
               {isLocked ? (
                 <LockKeyhole size={18} color={tone} />
@@ -69,60 +89,105 @@ const HomeSubjectCard = memo(function HomeSubjectCard({
                 <FolderOpen size={18} color={tone} />
               )}
             </View>
-            <View className="flex-1">
-              <Text
-                className="text-[14px] font-black leading-[18px] text-foreground"
-                numberOfLines={2}
-              >
-                {subject.name}
-              </Text>
-              <Text className="text-[11px] text-muted-foreground">
+
+            <View className="flex-1 gap-1.5">
+              <View className="flex-row items-start justify-between gap-3">
+                <Text
+                  className="flex-1 text-[15px] font-black leading-[21px] text-foreground"
+                  numberOfLines={2}
+                >
+                  {subject.name}
+                </Text>
+                <View
+                  className="rounded-full px-2.5 py-1"
+                  style={{ backgroundColor: badgeBg }}
+                >
+                  <Text
+                    className="text-[10px] font-black uppercase tracking-[0.7px]"
+                    style={{ color: badgeText }}
+                  >
+                    {isLocked ? "Premium" : "Open"}
+                  </Text>
+                </View>
+              </View>
+
+              <Text className="text-[12px] text-muted-foreground">
                 {subject.materialCount} materials · {subject.topicCount} topics
               </Text>
             </View>
           </View>
 
-          {/* Description */}
-          <Text
-            className="text-[12px] leading-[18px] text-muted-foreground"
+          {/* <Text
+            className="min-h-[44px] text-[13px] leading-[20px] text-muted-foreground"
             numberOfLines={2}
           >
             {description}
-          </Text>
+          </Text> */}
 
-          {/* Actions */}
-          <View className="flex-row gap-1.5">
+          <View
+            className="flex-row rounded-2xl px-3 py-1.5"
+            style={{ backgroundColor: theme.muted }}
+          >
+            <View className="flex-1">
+              <Text className="text-[10px] font-bold uppercase tracking-[0.8px] text-muted-foreground">
+                Free
+              </Text>
+              <Text className="text-[13px] font-black text-foreground">
+                {subject.freeMaterialCount}
+              </Text>
+            </View>
+
+            <View className="flex-1 items-end">
+              <Text className="text-[10px] font-bold uppercase tracking-[0.8px] text-muted-foreground">
+                Premium
+              </Text>
+              <Text
+                className="text-[13px] font-black"
+                style={{
+                  color: subject.hasPremiumContent
+                    ? tone
+                    : theme.mutedForeground,
+                }}
+              >
+                {subject.premiumMaterialCount}
+              </Text>
+            </View>
+          </View>
+
+          <View className="flex-row gap-2">
             <MotionPressable
-              className="flex-1 flex-row items-center justify-center gap-1.5 rounded-xl py-2.5"
-              style={{
-                backgroundColor: isLocked ? withOpacity(tone, 0.1) : tone,
-              }}
+              className="h-11 flex-1 flex-row items-center justify-center gap-2 rounded-2xl px-3"
+              style={{ backgroundColor: primaryCtaBg }}
               onPress={() => onPrimaryAction(subject)}
             >
               {isLocked ? (
-                <LockKeyhole size={13} color={tone} />
+                <LockKeyhole size={15} color={theme.secondaryForeground} />
               ) : (
-                <ArrowRight size={13} color={theme.primaryForeground} />
+                <ArrowRight size={15} color={primaryCtaText} />
               )}
               <Text
-                className="text-[12px] font-black"
-                style={{ color: isLocked ? tone : theme.primaryForeground }}
+                className="text-[13px] font-black"
+                style={{ color: primaryCtaText }}
               >
-                {isLocked ? "Unlock" : "Quiz"}
+                {isLocked ? "Unlock" : "Start Quiz"}
               </Text>
             </MotionPressable>
 
             <MotionPressable
-              className="flex-row items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5"
+              className="h-11 flex-1 flex-row items-center justify-center gap-2 rounded-2xl px-3"
               style={{
                 borderWidth: 1,
-                borderColor: withOpacity(theme.mutedForeground, 0.25),
+                borderColor: theme.border,
+                backgroundColor: theme.background,
               }}
               onPress={() => onSecondaryAction(subject)}
             >
-              <BookOpenText size={13} color={theme.mutedForeground} />
-              <Text className="text-[12px] font-semibold text-muted-foreground">
-                Topics
+              <BookOpenText size={15} color={theme.primary} />
+              <Text
+                className="text-[13px] font-bold"
+                style={{ color: theme.primary }}
+              >
+                View Topics
               </Text>
             </MotionPressable>
           </View>
@@ -139,6 +204,67 @@ function getGreeting() {
   return "Good evening"
 }
 
+function toDayKey(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+
+  return `${year}-${month}-${day}`
+}
+
+function buildRecentDayKeys(days: number) {
+  return Array.from({ length: days }, (_, index) => {
+    const date = new Date()
+    date.setHours(0, 0, 0, 0)
+    date.setDate(date.getDate() - (days - 1 - index))
+
+    return toDayKey(date)
+  })
+}
+
+function buildTrackingSnapshot(
+  attempts: ActivityQuizAttempt[],
+  learningHistory: ActivityLearningHistory[]
+) {
+  const activityCountByDay = new Map<string, number>()
+
+  for (const attempt of attempts) {
+    const timestamp = new Date(attempt.finishedAt ?? attempt.startedAt)
+
+    if (Number.isNaN(timestamp.getTime())) {
+      continue
+    }
+
+    const dayKey = toDayKey(timestamp)
+    activityCountByDay.set(dayKey, (activityCountByDay.get(dayKey) ?? 0) + 1)
+  }
+
+  for (const entry of learningHistory) {
+    const timestamp = new Date(entry.lastAccessedAt)
+
+    if (Number.isNaN(timestamp.getTime())) {
+      continue
+    }
+
+    const dayKey = toDayKey(timestamp)
+    activityCountByDay.set(dayKey, (activityCountByDay.get(dayKey) ?? 0) + 1)
+  }
+
+  const todayKey = toDayKey(new Date())
+  const weeklyKeys = buildRecentDayKeys(7)
+
+  return {
+    dailyCount: activityCountByDay.get(todayKey) ?? 0,
+    weeklyActiveDays: weeklyKeys.filter(
+      (dayKey) => (activityCountByDay.get(dayKey) ?? 0) > 0
+    ).length,
+    weeklyTotalActivities: weeklyKeys.reduce(
+      (total, dayKey) => total + (activityCountByDay.get(dayKey) ?? 0),
+      0
+    ),
+  }
+}
+
 export default function ReviewerHomeScreen() {
   const router = useRouter()
   const colorScheme = useColorScheme()
@@ -152,20 +278,63 @@ export default function ReviewerHomeScreen() {
   const firstName = (profile?.fullName ?? user?.name ?? "Reviewer").split(
     " "
   )[0]
+
+  const activityOverviewQuery = useQuery({
+    queryKey: ["home-activity-overview", user?.$id],
+    enabled: Boolean(user?.$id),
+    queryFn: () =>
+      getUserActivityFeed(user?.$id ?? "", {
+        quizAttemptsLimit: 80,
+        learningHistoryLimit: 80,
+        achievementsLimit: 6,
+      }),
+    staleTime: 1000 * 20,
+  })
+
+  const activityFeed = activityOverviewQuery.data ?? null
   const weeklyMetric = useMemo(
     () => PERFORMANCE_METRICS.find((metric) => metric.window === "week"),
     []
   )
+  const trackingSnapshot = useMemo(
+    () =>
+      buildTrackingSnapshot(
+        activityFeed?.quizAttempts ?? [],
+        activityFeed?.learningHistory ?? []
+      ),
+    [activityFeed?.learningHistory, activityFeed?.quizAttempts]
+  )
+  const effectiveDayStreak = activityFeed?.dayStreak ?? DAILY_TRACKER.streakDays
+  const effectiveWeeklyAverage = Math.round(
+    activityFeed?.weeklyAverageScore ?? weeklyMetric?.averageScore ?? 0
+  )
+  const effectiveDailyTrackingCount =
+    activityFeed?.quizAttempts || activityFeed?.learningHistory
+      ? trackingSnapshot.dailyCount
+      : DAILY_TRACKER.completedSessions
+  const effectiveWeeklyActiveDays =
+    activityFeed?.quizAttempts || activityFeed?.learningHistory
+      ? trackingSnapshot.weeklyActiveDays
+      : Math.min(DAILY_TRACKER.streakDays, 7)
+  const dailyTrackingProgress = Math.min(
+    100,
+    Math.round((effectiveDailyTrackingCount / DAILY_ACTIVITY_TARGET) * 100)
+  )
+  const weeklyTrackingProgress = Math.min(
+    100,
+    Math.round((effectiveWeeklyActiveDays / 7) * 100)
+  )
+
   const headerStats = useMemo(
     () => [
-      { label: "Streak", value: `${DAILY_TRACKER.streakDays} days` },
+      { label: "Streak", value: `${effectiveDayStreak} days` },
       {
         label: "Weekly Avg",
-        value: `${weeklyMetric?.averageScore ?? 0}% score`,
+        value: `${effectiveWeeklyAverage}% score`,
       },
-      { label: "Focus", value: DAILY_TRACKER.focusLabel },
+      { label: "Daily", value: `${effectiveDailyTrackingCount} activities` },
     ],
-    [weeklyMetric?.averageScore]
+    [effectiveDailyTrackingCount, effectiveDayStreak, effectiveWeeklyAverage]
   )
   const quickAccessItems = useMemo(
     () => [
@@ -278,7 +447,7 @@ export default function ReviewerHomeScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView
-        contentContainerClassName="gap-5 px-4 pb-32 pt-4"
+        contentContainerClassName="gap-5 px-4 pb-12 pt-4"
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
       >
@@ -294,7 +463,7 @@ export default function ReviewerHomeScreen() {
             subtitle="Quick drills, progress snapshots, and faster access to the parts of Reviewer you use most."
             avatarLabel={firstName.slice(0, 2).toUpperCase()}
             badgeLabel="Today"
-            badgeValue={`${DAILY_TRACKER.completedSessions}/${DAILY_TRACKER.targetSessions} sessions`}
+            badgeValue={`${effectiveDailyTrackingCount}/${DAILY_ACTIVITY_TARGET} activities`}
             stats={headerStats}
           />
         </FadeInView>
@@ -325,7 +494,7 @@ export default function ReviewerHomeScreen() {
                   className="w-[180px]"
                   onPress={() => router.push(item.path as never)}
                 >
-                  <Card>
+                  <Card style={{ borderWidth: 1, borderColor: theme.border }}>
                     <CardContent className="gap-2.5 px-3.5 py-3.5">
                       <View className="flex-row items-center justify-between">
                         <View
@@ -354,79 +523,150 @@ export default function ReviewerHomeScreen() {
           </View>
         </FadeInView>
 
-        {/* <FadeInView delay={getStaggerDelay(2)}>
+        <FadeInView delay={getStaggerDelay(2)}>
           <View className="gap-2.5">
-            <View className="flex-row items-center justify-between">
-              <Text className="text-base font-extrabold text-foreground">
-                Full Exam Simulation
+            <View className="gap-0.5">
+              <Text className="text-[11px] font-black uppercase tracking-[1.4px] text-primary">
+                Tracking Pulse
               </Text>
-              <View
-                className="flex-row items-center gap-1 rounded-full px-2.5 py-1"
-                style={{ backgroundColor: withOpacity(theme.accent, 0.18) }}
-              >
-                <Zap size={11} color={theme.accent} />
-                <Text
-                  className="text-[10px] font-black uppercase tracking-wide"
-                  style={{ color: theme.accent }}
-                >
-                  Board Prep
-                </Text>
-              </View>
+              <Text className="text-[17px] font-extrabold text-foreground">
+                Daily And Weekly Tracking
+              </Text>
+              <Text className="text-[12px] leading-5 text-muted-foreground">
+                Real streak, weekly average, and activity momentum from your
+                Appwrite progress data.
+              </Text>
             </View>
 
-            {FULL_EXAM_PRESETS.map((exam) => (
-              <MotionPressable
-                key={exam.id}
-                onPress={() =>
-                  router.push({
-                    pathname: "/quiz",
-                    params: {
-                      categoryId: "all-categories",
-                      totalQuestions: String(exam.totalQuestions),
-                      minutes: String(exam.minutes),
-                      examId: exam.id,
-                    },
-                  })
-                }
-              >
-                <Card>
-                  <CardContent className="gap-2 px-4 py-3.5">
-                    <View className="flex-row items-start gap-3">
+            {!user ? (
+              <Card>
+                <CardContent className="gap-1.5 px-4 py-3.5">
+                  <Text className="text-[13px] font-bold text-card-foreground">
+                    Sign in to track progress
+                  </Text>
+                  <Text className="text-[12px] leading-5 text-muted-foreground">
+                    Streak, weekly average, and daily tracking are shown for
+                    signed-in learners.
+                  </Text>
+                </CardContent>
+              </Card>
+            ) : activityOverviewQuery.isLoading ? (
+              <View className="gap-2.5">
+                <Skeleton className="h-24 rounded-2xl" />
+                <Skeleton className="h-24 rounded-2xl" />
+              </View>
+            ) : activityOverviewQuery.error ? (
+              <Card>
+                <CardContent className="gap-1.5 px-4 py-3.5">
+                  <Text className="text-[13px] font-bold text-card-foreground">
+                    Tracking unavailable
+                  </Text>
+                  <Text className="text-[12px] leading-5 text-muted-foreground">
+                    {activityOverviewQuery.error instanceof Error
+                      ? activityOverviewQuery.error.message
+                      : "Unable to load tracking metrics right now."}
+                  </Text>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <View className="flex-row gap-2.5">
+                  <Card
+                    className="flex-1"
+                    style={{ borderWidth: 1, borderColor: theme.border }}
+                  >
+                    <CardContent className="gap-1.5 px-3.5 py-3">
+                      <Text className="text-[10px] font-bold uppercase tracking-[1.1px] text-primary">
+                        Daily Tracking
+                      </Text>
+                      <Text className="text-[19px] font-black text-card-foreground">
+                        {effectiveDailyTrackingCount}
+                      </Text>
+                      <Text className="text-[11px] text-muted-foreground">
+                        activities today
+                      </Text>
+                    </CardContent>
+                  </Card>
+
+                  <Card
+                    className="flex-1"
+                    style={{ borderWidth: 1, borderColor: theme.border }}
+                  >
+                    <CardContent className="gap-1.5 px-3.5 py-3">
+                      <Text className="text-[10px] font-bold uppercase tracking-[1.1px] text-primary">
+                        Weekly Tracking
+                      </Text>
+                      <Text className="text-[19px] font-black text-card-foreground">
+                        {effectiveWeeklyActiveDays}/7
+                      </Text>
+                      <Text className="text-[11px] text-muted-foreground">
+                        active days
+                      </Text>
+                    </CardContent>
+                  </Card>
+                </View>
+
+                <Card style={{ borderWidth: 1, borderColor: theme.border }}>
+                  <CardContent className="gap-3 px-4 py-3.5">
+                    <View className="gap-1.5">
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                          Daily Goal Progress
+                        </Text>
+                        <Text className="text-[11px] font-black text-primary">
+                          {effectiveDailyTrackingCount}/{DAILY_ACTIVITY_TARGET}
+                        </Text>
+                      </View>
                       <View
-                        className="h-10 w-10 items-center justify-center rounded-xl"
+                        className="h-2 overflow-hidden rounded-full"
                         style={{
-                          backgroundColor: withOpacity(theme.primary, 0.1),
+                          backgroundColor: withOpacity(theme.primary, 0.14),
                         }}
                       >
-                        <Rocket size={18} color={theme.primary} />
+                        <View
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${dailyTrackingProgress}%`,
+                            backgroundColor: theme.primary,
+                          }}
+                        />
                       </View>
-                      <View className="flex-1 gap-0.5">
-                        <Text className="text-[15px] font-bold leading-5 text-foreground">
-                          {exam.title}
-                        </Text>
-                        <Text className="text-[12px] leading-[18px] text-muted-foreground">
-                          {exam.description}
-                        </Text>
-                      </View>
-                      <ArrowRight size={16} color={theme.mutedForeground} />
                     </View>
-                    <View className="flex-row gap-2 pl-[52px]">
-                      <Text className="text-[11px] font-bold uppercase tracking-wide text-primary">
-                        {exam.totalQuestions} items
-                      </Text>
-                      <Text
-                        className="text-[11px] font-bold uppercase tracking-wide"
-                        style={{ color: theme.accent }}
+
+                    <View className="gap-1.5">
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                          Weekly Consistency
+                        </Text>
+                        <Text className="text-[11px] font-black text-primary">
+                          {effectiveWeeklyActiveDays}/7 days
+                        </Text>
+                      </View>
+                      <View
+                        className="h-2 overflow-hidden rounded-full"
+                        style={{
+                          backgroundColor: withOpacity(theme.accent, 0.16),
+                        }}
                       >
-                        {exam.minutes} min
+                        <View
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${weeklyTrackingProgress}%`,
+                            backgroundColor: theme.accent,
+                          }}
+                        />
+                      </View>
+                      <Text className="text-[11px] leading-5 text-muted-foreground">
+                        {trackingSnapshot.weeklyTotalActivities} total learning
+                        activities in the last 7 days.
                       </Text>
                     </View>
                   </CardContent>
                 </Card>
-              </MotionPressable>
-            ))}
+              </>
+            )}
           </View>
-        </FadeInView> */}
+        </FadeInView>
 
         <FadeInView delay={getStaggerDelay(3)}>
           <View className="gap-2.5">
@@ -446,7 +686,7 @@ export default function ReviewerHomeScreen() {
                 contentContainerStyle={{ gap: 10, paddingRight: 16 }}
               >
                 {Array.from({ length: 3 }).map((_, index) => (
-                  <View key={`subject-skeleton-${index}`} className="w-[240px]">
+                  <View key={`subject-skeleton-${index}`} className="w-[300px]">
                     <Card>
                       <CardContent className="gap-3 px-4 py-4">
                         <View className="flex-row items-center gap-3">
@@ -490,7 +730,7 @@ export default function ReviewerHomeScreen() {
                 renderItem={renderSubjectCard}
                 ItemSeparatorComponent={SubjectCardSeparator}
                 ListEmptyComponent={
-                  <Card className="w-[240px]">
+                  <Card className="w-[300px]">
                     <CardContent className="gap-2 px-4 py-4">
                       <Text className="text-sm font-black text-card-foreground">
                         No review subjects yet

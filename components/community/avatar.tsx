@@ -45,7 +45,7 @@ export function CommunityAvatar({
       )}
       style={{
         backgroundColor: withOpacity(theme.primary, 0.12),
-        borderColor: withOpacity(theme.primary, 0.2),
+        borderColor: theme.border,
       }}
     >
       <Text

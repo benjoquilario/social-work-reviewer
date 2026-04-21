@@ -28,7 +28,14 @@ export type CmsTableDefinition = {
   tableId: string
   name: string
   description: string
-  group: "auth" | "content" | "assessment" | "progress" | "community" | "cms"
+  group:
+    | "auth"
+    | "content"
+    | "assessment"
+    | "progress"
+    | "achievements"
+    | "community"
+    | "cms"
   fields: readonly CmsFieldDefinition[]
 }
 
@@ -240,6 +247,15 @@ export const reviewerCmsSchema = {
         size: 20000,
       },
       {
+        key: "order",
+        label: "Display Order",
+        kind: "integer",
+        required: true,
+        defaultValue: 1,
+        min: 1,
+        max: 9999,
+      },
+      {
         key: "isPremium",
         label: "Premium Content",
         kind: "boolean",
@@ -251,6 +267,93 @@ export const reviewerCmsSchema = {
         label: "Created At",
         kind: "datetime",
         required: true,
+      },
+    ],
+  }),
+  learning_history: defineTable({
+    tableId: "learning_history",
+    name: "Learning History",
+    description:
+      "Resume state for learning materials so students can continue where they left off.",
+    group: "progress",
+    fields: [
+      {
+        key: "userId",
+        label: "User ID",
+        kind: "string",
+        required: true,
+        size: 64,
+      },
+      {
+        key: "subjectId",
+        label: "Subject ID",
+        kind: "string",
+        required: false,
+        size: 64,
+      },
+      {
+        key: "topicId",
+        label: "Topic ID",
+        kind: "string",
+        required: false,
+        size: 64,
+      },
+      {
+        key: "learningMaterialId",
+        label: "Learning Material ID",
+        kind: "string",
+        required: true,
+        size: 64,
+      },
+      {
+        key: "status",
+        label: "Status",
+        kind: "enum",
+        required: true,
+        options: ["in_progress", "paused", "completed"],
+        defaultValue: "in_progress",
+      },
+      {
+        key: "progressPercent",
+        label: "Progress Percent",
+        kind: "float",
+        required: true,
+        defaultValue: 0,
+        min: 0,
+        max: 100,
+      },
+      {
+        key: "lastPosition",
+        label: "Last Position",
+        kind: "integer",
+        required: true,
+        defaultValue: 0,
+        min: 0,
+        max: 100000,
+      },
+      {
+        key: "startedAt",
+        label: "Started At",
+        kind: "datetime",
+        required: true,
+      },
+      {
+        key: "lastAccessedAt",
+        label: "Last Accessed At",
+        kind: "datetime",
+        required: true,
+      },
+      {
+        key: "createdAt",
+        label: "Created At",
+        kind: "datetime",
+        required: true,
+      },
+      {
+        key: "completedAt",
+        label: "Completed At",
+        kind: "datetime",
+        required: false,
       },
     ],
   }),
@@ -532,6 +635,28 @@ export const reviewerCmsSchema = {
         kind: "datetime",
         required: false,
       },
+      {
+        key: "currentQuestionIndex",
+        label: "Current Question Index",
+        kind: "integer",
+        required: true,
+        defaultValue: 0,
+        min: 0,
+        max: 9999,
+      },
+      {
+        key: "isResumable",
+        label: "Resumable",
+        kind: "boolean",
+        required: true,
+        defaultValue: true,
+      },
+      {
+        key: "lastAnsweredAt",
+        label: "Last Answered At",
+        kind: "datetime",
+        required: false,
+      },
     ],
   }),
   user_answers: defineTable({
@@ -620,6 +745,169 @@ export const reviewerCmsSchema = {
         label: "Last Studied",
         kind: "datetime",
         required: false,
+      },
+      {
+        key: "dayStreak",
+        label: "Day Streak",
+        kind: "integer",
+        required: true,
+        defaultValue: 0,
+        min: 0,
+        max: 3650,
+      },
+      {
+        key: "weeklyAverageScore",
+        label: "Weekly Average Score",
+        kind: "float",
+        required: true,
+        defaultValue: 0,
+        min: 0,
+        max: 100,
+      },
+      {
+        key: "lastActiveAt",
+        label: "Last Active At",
+        kind: "datetime",
+        required: false,
+      },
+    ],
+  }),
+  learning_achievements: defineTable({
+    tableId: "learning_achievements",
+    name: "Learning Achievements",
+    description:
+      "Badges and snapshots for learning milestones, streaks, and quiz performance.",
+    group: "achievements",
+    fields: [
+      {
+        key: "userId",
+        label: "User ID",
+        kind: "string",
+        required: true,
+        size: 64,
+      },
+      {
+        key: "fullName",
+        label: "Full Name",
+        kind: "string",
+        required: false,
+        size: 255,
+      },
+      {
+        key: "schoolName",
+        label: "School Name",
+        kind: "string",
+        required: false,
+        size: 255,
+      },
+      {
+        key: "reviewType",
+        label: "Review Type",
+        kind: "string",
+        required: false,
+        size: 128,
+      },
+      {
+        key: "avatarUrl",
+        label: "Avatar URL",
+        kind: "string",
+        required: false,
+        size: 1024,
+      },
+      {
+        key: "subjectId",
+        label: "Subject ID",
+        kind: "string",
+        required: false,
+        size: 64,
+      },
+      {
+        key: "topicId",
+        label: "Topic ID",
+        kind: "string",
+        required: false,
+        size: 64,
+      },
+      {
+        key: "learningMaterialId",
+        label: "Learning Material ID",
+        kind: "string",
+        required: false,
+        size: 64,
+      },
+      {
+        key: "examId",
+        label: "Exam ID",
+        kind: "string",
+        required: false,
+        size: 64,
+      },
+      {
+        key: "achievementType",
+        label: "Achievement Type",
+        kind: "enum",
+        required: true,
+        options: [
+          "streak",
+          "weekly_average",
+          "completion",
+          "quiz_completion",
+          "consistency",
+        ],
+        defaultValue: "streak",
+      },
+      {
+        key: "title",
+        label: "Title",
+        kind: "string",
+        required: true,
+        size: 255,
+      },
+      {
+        key: "description",
+        label: "Description",
+        kind: "text",
+        required: false,
+        size: 3000,
+      },
+      {
+        key: "metricValue",
+        label: "Metric Value",
+        kind: "float",
+        required: true,
+        defaultValue: 0,
+        min: 0,
+        max: 100000,
+      },
+      {
+        key: "dayStreak",
+        label: "Day Streak",
+        kind: "integer",
+        required: true,
+        defaultValue: 0,
+        min: 0,
+        max: 3650,
+      },
+      {
+        key: "weeklyAverageScore",
+        label: "Weekly Average Score",
+        kind: "float",
+        required: true,
+        defaultValue: 0,
+        min: 0,
+        max: 100,
+      },
+      {
+        key: "earnedAt",
+        label: "Earned At",
+        kind: "datetime",
+        required: true,
+      },
+      {
+        key: "createdAt",
+        label: "Created At",
+        kind: "datetime",
+        required: true,
       },
     ],
   }),
@@ -1007,11 +1295,14 @@ export type ExamQuestionDocument = ReviewerTableDocument<"exam_questions">
 export type ExamAttemptDocument = ReviewerTableDocument<"exam_attempts">
 export type UserAnswerDocument = ReviewerTableDocument<"user_answers">
 export type UserProgressDocument = ReviewerTableDocument<"user_progress">
+export type LearningHistoryDocument = ReviewerTableDocument<"learning_history">
 export type PostDocument = ReviewerTableDocument<"posts">
 export type CommentDocument = ReviewerTableDocument<"comments">
 export type ReplyDocument = ReviewerTableDocument<"replies">
 export type PostLikeDocument = ReviewerTableDocument<"post_likes">
 export type CommentLikeDocument = ReviewerTableDocument<"comment_likes">
+export type LearningAchievementDocument =
+  ReviewerTableDocument<"learning_achievements">
 export type AnnouncementDocument = ReviewerTableDocument<"announcements">
 export type FlaggedContentDocument = ReviewerTableDocument<"flagged_content">
 
@@ -1023,6 +1314,7 @@ export const dashboardGroups = [
   { key: "content", label: "Subjects and Review Content" },
   { key: "assessment", label: "Questionnaire and Exams" },
   { key: "progress", label: "Answers and Progress" },
+  { key: "achievements", label: "Learning Achievements" },
   { key: "community", label: "Community" },
   { key: "cms", label: "Admin and Moderation" },
 ] as const

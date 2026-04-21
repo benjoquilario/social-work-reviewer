@@ -12,6 +12,7 @@ import {
 import { Pressable, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
+import { listResumableAttemptsByExam } from "@/lib/progress"
 import {
   getQuizCategoryDetail,
   listQuizExamsBySubjectId,
@@ -57,6 +58,7 @@ function getExamStatusCopy(exam: QuizExamSummary) {
 
 export default function ModeSelectionScreen() {
   const router = useRouter()
+  const user = useAuth((state) => state.user)
   const isAuthenticated = useAuth((state) => state.isAuthenticated)
   const profile = useAuth((state) => state.profile)
   const refreshProfile = useAuth((state) => state.refreshProfile)
@@ -94,6 +96,20 @@ export default function ModeSelectionScreen() {
     () => examPickerQuery.data?.exams ?? [],
     [examPickerQuery.data?.exams]
   )
+  const examIdSignature = useMemo(
+    () => exams.map((exam) => exam.id).join("|"),
+    [exams]
+  )
+  const resumableAttemptsQuery = useQuery({
+    queryKey: ["quiz-mode-resumable-attempts", user?.$id, examIdSignature],
+    enabled: Boolean(user?.$id) && exams.length > 0,
+    queryFn: () =>
+      listResumableAttemptsByExam(
+        user?.$id ?? "",
+        exams.map((exam) => exam.id)
+      ),
+  })
+  const resumableByExamId = resumableAttemptsQuery.data ?? {}
   const examStats = useMemo(
     () => [
       { label: "Exams", value: String(exams.length) },
@@ -115,6 +131,34 @@ export default function ModeSelectionScreen() {
   const headerSubtitle = category
     ? `Choose an exam under ${category.name}. Each item launches a question-and-answer`
     : "Choose a subject exam questions and choices."
+
+  function openExam(exam: QuizExamSummary) {
+    if (exam.isLocked) {
+      router.push({
+        pathname: "/premium",
+        params: {
+          source: "exam",
+          title: exam.title,
+          categoryId,
+        },
+      })
+      return
+    }
+
+    if (exam.availableQuestionCount === 0) {
+      return
+    }
+
+    router.push({
+      pathname: "/quiz",
+      params: {
+        categoryId,
+        examId: exam.id,
+        totalQuestions: String(exam.availableQuestionCount),
+        minutes: String(exam.timeLimit),
+      },
+    })
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -177,39 +221,23 @@ export default function ModeSelectionScreen() {
               {exams.map((exam, index) => {
                 const isUnavailable =
                   !exam.isLocked && exam.availableQuestionCount === 0
+                const canOpenExam = !exam.isLocked && !isUnavailable
+                const resumableAttempt = resumableByExamId[exam.id]
+                const hasResumableAttempt =
+                  Boolean(resumableAttempt) && canOpenExam
+                const resumeQuestion = hasResumableAttempt
+                  ? Math.min(
+                      Math.max(resumableAttempt.currentQuestionIndex + 1, 1),
+                      Math.max(exam.availableQuestionCount, 1)
+                    )
+                  : 1
 
                 return (
                   <Pressable
                     key={exam.id}
                     className="gap-2 px-4 py-4"
                     disabled={isUnavailable}
-                    onPress={() => {
-                      if (exam.isLocked) {
-                        router.push({
-                          pathname: "/premium",
-                          params: {
-                            source: "exam",
-                            title: exam.title,
-                            categoryId,
-                          },
-                        })
-                        return
-                      }
-
-                      if (exam.availableQuestionCount === 0) {
-                        return
-                      }
-
-                      router.push({
-                        pathname: "/quiz",
-                        params: {
-                          categoryId,
-                          examId: exam.id,
-                          totalQuestions: String(exam.availableQuestionCount),
-                          minutes: String(exam.timeLimit),
-                        },
-                      })
-                    }}
+                    onPress={() => openExam(exam)}
                     style={{
                       opacity: isUnavailable ? 0.58 : 1,
                       borderBottomWidth: index === exams.length - 1 ? 0 : 1,
@@ -279,30 +307,70 @@ export default function ModeSelectionScreen() {
                               : `${exam.freeQuestionCount} free`}
                           </Text>
                         </View>
+
+                        {hasResumableAttempt ? (
+                          <Pressable
+                            className="mt-1.5 self-start rounded-full px-3 py-1.5"
+                            style={{
+                              backgroundColor: withOpacity(theme.primary, 0.12),
+                              borderWidth: 1,
+                              borderColor: withOpacity(theme.primary, 0.3),
+                            }}
+                            onPress={() => openExam(exam)}
+                          >
+                            <View className="flex-row items-center gap-1.5">
+                              <Clock3 size={12} color={theme.primary} />
+                              <Text className="text-[10px] font-black uppercase tracking-[1.1px] text-primary">
+                                Resume from Q{resumeQuestion}
+                              </Text>
+                            </View>
+                          </Pressable>
+                        ) : null}
                       </View>
 
-                      <View
-                        className="flex-row items-center gap-1 rounded-full px-3 py-1"
-                        style={{
-                          backgroundColor: withOpacity(
-                            exam.isLocked ? theme.accent : theme.primary,
-                            0.12
-                          ),
-                        }}
-                      >
-                        {exam.isLocked ? (
-                          <LockKeyhole size={12} color={theme.accent} />
-                        ) : (
-                          <ListChecks size={12} color={theme.primary} />
-                        )}
-                        <Text
-                          className="text-[10px] font-black uppercase tracking-[1.2px]"
+                      <View className="flex-col items-end gap-1">
+                        <View
+                          className="flex-row items-center gap-1 rounded-full px-3 py-1"
                           style={{
-                            color: exam.isLocked ? theme.accent : theme.primary,
+                            backgroundColor: withOpacity(
+                              exam.isLocked ? theme.accent : theme.primary,
+                              0.12
+                            ),
                           }}
                         >
-                          {exam.isLocked ? "Locked" : "Open"}
-                        </Text>
+                          {exam.isLocked ? (
+                            <LockKeyhole size={12} color={theme.accent} />
+                          ) : (
+                            <ListChecks size={12} color={theme.primary} />
+                          )}
+                          <Text
+                            className="text-[10px] font-black uppercase tracking-[1.2px]"
+                            style={{
+                              color: exam.isLocked
+                                ? theme.accent
+                                : theme.primary,
+                            }}
+                          >
+                            {exam.isLocked ? "Locked" : "Open"}
+                          </Text>
+                        </View>
+
+                        {hasResumableAttempt ? (
+                          <View
+                            className="flex-row items-center gap-1 rounded-full px-3 py-1"
+                            style={{
+                              backgroundColor: withOpacity(theme.success, 0.14),
+                            }}
+                          >
+                            <Clock3 size={12} color={theme.success} />
+                            <Text
+                              className="text-[10px] font-black uppercase tracking-[1.2px]"
+                              style={{ color: theme.success }}
+                            >
+                              Resume
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
                     </View>
                   </Pressable>

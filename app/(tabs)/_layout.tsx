@@ -21,8 +21,8 @@ export default function TabLayout() {
   const activeTint = theme.primary
   const inactiveTint = theme.mutedForeground
   const insets = useSafeAreaInsets()
-  // Ensure at least 4px bottom padding on devices with no home indicator
-  const paddingBottom = Math.max(insets.bottom, 4)
+  // Keep compact spacing while still respecting device safe area.
+  const paddingBottom = Math.max(insets.bottom, 2)
 
   return (
     <>
@@ -37,9 +37,11 @@ export default function TabLayout() {
           tabBarStyle: {
             backgroundColor: theme.card,
             borderTopWidth: 0,
-            height: 56 + paddingBottom,
+            elevation: 0,
+            shadowOpacity: 0,
+            height: 52 + paddingBottom,
             paddingBottom,
-            paddingTop: 6,
+            paddingTop: 2,
             paddingHorizontal: 4,
           },
           tabBarItemStyle: {

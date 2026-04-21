@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { openBrowserAsync, WebBrowserPresentationStyle } from "expo-web-browser"
 import {
@@ -14,8 +14,19 @@ import {
 import { Pressable, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import { getLearningMaterialDetail } from "@/lib/learning-content"
-import { THEME } from "@/lib/theme"
+import {
+  getLearningMaterialDetail,
+  listLearningMaterialsByTopicId,
+} from "@/lib/learning-content"
+import {
+  getLearningMaterialStatus,
+  trackLearningMaterialCompleted,
+  trackLearningMaterialOpened,
+  trackLearningMaterialResourceOpened,
+  trackLearningMaterialSession,
+  type LearningMaterialStatusSnapshot,
+} from "@/lib/progress"
+import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -69,14 +80,20 @@ function getMaterialActionIcon(type: string, color: string) {
 
 export default function LessonDetailScreen() {
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const user = useAuth((state) => state.user)
   const isAuthenticated = useAuth((state) => state.isAuthenticated)
   const profile = useAuth((state) => state.profile)
   const refreshProfile = useAuth((state) => state.refreshProfile)
   const params = useLocalSearchParams<{ lessonId?: string }>()
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [isMarkingComplete, setIsMarkingComplete] = useState(false)
+  const [isMarkedCompleted, setIsMarkedCompleted] = useState(false)
+  const sessionStartedAtRef = useRef(Date.now())
+  const openedMaterialIdRef = useRef<string | null>(null)
   const colorScheme = useColorScheme()
-  const primaryColor =
-    colorScheme === "dark" ? THEME.dark.primary : THEME.light.primary
+  const activeTheme = colorScheme === "dark" ? THEME.dark : THEME.light
+  const primaryColor = activeTheme.primary
 
   const lessonId = params.lessonId ?? ""
   const isPremiumUser = profile?.isPremium === true
@@ -94,7 +111,78 @@ export default function LessonDetailScreen() {
       getLearningMaterialDetail(lessonId, { viewerIsPremium: isPremiumUser }),
   })
 
+  const materialStatusQuery = useQuery({
+    queryKey: ["learning-material-status", user?.$id, lessonId],
+    enabled: Boolean(user?.$id) && Boolean(lessonId),
+    staleTime: 0,
+    refetchOnMount: "always",
+    queryFn: () => getLearningMaterialStatus(user?.$id ?? "", lessonId),
+  })
+
   const materialDetail = materialQuery.data ?? null
+  const topicMaterialsQuery = useQuery({
+    queryKey: [
+      "topic-learning-material-sequence",
+      materialDetail?.topic.id,
+      isPremiumUser,
+    ],
+    enabled: Boolean(materialDetail?.topic.id),
+    queryFn: () =>
+      listLearningMaterialsByTopicId(materialDetail?.topic.id ?? "", {
+        viewerIsPremium: isPremiumUser,
+      }),
+  })
+
+  const persistedMaterialStatus = materialStatusQuery.data ?? null
+  const isPersistedCompleted = persistedMaterialStatus?.status === "completed"
+  const isCompleted = isMarkedCompleted || isPersistedCompleted
+  const isStatusLoading = Boolean(user) && materialStatusQuery.isLoading
+  const isResolvingNextMaterial =
+    Boolean(materialDetail?.topic.id) && topicMaterialsQuery.isLoading
+  const nextMaterial = useMemo(() => {
+    if (!materialDetail) {
+      return null
+    }
+
+    const orderedMaterials = topicMaterialsQuery.data ?? []
+    const currentIndex = orderedMaterials.findIndex(
+      (material) => material.id === materialDetail.material.id
+    )
+
+    if (currentIndex < 0) {
+      return null
+    }
+
+    return orderedMaterials[currentIndex + 1] ?? null
+  }, [materialDetail, topicMaterialsQuery.data])
+
+  const statusChip = useMemo(() => {
+    if (isCompleted) {
+      return {
+        label: "Completed",
+        textColor: activeTheme.success,
+        backgroundColor: withOpacity(activeTheme.success, 0.16),
+      }
+    }
+
+    if (!persistedMaterialStatus) {
+      return null
+    }
+
+    if (persistedMaterialStatus.status === "paused") {
+      return {
+        label: `Paused ${Math.round(persistedMaterialStatus.progressPercent)}%`,
+        textColor: activeTheme.warning,
+        backgroundColor: withOpacity(activeTheme.warning, 0.16),
+      }
+    }
+
+    return {
+      label: `In progress ${Math.round(persistedMaterialStatus.progressPercent)}%`,
+      textColor: activeTheme.primary,
+      backgroundColor: withOpacity(activeTheme.primary, 0.14),
+    }
+  }, [activeTheme, isCompleted, persistedMaterialStatus])
 
   const materialMarkdown = useMemo(() => {
     return normalizeMaterialContentToMarkdown(
@@ -104,6 +192,66 @@ export default function LessonDetailScreen() {
 
   const hasRenderableNote = Boolean(materialMarkdown)
   const hasExternalResource = Boolean(materialDetail?.material.fileUrl)
+
+  useEffect(() => {
+    setIsMarkedCompleted(false)
+    sessionStartedAtRef.current = Date.now()
+    openedMaterialIdRef.current = null
+  }, [lessonId])
+
+  useEffect(() => {
+    if (!user || !materialDetail || materialDetail.material.isLocked) {
+      return
+    }
+
+    if (openedMaterialIdRef.current === materialDetail.material.id) {
+      return
+    }
+
+    openedMaterialIdRef.current = materialDetail.material.id
+
+    void trackLearningMaterialOpened({
+      userId: user.$id,
+      subjectId: materialDetail.subject.id,
+      topicId: materialDetail.topic.id,
+      learningMaterialId: materialDetail.material.id,
+      profileSnapshot: {
+        fullName: profile?.fullName,
+        schoolName: profile?.schoolName,
+        reviewType: profile?.reviewType,
+        avatarUrl: profile?.avatarUrl,
+      },
+    })
+  }, [materialDetail, profile, user])
+
+  useEffect(() => {
+    return () => {
+      if (!user || !materialDetail || materialDetail.material.isLocked) {
+        return
+      }
+
+      const secondsSpent = Math.round(
+        (Date.now() - sessionStartedAtRef.current) / 1000
+      )
+      if (secondsSpent < 8) {
+        return
+      }
+
+      void trackLearningMaterialSession({
+        userId: user.$id,
+        subjectId: materialDetail.subject.id,
+        topicId: materialDetail.topic.id,
+        learningMaterialId: materialDetail.material.id,
+        secondsSpent,
+        profileSnapshot: {
+          fullName: profile?.fullName,
+          schoolName: profile?.schoolName,
+          reviewType: profile?.reviewType,
+          avatarUrl: profile?.avatarUrl,
+        },
+      })
+    }
+  }, [materialDetail, profile, user])
 
   async function handleOpenResource() {
     const resourceUrl = materialDetail?.material.fileUrl
@@ -115,6 +263,90 @@ export default function LessonDetailScreen() {
     await openBrowserAsync(resourceUrl, {
       presentationStyle: WebBrowserPresentationStyle.AUTOMATIC,
     })
+
+    if (user && materialDetail && !materialDetail.material.isLocked) {
+      void trackLearningMaterialResourceOpened({
+        userId: user.$id,
+        subjectId: materialDetail.subject.id,
+        topicId: materialDetail.topic.id,
+        learningMaterialId: materialDetail.material.id,
+        profileSnapshot: {
+          fullName: profile?.fullName,
+          schoolName: profile?.schoolName,
+          reviewType: profile?.reviewType,
+          avatarUrl: profile?.avatarUrl,
+        },
+      })
+    }
+  }
+
+  async function handleMarkCompleted() {
+    if (
+      !user ||
+      !materialDetail ||
+      materialDetail.material.isLocked ||
+      isCompleted
+    ) {
+      return
+    }
+
+    setIsMarkingComplete(true)
+    try {
+      const completionTimestamp = new Date().toISOString()
+
+      await trackLearningMaterialCompleted({
+        userId: user.$id,
+        subjectId: materialDetail.subject.id,
+        topicId: materialDetail.topic.id,
+        learningMaterialId: materialDetail.material.id,
+        profileSnapshot: {
+          fullName: profile?.fullName,
+          schoolName: profile?.schoolName,
+          reviewType: profile?.reviewType,
+          avatarUrl: profile?.avatarUrl,
+        },
+      })
+
+      const completedStatus: LearningMaterialStatusSnapshot = {
+        learningMaterialId: materialDetail.material.id,
+        status: "completed",
+        progressPercent: 100,
+        lastAccessedAt: completionTimestamp,
+        completedAt: completionTimestamp,
+      }
+
+      queryClient.setQueryData(
+        ["learning-material-status", user.$id, lessonId],
+        completedStatus
+      )
+      queryClient.setQueryData<Record<string, LearningMaterialStatusSnapshot>>(
+        ["topic-learning-material-statuses", user.$id, materialDetail.topic.id],
+        (previous) => ({
+          ...(previous ?? {}),
+          [materialDetail.material.id]: completedStatus,
+        })
+      )
+
+      setIsMarkedCompleted(true)
+    } finally {
+      setIsMarkingComplete(false)
+    }
+  }
+
+  function handleNextLearningContent() {
+    if (isResolvingNextMaterial) {
+      return
+    }
+
+    if (nextMaterial) {
+      router.push({
+        pathname: "/learn/[lessonId]",
+        params: { lessonId: nextMaterial.id },
+      })
+      return
+    }
+
+    router.back()
   }
 
   if (materialQuery.isLoading) {
@@ -300,6 +532,19 @@ export default function LessonDetailScreen() {
           <Text className="text-[17px] font-black leading-7 text-foreground">
             {materialDetail.material.title}
           </Text>
+          {statusChip ? (
+            <View
+              className="self-start rounded-full px-3 py-1"
+              style={{ backgroundColor: statusChip.backgroundColor }}
+            >
+              <Text
+                className="text-[11px] font-black uppercase tracking-[0.8px]"
+                style={{ color: statusChip.textColor }}
+              >
+                {statusChip.label}
+              </Text>
+            </View>
+          ) : null}
           {materialDetail.material.type !== "note" ? (
             <Text className="text-[13px] leading-6 text-muted-foreground">
               This material is linked to an external learning resource.
@@ -354,9 +599,29 @@ export default function LessonDetailScreen() {
           </CardContent>
         </Card>
 
+        {user ? (
+          <Button
+            className="h-11 rounded-2xl"
+            onPress={() => void handleMarkCompleted()}
+            disabled={isMarkingComplete || isCompleted || isStatusLoading}
+          >
+            <Text className="font-bold text-primary-foreground">
+              {isCompleted
+                ? "Completed"
+                : isStatusLoading
+                  ? "Checking status..."
+                  : isMarkingComplete
+                    ? "Saving..."
+                    : "Mark as Completed"}
+            </Text>
+          </Button>
+        ) : null}
+
         <Pressable
           className="mt-1 self-end rounded-full border border-border bg-card p-3.5"
-          onPress={() => router.back()}
+          onPress={handleNextLearningContent}
+          disabled={isResolvingNextMaterial}
+          style={{ opacity: isResolvingNextMaterial ? 0.5 : 1 }}
         >
           <ArrowRight size={22} color={primaryColor} strokeWidth={2.2} />
         </Pressable>

@@ -27,6 +27,8 @@ export const APPWRITE_CONFIG = {
   emailRedirectUrl: process.env.EXPO_PUBLIC_APPWRITE_EMAIL_REDIRECT_URL ?? "",
   profileImagesBucketId:
     process.env.EXPO_PUBLIC_APPWRITE_PROFILE_IMAGES_BUCKET_ID ?? "",
+  communityPostImagesBucketId:
+    process.env.EXPO_PUBLIC_APPWRITE_COMMUNITY_POST_IMAGES_BUCKET_ID ?? "",
   premiumMaterialAccessFunctionId:
     process.env.EXPO_PUBLIC_APPWRITE_PREMIUM_MATERIAL_FUNCTION_ID ??
     "69c35f750004ff04204f",
@@ -110,6 +112,8 @@ export const COLLECTIONS = {
   EXAM_ATTEMPTS: "exam_attempts",
   USER_ANSWERS: "user_answers",
   USER_PROGRESS: "user_progress",
+  LEARNING_HISTORY: "learning_history",
+  LEARNING_ACHIEVEMENTS: "learning_achievements",
   POSTS: "posts",
   COMMENTS: "comments",
   REPLIES: "replies",
