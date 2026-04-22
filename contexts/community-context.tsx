@@ -44,6 +44,7 @@ type CommunityStore = {
   isCreatingComment: boolean
   isCreatingReply: boolean
   isTogglingLike: boolean
+  togglingLikePostId: string | null
 
   // Actions
   loadFeed: (userId?: string) => Promise<void>
@@ -87,6 +88,62 @@ function recalculateStats(posts: CommunityPostItem[]): CommunityFeed["stats"] {
   }
 }
 
+function updateFeedPostById(
+  feed: CommunityFeed | null,
+  postId: string,
+  updater: (post: CommunityPostItem) => CommunityPostItem
+) {
+  if (!feed) {
+    return null
+  }
+
+  let didChange = false
+  const posts = feed.posts.map((post) => {
+    if (post.id !== postId) {
+      return post
+    }
+
+    const nextPost = updater(post)
+    didChange = didChange || nextPost !== post
+    return nextPost
+  })
+
+  if (!didChange) {
+    return feed
+  }
+
+  return { posts, stats: recalculateStats(posts) }
+}
+
+function updateFeedPostByCommentId(
+  feed: CommunityFeed | null,
+  commentId: string,
+  updater: (post: CommunityPostItem) => CommunityPostItem
+) {
+  if (!feed) {
+    return null
+  }
+
+  let didChange = false
+  const posts = feed.posts.map((post) => {
+    const hasComment = post.comments.some((comment) => comment.id === commentId)
+
+    if (!hasComment) {
+      return post
+    }
+
+    const nextPost = updater(post)
+    didChange = didChange || nextPost !== post
+    return nextPost
+  })
+
+  if (!didChange) {
+    return feed
+  }
+
+  return { posts, stats: recalculateStats(posts) }
+}
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useCommunityStore = create<CommunityStore>((set, get) => ({
@@ -113,6 +170,7 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
   isCreatingComment: false,
   isCreatingReply: false,
   isTogglingLike: false,
+  togglingLikePostId: null,
 
   // ── Data loading ──────────────────────────────────────────────────────────
 
@@ -261,17 +319,14 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
 
     // Optimistic update
     if (feed) {
-      const posts = feed.posts.map((post) => {
-        if (post.id !== activePostId) return post
-        return {
-          ...post,
-          commentsCount: post.commentsCount + 1,
-          comments: [...post.comments, optimisticComment],
-        }
-      })
+      const nextFeed = updateFeedPostById(feed, activePostId, (post) => ({
+        ...post,
+        commentsCount: post.commentsCount + 1,
+        comments: [...post.comments, optimisticComment],
+      }))
       set({
         isCreatingComment: true,
-        feed: { posts, stats: recalculateStats(posts) },
+        feed: nextFeed,
         commentDraft: "",
       })
     }
@@ -300,21 +355,29 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
     }
 
     if (feed) {
-      const posts = feed.posts.map((post) => {
+      const nextFeed = updateFeedPostByCommentId(feed, commentId, (post) => {
+        let didUpdate = false
         const comments = post.comments.map((comment) => {
-          if (comment.id !== commentId) return comment
+          if (comment.id !== commentId) {
+            return comment
+          }
+
+          didUpdate = true
           return {
             ...comment,
             replies: [...comment.replies, optimisticReply],
           }
         })
-        const didUpdate = comments !== post.comments
-        if (!didUpdate) return post
+
+        if (!didUpdate) {
+          return post
+        }
+
         return { ...post, repliesCount: post.repliesCount + 1, comments }
       })
       set({
         isCreatingReply: true,
-        feed: { posts, stats: recalculateStats(posts) },
+        feed: nextFeed,
       })
     }
 
@@ -331,15 +394,16 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
     if (!feed) return
 
     // Optimistic toggle
-    const posts = feed.posts.map((p) => {
-      if (p.id !== post.id) return p
-      return {
-        ...p,
-        isLiked: !post.isLiked,
-        likesCount: Math.max(0, p.likesCount + (post.isLiked ? -1 : 1)),
-      }
+    const nextFeed = updateFeedPostById(feed, post.id, (currentPost) => ({
+      ...currentPost,
+      isLiked: !post.isLiked,
+      likesCount: Math.max(0, currentPost.likesCount + (post.isLiked ? -1 : 1)),
+    }))
+    set({
+      isTogglingLike: true,
+      togglingLikePostId: post.id,
+      feed: nextFeed,
     })
-    set({ isTogglingLike: true, feed: { ...feed, posts } })
 
     try {
       await toggleCommunityPostLike({
@@ -347,10 +411,10 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
         postId: post.id,
         currentlyLiked: post.isLiked,
       })
-      set({ isTogglingLike: false })
+      set({ isTogglingLike: false, togglingLikePostId: null })
     } catch {
       // Revert
-      set({ isTogglingLike: false, feed })
+      set({ isTogglingLike: false, togglingLikePostId: null, feed })
     }
   },
 }))

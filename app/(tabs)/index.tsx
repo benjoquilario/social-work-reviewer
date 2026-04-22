@@ -292,38 +292,62 @@ export default function ReviewerHomeScreen() {
   })
 
   const activityFeed = activityOverviewQuery.data ?? null
-  const weeklyMetric = useMemo(
-    () => PERFORMANCE_METRICS.find((metric) => metric.window === "week"),
-    []
-  )
-  const trackingSnapshot = useMemo(
-    () =>
-      buildTrackingSnapshot(
-        activityFeed?.quizAttempts ?? [],
-        activityFeed?.learningHistory ?? []
-      ),
-    [activityFeed?.learningHistory, activityFeed?.quizAttempts]
-  )
-  const effectiveDayStreak = activityFeed?.dayStreak ?? DAILY_TRACKER.streakDays
-  const effectiveWeeklyAverage = Math.round(
-    activityFeed?.weeklyAverageScore ?? weeklyMetric?.averageScore ?? 0
-  )
-  const effectiveDailyTrackingCount =
-    activityFeed?.quizAttempts || activityFeed?.learningHistory
+  const trackingMetrics = useMemo(() => {
+    const weeklyMetric = PERFORMANCE_METRICS.find(
+      (metric) => metric.window === "week"
+    )
+    const trackingSnapshot = buildTrackingSnapshot(
+      activityFeed?.quizAttempts ?? [],
+      activityFeed?.learningHistory ?? []
+    )
+    const hasActivityData = Boolean(
+      activityFeed?.quizAttempts || activityFeed?.learningHistory
+    )
+    const effectiveDayStreak =
+      activityFeed?.dayStreak ?? DAILY_TRACKER.streakDays
+    const effectiveWeeklyAverage = Math.round(
+      activityFeed?.weeklyAverageScore ?? weeklyMetric?.averageScore ?? 0
+    )
+    const effectiveDailyTrackingCount = hasActivityData
       ? trackingSnapshot.dailyCount
       : DAILY_TRACKER.completedSessions
-  const effectiveWeeklyActiveDays =
-    activityFeed?.quizAttempts || activityFeed?.learningHistory
+    const effectiveWeeklyActiveDays = hasActivityData
       ? trackingSnapshot.weeklyActiveDays
       : Math.min(DAILY_TRACKER.streakDays, 7)
-  const dailyTrackingProgress = Math.min(
-    100,
-    Math.round((effectiveDailyTrackingCount / DAILY_ACTIVITY_TARGET) * 100)
-  )
-  const weeklyTrackingProgress = Math.min(
-    100,
-    Math.round((effectiveWeeklyActiveDays / 7) * 100)
-  )
+    const dailyTrackingProgress = Math.min(
+      100,
+      Math.round((effectiveDailyTrackingCount / DAILY_ACTIVITY_TARGET) * 100)
+    )
+    const weeklyTrackingProgress = Math.min(
+      100,
+      Math.round((effectiveWeeklyActiveDays / 7) * 100)
+    )
+
+    return {
+      trackingSnapshot,
+      effectiveDayStreak,
+      effectiveWeeklyAverage,
+      effectiveDailyTrackingCount,
+      effectiveWeeklyActiveDays,
+      dailyTrackingProgress,
+      weeklyTrackingProgress,
+    }
+  }, [
+    activityFeed?.dayStreak,
+    activityFeed?.learningHistory,
+    activityFeed?.quizAttempts,
+    activityFeed?.weeklyAverageScore,
+  ])
+
+  const {
+    trackingSnapshot,
+    effectiveDayStreak,
+    effectiveWeeklyAverage,
+    effectiveDailyTrackingCount,
+    effectiveWeeklyActiveDays,
+    dailyTrackingProgress,
+    weeklyTrackingProgress,
+  } = trackingMetrics
 
   const headerStats = useMemo(
     () => [
@@ -722,6 +746,7 @@ export default function ReviewerHomeScreen() {
             ) : (
               <FlashList
                 data={reviewSubjects}
+                estimatedItemSize={200}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ paddingRight: 16 }}

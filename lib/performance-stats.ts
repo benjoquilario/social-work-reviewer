@@ -56,6 +56,24 @@ export type QuestionsAnsweredTimeline = {
 
 const QUERY_LIMIT = 500
 
+// Hoist Intl formatters to module scope — constructing Intl objects is expensive
+// on Hermes because it allocates locale data each time.
+const DATE_FMT_SHORT = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+})
+const DATE_FMT_SHORT_NO_YEAR = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+})
+const WEEKDAY_FMT = new Intl.DateTimeFormat("en-US", { weekday: "short" })
+const MONTH_FMT = new Intl.DateTimeFormat("en-US", { month: "short" })
+const MONTH_YEAR_FMT = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  year: "numeric",
+})
+
 function toDayKey(date: Date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, "0")
@@ -64,26 +82,19 @@ function toDayKey(date: Date) {
 }
 
 function formatDateShort(date: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date)
+  return DATE_FMT_SHORT.format(date)
 }
 
 function formatDateShortNoYear(date: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-  }).format(date)
+  return DATE_FMT_SHORT_NO_YEAR.format(date)
 }
 
 function getWeekdayShort(date: Date) {
-  return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date)[0]
+  return WEEKDAY_FMT.format(date)[0]
 }
 
 function getMonthShort(date: Date) {
-  return new Intl.DateTimeFormat("en-US", { month: "short" }).format(date)
+  return MONTH_FMT.format(date)
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -95,35 +106,52 @@ function clamp(value: number, min: number, max: number) {
 export async function getOverallPerformanceStats(
   userId: string
 ): Promise<OverallPerformanceStats> {
-  // Fetch all completed attempts + all user_answers + all subjects in parallel
-  const [attemptsResult, answersResult, subjectsResult, questionsCountResult] =
-    await Promise.all([
-      tablesDB.listRows({
-        databaseId: DB_ID,
-        tableId: COLLECTIONS.EXAM_ATTEMPTS,
-        queries: [
-          Query.equal("userId", userId),
-          Query.equal("status", "done"),
-          Query.orderDesc("$updatedAt"),
-          Query.limit(QUERY_LIMIT),
-        ],
-      }),
-      tablesDB.listRows({
-        databaseId: DB_ID,
-        tableId: COLLECTIONS.USER_ANSWERS,
-        queries: [Query.limit(QUERY_LIMIT)],
-      }),
-      tablesDB.listRows({
-        databaseId: DB_ID,
-        tableId: COLLECTIONS.SUBJECTS,
-        queries: [Query.orderAsc("order"), Query.limit(QUERY_LIMIT)],
-      }),
-      tablesDB.listRows({
-        databaseId: DB_ID,
-        tableId: COLLECTIONS.QUESTIONS,
-        queries: [Query.limit(QUERY_LIMIT)],
-      }),
-    ])
+  // Fetch all data in a single parallel batch (avoids sequential round-trips)
+  const [
+    attemptsResult,
+    answersResult,
+    subjectsResult,
+    questionsCountResult,
+    progressResult,
+  ] = await Promise.all([
+    tablesDB.listRows({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.EXAM_ATTEMPTS,
+      queries: [
+        Query.equal("userId", userId),
+        Query.equal("status", "done"),
+        Query.orderDesc("$updatedAt"),
+        Query.limit(QUERY_LIMIT),
+      ],
+    }),
+    tablesDB.listRows({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.USER_ANSWERS,
+      queries: [
+        Query.equal("userId", userId),
+        Query.limit(QUERY_LIMIT),
+      ],
+    }),
+    tablesDB.listRows({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.SUBJECTS,
+      queries: [Query.orderAsc("order"), Query.limit(QUERY_LIMIT)],
+    }),
+    tablesDB.listRows({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.QUESTIONS,
+      queries: [Query.limit(QUERY_LIMIT)],
+    }),
+    tablesDB.listRows({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.USER_PROGRESS,
+      queries: [
+        Query.equal("userId", userId),
+        Query.orderDesc("$updatedAt"),
+        Query.limit(QUERY_LIMIT),
+      ],
+    }),
+  ])
 
   const attempts =
     attemptsResult.rows as unknown as ExamAttemptDocument[]
@@ -179,23 +207,7 @@ export async function getOverallPerformanceStats(
   }
 
   // Per-subject breakdown
-  // Map examId -> subjectId via exams collection (we can use the exam data)
-  const examSubjectMap = new Map<string, string>()
-  // We need to look up which subject each exam belongs to
-  // Since exam_attempts doesn't store subjectId, we need to either:
-  // 1) Look up the exams table, or
-  // 2) Use the user_progress table which stores subjectId
-  // Let's use user_progress since it's already populated by completeQuizAttempt
-  const progressResult = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.USER_PROGRESS,
-    queries: [
-      Query.equal("userId", userId),
-      Query.orderDesc("$updatedAt"),
-      Query.limit(QUERY_LIMIT),
-    ],
-  })
-
+  // Use user_progress (already fetched in parallel above) to resolve subject mapping
   const progressRows =
     progressResult.rows as unknown as Array<{
       $id: string
@@ -350,10 +362,7 @@ function getMonthBuckets(offset: number) {
 
   return {
     buckets,
-    rangeLabel: new Intl.DateTimeFormat("en-US", {
-      month: "long",
-      year: "numeric",
-    }).format(monthDate),
+    rangeLabel: MONTH_YEAR_FMT.format(monthDate),
     startDate: new Date(year, month, 1),
     endDate: new Date(year, month + 1, 0),
   }

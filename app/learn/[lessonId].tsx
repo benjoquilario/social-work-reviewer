@@ -45,6 +45,11 @@ import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 
 import { normalizeMaterialContentToMarkdown } from "../../lib/learning-material-content"
 
+const SHORT_DATETIME_FMT = new Intl.DateTimeFormat("en-PH", {
+  dateStyle: "medium",
+  timeStyle: "short",
+})
+
 function formatCreatedAt(value: string) {
   const parsed = new Date(value)
 
@@ -52,10 +57,7 @@ function formatCreatedAt(value: string) {
     return value || "Not provided"
   }
 
-  return new Intl.DateTimeFormat("en-PH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(parsed)
+  return SHORT_DATETIME_FMT.format(parsed)
 }
 
 function getMaterialActionLabel(type: string) {

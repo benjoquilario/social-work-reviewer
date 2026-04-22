@@ -58,11 +58,22 @@ function RootNavigator() {
   const authState = useAuth((state) => state.authState)
   const colorScheme = useColorScheme()
   const navTheme = colorScheme === "dark" ? NAV_THEME.dark : NAV_THEME.light
-  const nativewindThemeVariables = vars(
+  const nativewindThemeVariables = useMemo(() => vars(
     colorScheme === "dark"
       ? NATIVEWIND_THEME_VARIABLES.dark
       : NATIVEWIND_THEME_VARIABLES.light
-  )
+  ), [colorScheme])
+
+  const screenOptions = useMemo(() => ({
+    headerShadowVisible: false,
+    headerStyle: { backgroundColor: navTheme.colors.background },
+    headerTintColor: navTheme.colors.primary,
+    headerBackButtonDisplayMode: "minimal" as const,
+    headerTitleStyle: {
+      fontFamily: APP_FONTS.extraBold,
+      fontSize: 18,
+    },
+  }), [navTheme.colors.background, navTheme.colors.primary])
 
   useEffect(() => {
     if (fontsLoaded && isReady && authState.status !== "loading") {
@@ -101,18 +112,7 @@ function RootNavigator() {
     <SafeAreaProvider>
       <ThemeProvider value={navTheme}>
         <View className="flex-1 bg-background" style={nativewindThemeVariables}>
-          <Stack
-            screenOptions={{
-              headerShadowVisible: false,
-              headerStyle: { backgroundColor: navTheme.colors.background },
-              headerTintColor: navTheme.colors.primary,
-              headerBackButtonDisplayMode: "minimal",
-              headerTitleStyle: {
-                fontFamily: APP_FONTS.extraBold,
-                fontSize: 18,
-              },
-            }}
-          >
+          <Stack screenOptions={screenOptions}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="diagnostics" options={{ headerShown: false }} />

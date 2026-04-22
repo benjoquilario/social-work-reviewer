@@ -63,7 +63,7 @@ export default function CommunityScreen() {
   const contentDraft = useCommunity((s) => s.contentDraft)
   const photoUrlDraft = useCommunity((s) => s.photoUrlDraft)
   const isCreatingPost = useCommunity((s) => s.isCreatingPost)
-  const isTogglingLike = useCommunity((s) => s.isTogglingLike)
+  const togglingLikePostId = useCommunity((s) => s.togglingLikePostId)
 
   const loadFeed = useCommunity((s) => s.loadFeed)
   const refreshFeed = useCommunity((s) => s.refreshFeed)
@@ -111,8 +111,7 @@ export default function CommunityScreen() {
 
   const handleOpenPost = useCallback(
     (postId: string) => {
-      // Navigate to the discussion detail page
-      router.push(`/community/${postId}` as any)
+      router.push({ pathname: "/community/[postId]", params: { postId } })
     },
     [router]
   )
@@ -247,13 +246,26 @@ export default function CommunityScreen() {
     ({ item }: ListRenderItemInfo<CommunityPostItem>) => (
       <CommunityThreadCard
         post={item}
-        liking={isTogglingLike}
+        liking={togglingLikePostId === item.id}
         onLike={handleLike}
         onOpen={handleOpenPost}
         theme={theme}
       />
     ),
-    [handleLike, handleOpenPost, isTogglingLike, theme]
+    [handleLike, handleOpenPost, theme, togglingLikePostId]
+  )
+
+  const emptyState = useMemo(
+    () => (
+      <View className="items-center px-8 py-12">
+        <Text className="text-center text-[14px] text-muted-foreground">
+          {activeFeedFilter === "all"
+            ? "No discussions yet. Start the first thread!"
+            : `No ${activeFeedFilter} posts yet.`}
+        </Text>
+      </View>
+    ),
+    [activeFeedFilter]
   )
 
   return (
@@ -289,21 +301,15 @@ export default function CommunityScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           ListHeaderComponent={header}
-          ListEmptyComponent={
-            <View className="items-center px-8 py-12">
-              <Text className="text-center text-[14px] text-muted-foreground">
-                {activeFeedFilter === "all"
-                  ? "No discussions yet. Start the first thread!"
-                  : `No ${activeFeedFilter} posts yet.`}
-              </Text>
-            </View>
-          }
+          ListEmptyComponent={emptyState}
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingTop: 16,
             paddingBottom: 128,
           }}
           ItemSeparatorComponent={ThreadSeparator}
+          keyboardShouldPersistTaps="handled"
+          removeClippedSubviews
           showsVerticalScrollIndicator={false}
         />
       )}

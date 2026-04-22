@@ -513,10 +513,17 @@ export default function QuizScreen() {
 
           // Remap answers to new indices
           const remappedAnswers: UserAnswers = {}
-          for (let newIndex = 0; newIndex < reorderedIndices.length; newIndex++) {
+          for (
+            let newIndex = 0;
+            newIndex < reorderedIndices.length;
+            newIndex++
+          ) {
             const originalIndex = reorderedIndices[newIndex]
-            if (typeof restoredAnswersByOriginalIndex[originalIndex] === "number") {
-              remappedAnswers[newIndex] = restoredAnswersByOriginalIndex[originalIndex]
+            if (
+              typeof restoredAnswersByOriginalIndex[originalIndex] === "number"
+            ) {
+              remappedAnswers[newIndex] =
+                restoredAnswersByOriginalIndex[originalIndex]
             }
           }
 
@@ -704,6 +711,10 @@ export default function QuizScreen() {
 
   const handleSelectAnswer = useCallback(
     (questionIndex: number, choiceIndex: number) => {
+      if (answers[questionIndex] === choiceIndex) {
+        return
+      }
+
       setAnswers((previousAnswers) => {
         if (previousAnswers[questionIndex] === choiceIndex) {
           return previousAnswers
@@ -735,7 +746,7 @@ export default function QuizScreen() {
         currentQuestionIndex: questionIndex,
       })
     },
-    [attemptId, questions, user?.$id]
+    [answers, attemptId, questions, user?.$id]
   )
 
   const scrollToIndex = useCallback((index: number) => {

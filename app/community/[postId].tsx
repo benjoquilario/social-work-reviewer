@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { memo, useCallback, useMemo, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useCommunity } from "@/contexts/community-context"
 import { Image } from "expo-image"
@@ -29,6 +29,8 @@ import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 import { CommunityAvatar } from "@/components/community/avatar"
 
+type ThemePalette = (typeof THEME)["light"] | (typeof THEME)["dark"]
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function toAvatarSeed(name: string) {
@@ -51,12 +53,12 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 // ─── Reply Row ────────────────────────────────────────────────────────────────
 
-function ReplyRow({
+const ReplyRow = memo(function ReplyRow({
   reply,
   theme,
 }: {
   reply: CommunityReplyItem
-  theme: (typeof THEME)["light"] | (typeof THEME)["dark"]
+  theme: ThemePalette
 }) {
   return (
     <View className="ml-12 flex-row gap-2.5 py-2">
@@ -83,11 +85,11 @@ function ReplyRow({
       </View>
     </View>
   )
-}
+})
 
 // ─── Comment Row ──────────────────────────────────────────────────────────────
 
-function CommentRow({
+const CommentRow = memo(function CommentRow({
   comment,
   onSubmitReply,
   disabled,
@@ -96,10 +98,14 @@ function CommentRow({
   comment: CommunityCommentItem
   onSubmitReply: (commentId: string, content: string) => void
   disabled: boolean
-  theme: (typeof THEME)["light"] | (typeof THEME)["dark"]
+  theme: ThemePalette
 }) {
   const [replyDraft, setReplyDraft] = useState("")
   const [isReplying, setIsReplying] = useState(false)
+
+  const toggleReplying = useCallback(() => {
+    setIsReplying((current) => !current)
+  }, [])
 
   const submitReply = useCallback(() => {
     const trimmed = replyDraft.trim()
@@ -133,10 +139,7 @@ function CommentRow({
             <Text className="text-[11px] text-muted-foreground">
               {comment.createdAtLabel}
             </Text>
-            <Pressable
-              onPress={() => setIsReplying((c) => !c)}
-              disabled={disabled}
-            >
+            <Pressable onPress={toggleReplying} disabled={disabled}>
               <Text className="text-[11px] font-bold text-primary">Reply</Text>
             </Pressable>
           </View>
@@ -156,10 +159,15 @@ function CommentRow({
             placeholderTextColor={theme.mutedForeground}
             className="flex-1 rounded-full bg-muted/60 px-4 py-2.5 text-[13px] text-foreground"
             style={{ color: theme.foreground }}
+            selectionColor={theme.primary}
+            returnKeyType="send"
+            onSubmitEditing={submitReply}
           />
           <Pressable
             onPress={submitReply}
+            disabled={disabled || !replyDraft.trim()}
             className="h-9 w-9 items-center justify-center rounded-full bg-primary"
+            style={{ opacity: replyDraft.trim() ? 1 : 0.4 }}
           >
             <Send size={14} color={theme.primaryForeground} />
           </Pressable>
@@ -167,7 +175,7 @@ function CommentRow({
       ) : null}
     </View>
   )
-}
+})
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
@@ -184,13 +192,21 @@ export default function CommunityDiscussionScreen() {
   const feed = useCommunity((s) => s.feed)
   const isCreatingComment = useCommunity((s) => s.isCreatingComment)
   const isCreatingReply = useCommunity((s) => s.isCreatingReply)
-  const isTogglingLike = useCommunity((s) => s.isTogglingLike)
+  const togglingLikePostId = useCommunity((s) => s.togglingLikePostId)
   const toggleLike = useCommunity((s) => s.toggleLike)
   const submitReplyAction = useCommunity((s) => s.submitReply)
 
-  const post = feed?.posts.find((p) => p.id === postId) ?? null
+  const post = useMemo(
+    () => feed?.posts.find((p) => p.id === postId) ?? null,
+    [feed?.posts, postId]
+  )
 
   const [commentText, setCommentText] = useState("")
+
+  const currentAvatarSeed = useMemo(
+    () => toAvatarSeed(profile?.fullName ?? user?.name ?? "RV"),
+    [profile?.fullName, user?.name]
+  )
 
   const currentAuthor = useCallback(() => {
     if (!user) return null
@@ -402,7 +418,7 @@ export default function CommunityDiscussionScreen() {
                 <Pressable
                   className="flex-1 flex-row items-center justify-center gap-2 py-1.5"
                   onPress={handleToggleLike}
-                  disabled={isTogglingLike}
+                  disabled={togglingLikePostId === post.id}
                 >
                   <Heart
                     size={18}
@@ -445,7 +461,7 @@ export default function CommunityDiscussionScreen() {
                 </Text>
               </View>
             ) : (
-              post.comments.map((comment) => (
+              post.comments.map((comment: CommunityCommentItem) => (
                 <CommentRow
                   key={comment.id}
                   comment={comment}
@@ -463,11 +479,7 @@ export default function CommunityDiscussionScreen() {
           className="flex-row items-center gap-2 border-t border-border/40 px-4 py-2.5"
           style={{ backgroundColor: theme.card }}
         >
-          <CommunityAvatar
-            label={toAvatarSeed(profile?.fullName ?? user?.name ?? "RV")}
-            theme={theme}
-            size="sm"
-          />
+          <CommunityAvatar label={currentAvatarSeed} theme={theme} size="sm" />
           <TextInput
             value={commentText}
             onChangeText={setCommentText}
@@ -476,6 +488,8 @@ export default function CommunityDiscussionScreen() {
             className="flex-1 rounded-full border bg-muted/50 px-4 py-2.5 text-[13px] text-foreground"
             style={{ color: theme.foreground, borderColor: theme.border }}
             selectionColor={theme.primary}
+            returnKeyType="send"
+            onSubmitEditing={() => void handleSubmitComment()}
           />
           <Pressable
             onPress={() => void handleSubmitComment()}

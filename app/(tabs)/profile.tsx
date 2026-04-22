@@ -39,14 +39,21 @@ import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 import { OverallPerformanceSection } from "@/app/dashboard"
 
+// Hoist Intl formatters — on Hermes, each constructor allocates locale data.
+const MEMBER_SINCE_FMT = new Intl.DateTimeFormat("en-PH", {
+  year: "numeric",
+  month: "long",
+})
+const ACTIVITY_DATE_FMT = new Intl.DateTimeFormat("en-PH", {
+  dateStyle: "medium",
+  timeStyle: "short",
+})
+
 function formatMemberSince(value: string | undefined) {
   if (!value) return "Not available"
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return "Not available"
-  return new Intl.DateTimeFormat("en-PH", {
-    year: "numeric",
-    month: "long",
-  }).format(parsed)
+  return MEMBER_SINCE_FMT.format(parsed)
 }
 
 function formatActivityDate(value: string | null | undefined) {
@@ -59,10 +66,7 @@ function formatActivityDate(value: string | null | undefined) {
     return "Not available"
   }
 
-  return new Intl.DateTimeFormat("en-PH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(parsed)
+  return ACTIVITY_DATE_FMT.format(parsed)
 }
 
 function formatDuration(seconds: number) {

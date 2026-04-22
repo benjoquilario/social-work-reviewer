@@ -61,6 +61,12 @@ function toAuthSnapshot(authState: AuthState) {
   }
 }
 
+function canApplyProfileSnapshot(state: AuthStore, userId: string) {
+  return (
+    state.authState.status === "authenticated" && state.user?.$id === userId
+  )
+}
+
 async function bootstrapProfileSafely(
   user: AuthUser,
   fullName?: string,
@@ -104,6 +110,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           set(toAuthSnapshot({ status: "authenticated", user, profile: null }))
 
           const profile = await bootstrapProfileSafely(user)
+          if (!canApplyProfileSnapshot(get(), user.$id)) {
+            return
+          }
           set(toAuthSnapshot({ status: "authenticated", user, profile }))
           return
         } catch (error) {
@@ -132,11 +141,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       set(toAuthSnapshot({ status: "authenticated", user, profile: null }))
 
       bootstrapProfileSafely(user, undefined, email).then((profile) => {
-        if (profile && get().authState.status === "authenticated") {
+        if (profile && canApplyProfileSnapshot(get(), user.$id)) {
           set(
             toAuthSnapshot({
               status: "authenticated",
-              user: get().user ?? user,
+              user,
               profile,
             })
           )
@@ -164,6 +173,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     }
 
     const profile = await bootstrapProfileSafely(user)
+    if (!canApplyProfileSnapshot(get(), user.$id)) {
+      return
+    }
     set(toAuthSnapshot({ status: "authenticated", user, profile }))
   },
   updateProfile: async (input) => {

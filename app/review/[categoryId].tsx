@@ -35,6 +35,11 @@ import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 
+const SHORT_DATE_FMT = new Intl.DateTimeFormat("en-PH", {
+  month: "short",
+  day: "numeric",
+})
+
 function formatLastViewedLabel(value: string) {
   const timestamp = new Date(value).getTime()
 
@@ -62,10 +67,7 @@ function formatLastViewedLabel(value: string) {
     return `${deltaDays}d ago`
   }
 
-  return new Intl.DateTimeFormat("en-PH", {
-    month: "short",
-    day: "numeric",
-  }).format(new Date(timestamp))
+  return SHORT_DATE_FMT.format(new Date(timestamp))
 }
 
 const DAILY_ACTIVITY_TARGET = 4
