@@ -20,7 +20,7 @@ import type { ActivityAchievement, UserActivityFeed } from "@/lib/progress"
 import { withOpacity } from "@/lib/theme"
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
-import { OverallPerformanceSection } from "@/app/dashboard"
+import { OverallPerformanceSection } from "@/components/dashboard/overall-performance"
 
 import {
   ProfileSummaryCard,

@@ -57,7 +57,7 @@ export default function TopicDetailScreen() {
     staleTime: 0,
     refetchOnMount: "always",
     queryFn: () =>
-      listLearningMaterialStatusesByTopic(user?.$id ?? "", topicId),
+      listLearningMaterialStatusesByTopic({ userId: user?.$id ?? "", topicId }),
   })
 
   const topicDetail = topicQuery.data ?? null

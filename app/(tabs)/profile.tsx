@@ -224,7 +224,7 @@ function ProfileScreenContent() {
     ],
     enabled: Boolean(user?.$id),
     queryFn: () =>
-      getUserActivityFeed(user?.$id ?? "", {
+      getUserActivityFeed({ userId: user?.$id ?? "" }, {
         quizAttemptsLimit,
         learningHistoryLimit,
         achievementsLimit,

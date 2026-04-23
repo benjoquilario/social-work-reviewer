@@ -104,10 +104,10 @@ export default function ModeSelectionScreen() {
     queryKey: ["quiz-mode-resumable-attempts", user?.$id, examIdSignature],
     enabled: Boolean(user?.$id) && exams.length > 0,
     queryFn: () =>
-      listResumableAttemptsByExam(
-        user?.$id ?? "",
-        exams.map((exam) => exam.id)
-      ),
+      listResumableAttemptsByExam({
+        userId: user?.$id ?? "",
+        examIds: exams.map((exam) => exam.id)
+      }),
   })
   const resumableByExamId = resumableAttemptsQuery.data ?? {}
   const examStats = useMemo(

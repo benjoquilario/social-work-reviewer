@@ -118,7 +118,7 @@ export default function LessonDetailScreen() {
     enabled: Boolean(user?.$id) && Boolean(lessonId),
     staleTime: 0,
     refetchOnMount: "always",
-    queryFn: () => getLearningMaterialStatus(user?.$id ?? "", lessonId),
+    queryFn: () => getLearningMaterialStatus({ userId: user?.$id ?? "", learningMaterialId: lessonId }),
   })
 
   const materialDetail = materialQuery.data ?? null

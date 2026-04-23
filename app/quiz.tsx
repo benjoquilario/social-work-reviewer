@@ -25,15 +25,7 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import {
-  completeQuizAttempt,
-  getLatestResumableAttempt,
-  listAttemptAnswers,
-  recordQuizAnswer,
-  saveQuizResult,
-  startQuizAttempt,
-  syncOngoingAttemptProgress,
-} from "@/lib/progress"
+import { useQuizSession, type UserAnswers } from "@/hooks/use-quiz-session"
 import {
   buildAppwriteQuizQuestions,
   getQuizCategoryDetail,
@@ -47,7 +39,6 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 
-type UserAnswers = Record<number, number | undefined>
 type ThemePalette = (typeof THEME)["light"] | (typeof THEME)["dark"]
 
 const LOADING_SKELETON_CLASSES = [
@@ -62,28 +53,18 @@ const QUIZ_LOADING_CONTENT_STYLE = {
   paddingHorizontal: 16,
   paddingVertical: 16,
 }
-
 const QUIZ_RESULTS_CONTENT_STYLE = {
   paddingHorizontal: 16,
   paddingVertical: 16,
 }
-
 const QUIZ_PAGER_STYLE = { flex: 1 }
-
-const QUIZ_PAGER_CONTENT_STYLE = {
-  paddingBottom: 8,
-}
-
+const QUIZ_PAGER_CONTENT_STYLE = { paddingBottom: 8 }
 const QUIZ_QUESTION_SCROLL_CONTENT_STYLE = {
   flexGrow: 1,
   paddingHorizontal: 16,
   paddingBottom: 24,
 }
-
-const QUIZ_DOT_CONTENT_STYLE = {
-  paddingRight: 2,
-}
-
+const QUIZ_DOT_CONTENT_STYLE = { paddingRight: 2 }
 const QUIZ_CARD_CLASS = "rounded-3xl border border-border bg-card p-5"
 
 function QuizVerticalSeparator() {
@@ -191,11 +172,11 @@ const QuizNavigatorDot = memo(
       />
     )
   },
-  (previousProps, nextProps) =>
-    previousProps.isActive === nextProps.isActive &&
-    previousProps.isAnswered === nextProps.isAnswered &&
-    previousProps.questionIndex === nextProps.questionIndex &&
-    previousProps.theme === nextProps.theme
+  (prev, next) =>
+    prev.isActive === next.isActive &&
+    prev.isAnswered === next.isAnswered &&
+    prev.questionIndex === next.questionIndex &&
+    prev.theme === next.theme
 )
 
 const QuizQuestionPage = memo(
@@ -240,11 +221,11 @@ const QuizQuestionPage = memo(
       </View>
     )
   },
-  (previousProps, nextProps) =>
-    previousProps.question.id === nextProps.question.id &&
-    previousProps.questionIndex === nextProps.questionIndex &&
-    previousProps.screenWidth === nextProps.screenWidth &&
-    previousProps.selectedChoiceIndex === nextProps.selectedChoiceIndex
+  (prev, next) =>
+    prev.question.id === next.question.id &&
+    prev.questionIndex === next.questionIndex &&
+    prev.screenWidth === next.screenWidth &&
+    prev.selectedChoiceIndex === next.selectedChoiceIndex
 )
 
 const QuizResultQuestionCard = memo(
@@ -312,28 +293,261 @@ const QuizResultQuestionCard = memo(
       </View>
     )
   },
-  (previousProps, nextProps) =>
-    previousProps.question.id === nextProps.question.id &&
-    previousProps.questionIndex === nextProps.questionIndex &&
-    previousProps.selectedChoiceIndex === nextProps.selectedChoiceIndex &&
-    previousProps.theme === nextProps.theme
+  (prev, next) =>
+    prev.question.id === next.question.id &&
+    prev.questionIndex === next.questionIndex &&
+    prev.selectedChoiceIndex === next.selectedChoiceIndex &&
+    prev.theme === next.theme
 )
 
-export default function QuizScreen() {
+// 3. SPLIT UI COMPONENTS
+const QuizLoadingState = memo(function QuizLoadingState({
+  theme,
+}: {
+  theme: ThemePalette
+}) {
+  const renderLoadingSkeleton = useCallback(
+    ({ item }: { item: string }) => <Skeleton className={item} />,
+    []
+  )
+
+  return (
+    <SafeAreaView className="flex-1 bg-background">
+      <FlashList
+        data={LOADING_SKELETON_CLASSES}
+        keyExtractor={(_, index) => `quiz-loading-${index}`}
+        renderItem={renderLoadingSkeleton}
+        ItemSeparatorComponent={QuizVerticalSeparator}
+        contentContainerStyle={QUIZ_LOADING_CONTENT_STYLE}
+        showsVerticalScrollIndicator={false}
+      />
+    </SafeAreaView>
+  )
+})
+
+const QuizErrorState = memo(function QuizErrorState({
+  theme,
+  errorMsg,
+}: {
+  theme: ThemePalette
+  errorMsg: string
+}) {
   const router = useRouter()
+  return (
+    <SafeAreaView className="flex-1 bg-background">
+      <View className="flex-1 items-center justify-center gap-4 px-6">
+        <Text className="text-center text-xl font-extrabold text-foreground">
+          Quiz unavailable
+        </Text>
+        <Text className="text-center text-sm text-muted-foreground">
+          {errorMsg}
+        </Text>
+        <Button className="w-full" onPress={() => router.replace("/")}>
+          <Home size={16} color={theme.primaryForeground} />
+          <Text className="font-bold text-primary-foreground">
+            Go to Categories
+          </Text>
+        </Button>
+      </View>
+    </SafeAreaView>
+  )
+})
+
+const QuizEmptyState = memo(function QuizEmptyState({
+  theme,
+}: {
+  theme: ThemePalette
+}) {
+  const router = useRouter()
+  return (
+    <SafeAreaView className="flex-1 bg-background">
+      <View className="flex-1 items-center justify-center gap-4 px-6">
+        <Text className="text-center text-xl font-extrabold text-foreground">
+          No quiz questions yet
+        </Text>
+        <Text className="text-center text-sm text-muted-foreground">
+          This quiz mode is now Appwrite-backed, but there are not enough
+          published question and choice documents for this selection yet.
+        </Text>
+        <Button className="w-full" onPress={() => router.replace("/")}>
+          <Home size={16} color={theme.primaryForeground} />
+          <Text className="font-bold text-primary-foreground">
+            Go to Categories
+          </Text>
+        </Button>
+      </View>
+    </SafeAreaView>
+  )
+})
+
+const QuizInvalidSetupState = memo(function QuizInvalidSetupState({
+  theme,
+}: {
+  theme: ThemePalette
+}) {
+  const router = useRouter()
+  return (
+    <SafeAreaView className="flex-1 bg-background">
+      <View className="flex-1 items-center justify-center gap-4 px-6">
+        <Text className="text-center text-xl font-extrabold text-foreground">
+          Invalid Quiz Setup
+        </Text>
+        <Text className="text-center text-sm text-muted-foreground">
+          Go back and select a category and mode.
+        </Text>
+        <Button className="w-full" onPress={() => router.replace("/")}>
+          <Home size={16} color={theme.primaryForeground} />
+          <Text className="font-bold text-primary-foreground">
+            Go to Categories
+          </Text>
+        </Button>
+      </View>
+    </SafeAreaView>
+  )
+})
+
+const QuizResultsView = memo(function QuizResultsView({
+  questions,
+  result,
+  answers,
+  answeredCount,
+  quizTitle,
+  theme,
+}: {
+  questions: QuizQuestion[]
+  result: { correct: number; wrong: number }
+  answers: UserAnswers
+  answeredCount: number
+  quizTitle: string
+  theme: ThemePalette
+}) {
+  const router = useRouter()
+
+  const renderResultQuestion = useCallback(
+    ({
+      item: question,
+      index: questionIndex,
+    }: {
+      item: QuizQuestion
+      index: number
+    }) => (
+      <QuizResultQuestionCard
+        question={question}
+        questionIndex={questionIndex}
+        selectedChoiceIndex={answers[questionIndex]}
+        theme={theme}
+      />
+    ),
+    [answers, theme]
+  )
+
+  return (
+    <SafeAreaView className="flex-1 bg-background">
+      <FlashList
+        data={questions}
+        keyExtractor={(item) => item.id}
+        style={{ flex: 1 }}
+        contentContainerStyle={QUIZ_RESULTS_CONTENT_STYLE}
+        showsVerticalScrollIndicator={false}
+        ItemSeparatorComponent={QuizVerticalSeparator}
+        ListHeaderComponent={
+          <View className={QUIZ_CARD_CLASS}>
+            <Text className="text-xl font-black text-card-foreground">
+              Results
+            </Text>
+            <Text className="mt-1 text-sm text-muted-foreground">
+              {quizTitle}
+            </Text>
+
+            <View className="mt-4 flex-row gap-3">
+              <View
+                className="flex-1 rounded-2xl p-3"
+                style={{
+                  backgroundColor: withOpacity(theme.primary, 0.15),
+                  borderWidth: 1,
+                  borderColor: withOpacity(theme.primary, 0.3),
+                }}
+              >
+                <View className="flex-row items-center gap-1">
+                  <Check size={13} color={theme.primary} />
+                  <Text className="text-xs font-bold uppercase tracking-wide text-primary">
+                    Correct
+                  </Text>
+                </View>
+                <Text className="mt-1 text-2xl font-black text-card-foreground">
+                  {result.correct}
+                </Text>
+              </View>
+              <View
+                className="flex-1 rounded-2xl p-3"
+                style={{
+                  backgroundColor: "hsl(0 84% 60% / 0.1)",
+                  borderWidth: 1,
+                  borderColor: "hsl(0 84% 60% / 0.25)",
+                }}
+              >
+                <Text className="text-xs font-bold uppercase tracking-wide text-destructive">
+                  Wrong
+                </Text>
+                <Text className="mt-1 text-2xl font-black text-card-foreground">
+                  {result.wrong}
+                </Text>
+              </View>
+              <View
+                className="flex-1 rounded-2xl p-3"
+                style={{
+                  backgroundColor: withOpacity(theme.accent, 0.18),
+                  borderWidth: 1,
+                  borderColor: withOpacity(theme.accent, 0.3),
+                }}
+              >
+                <Text
+                  className="text-[10px] font-bold uppercase tracking-wide"
+                  style={{ color: theme.accent }}
+                >
+                  Score
+                </Text>
+                <Text className="mt-1 text-2xl font-black text-card-foreground">
+                  {questions.length > 0
+                    ? Math.round((result.correct / questions.length) * 100)
+                    : 0}
+                  %
+                </Text>
+              </View>
+            </View>
+
+            <Text className="mt-3 text-sm text-muted-foreground">
+              Answered {answeredCount} of {questions.length}
+            </Text>
+          </View>
+        }
+        renderItem={renderResultQuestion}
+        ListFooterComponent={
+          <View className="pt-4">
+            <Button className="h-11" onPress={() => router.replace("/")}>
+              <RefreshCcw size={16} color={theme.primaryForeground} />
+              <Text className="font-bold text-primary-foreground">
+                Start New Review
+              </Text>
+            </Button>
+          </View>
+        }
+      />
+    </SafeAreaView>
+  )
+})
+
+export default function QuizScreen() {
   const colorScheme = useColorScheme()
-  const isDark = colorScheme === "dark"
-  const theme = isDark ? THEME.dark : THEME.light
+  const theme = colorScheme === "dark" ? THEME.dark : THEME.light
+
   const user = useAuth((state) => state.user)
   const isAuthenticated = useAuth((state) => state.isAuthenticated)
   const profile = useAuth((state) => state.profile)
   const refreshProfile = useAuth((state) => state.refreshProfile)
+
   const flatListRef = useRef<FlatList<QuizQuestion>>(null)
   const { width: screenWidth } = useWindowDimensions()
-  const startTimeRef = useRef(Date.now())
-  const hydratedAttemptKeyRef = useRef<string | null>(null)
-  const activeIndexRef = useRef(0)
-  const isSubmittedRef = useRef(false)
 
   const params = useLocalSearchParams<{
     categoryId?: string
@@ -396,14 +610,6 @@ export default function QuizScreen() {
     () => questionsQuery.data ?? [],
     [questionsQuery.data]
   )
-  const [questions, setQuestions] = useState<QuizQuestion[]>([])
-
-  // Sync questions from query data (will be reordered on resume)
-  useEffect(() => {
-    if (rawQuestions.length > 0) {
-      setQuestions(rawQuestions)
-    }
-  }, [rawQuestions])
   const quizTitle =
     examQuery.data?.title ??
     (categoryId === "all-categories"
@@ -411,344 +617,34 @@ export default function QuizScreen() {
       : (categoryQuery.data?.name ?? fullExam?.title)) ??
     "Mixed Review"
 
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [answers, setAnswers] = useState<UserAnswers>({})
-  const [isSubmitted, setIsSubmitted] = useState(false)
-  const [showSubmitModal, setShowSubmitModal] = useState(false)
-  const [attemptId, setAttemptId] = useState<string | null>(null)
-  const [isAttemptHydrating, setIsAttemptHydrating] = useState(false)
-  const [didResumeAttempt, setDidResumeAttempt] = useState(false)
-  const questionSignature = useMemo(
-    () => rawQuestions.map((question) => question.questionId).join("|"),
-    [rawQuestions]
-  )
-
-  useEffect(() => {
-    setActiveIndex(0)
-    setAnswers({})
-    setIsSubmitted(false)
-    setAttemptId(null)
-    setIsAttemptHydrating(false)
-    setDidResumeAttempt(false)
-    hydratedAttemptKeyRef.current = null
-    activeIndexRef.current = 0
-    isSubmittedRef.current = false
-    startTimeRef.current = Date.now()
-  }, [totalSeconds, categoryId, examId, totalQuestions])
-
-  useEffect(() => {
-    activeIndexRef.current = activeIndex
-  }, [activeIndex])
-
-  useEffect(() => {
-    isSubmittedRef.current = isSubmitted
-  }, [isSubmitted])
-
-  useEffect(() => {
-    if (!user || !activeExamId || questions.length === 0 || isSubmitted) {
-      return
-    }
-
-    const attemptKey = `${user.$id}:${activeExamId}:${questionSignature}:${totalSeconds}`
-    if (hydratedAttemptKeyRef.current === attemptKey) {
-      return
-    }
-    hydratedAttemptKeyRef.current = attemptKey
-
-    let isCancelled = false
-    setIsAttemptHydrating(true)
-
-    void (async () => {
-      try {
-        const resumableAttempt = await getLatestResumableAttempt(
-          user.$id,
-          activeExamId
-        )
-
-        if (isCancelled) {
-          return
-        }
-
-        if (resumableAttempt) {
-          const answerRows = await listAttemptAnswers(resumableAttempt.$id)
-          if (isCancelled) {
-            return
-          }
-
-          const choiceIdByQuestionId = new Map(
-            answerRows.map((answerRow) => [
-              answerRow.questionId,
-              answerRow.choiceId,
-            ])
-          )
-          // Build a map of which questions were answered
-          const answeredIndices: number[] = []
-          const unansweredIndices: number[] = []
-          const restoredAnswersByOriginalIndex: UserAnswers = {}
-
-          for (let index = 0; index < questions.length; index += 1) {
-            const question = questions[index]
-            const selectedChoiceId = choiceIdByQuestionId.get(
-              question.questionId
-            )
-
-            if (!selectedChoiceId) {
-              unansweredIndices.push(index)
-              continue
-            }
-
-            const selectedChoiceIndex =
-              question.choiceIds.indexOf(selectedChoiceId)
-            if (selectedChoiceIndex >= 0) {
-              restoredAnswersByOriginalIndex[index] = selectedChoiceIndex
-              answeredIndices.push(index)
-            } else {
-              unansweredIndices.push(index)
-            }
-          }
-
-          // Reorder: answered first, then unanswered (preserving relative order within each group)
-          const reorderedIndices = [...answeredIndices, ...unansweredIndices]
-          const reorderedQuestions = reorderedIndices.map((i) => questions[i])
-
-          // Remap answers to new indices
-          const remappedAnswers: UserAnswers = {}
-          for (
-            let newIndex = 0;
-            newIndex < reorderedIndices.length;
-            newIndex++
-          ) {
-            const originalIndex = reorderedIndices[newIndex]
-            if (
-              typeof restoredAnswersByOriginalIndex[originalIndex] === "number"
-            ) {
-              remappedAnswers[newIndex] =
-                restoredAnswersByOriginalIndex[originalIndex]
-            }
-          }
-
-          // Start at the first unanswered question
-          const firstUnansweredIndex = answeredIndices.length
-          const safeIndex = Math.min(
-            firstUnansweredIndex,
-            Math.max(reorderedQuestions.length - 1, 0)
-          )
-
-          setQuestions(reorderedQuestions)
-          setAttemptId(resumableAttempt.$id)
-          setAnswers(remappedAnswers)
-          setActiveIndex(safeIndex)
-          setDidResumeAttempt(true)
-          activeIndexRef.current = safeIndex
-          startTimeRef.current =
-            Date.now() - Math.max(resumableAttempt.timeTaken, 0) * 1000
-
-          requestAnimationFrame(() => {
-            flatListRef.current?.scrollToIndex({
-              index: safeIndex,
-              animated: false,
-            })
-          })
-
-          return
-        }
-
-        const nextAttemptId = await startQuizAttempt({
-          userId: user.$id,
-          examId: activeExamId,
-          totalItems: questions.length,
-        })
-
-        if (!isCancelled) {
-          setAttemptId(nextAttemptId)
-          setDidResumeAttempt(false)
-        }
-      } catch {
-        if (isCancelled) {
-          return
-        }
-
-        try {
-          const nextAttemptId = await startQuizAttempt({
-            userId: user.$id,
-            examId: activeExamId,
-            totalItems: questions.length,
-          })
-          if (!isCancelled) {
-            setAttemptId(nextAttemptId)
-            setDidResumeAttempt(false)
-          }
-        } catch {
-          // Best-effort only. Quiz flow should continue even if tracking fails.
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsAttemptHydrating(false)
-        }
-      }
-    })()
-
-    return () => {
-      isCancelled = true
-    }
-  }, [
-    activeExamId,
-    isSubmitted,
-    questionSignature,
+  const {
     questions,
-    totalSeconds,
-    user,
-  ])
-
-  useEffect(() => {
-    if (!attemptId || isSubmitted) {
-      return
-    }
-
-    const timeoutId = setTimeout(() => {
-      const elapsedSeconds = Math.round(
-        (Date.now() - startTimeRef.current) / 1000
-      )
-
-      void syncOngoingAttemptProgress({
-        attemptId,
-        timeTaken: elapsedSeconds,
-        currentQuestionIndex: activeIndexRef.current,
-      })
-    }, 900)
-
-    return () => clearTimeout(timeoutId)
-  }, [activeIndex, attemptId, isSubmitted])
-
-  useEffect(() => {
-    return () => {
-      if (!attemptId || isSubmittedRef.current) {
-        return
-      }
-
-      const elapsedSeconds = Math.round(
-        (Date.now() - startTimeRef.current) / 1000
-      )
-      void syncOngoingAttemptProgress({
-        attemptId,
-        timeTaken: elapsedSeconds,
-        currentQuestionIndex: activeIndexRef.current,
-      })
-    }
-  }, [attemptId])
-
-  const answeredCount = Object.values(answers).filter(
-    (v) => typeof v === "number"
-  ).length
-
-  const result = useMemo(() => {
-    let correct = 0
-    questions.forEach((q, i) => {
-      if (answers[i] === q.answerIndex) correct += 1
-    })
-    return { correct, wrong: questions.length - correct }
-  }, [questions, answers])
-
-  const handleSubmit = useCallback(async () => {
-    setIsSubmitted(true)
-    setShowSubmitModal(false)
-
-    if (user && (examId || categoryId)) {
-      const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000)
-      const activeExamId = examId || categoryId
-      const trackedSubjectId =
-        categoryId && categoryId !== "all-categories" ? categoryId : undefined
-
-      try {
-        if (attemptId) {
-          await completeQuizAttempt({
-            attemptId,
-            userId: user.$id,
-            examId: activeExamId,
-            score: result.correct,
-            totalItems: questions.length,
-            timeTaken,
-            subjectId: trackedSubjectId,
-            topicId: activeExamId,
-            profileSnapshot: {
-              fullName: profile?.fullName,
-              schoolName: profile?.schoolName,
-              reviewType: profile?.reviewType,
-              avatarUrl: profile?.avatarUrl,
-            },
-          })
-        } else {
-          await saveQuizResult({
-            userId: user.$id,
-            examId: activeExamId,
-            score: result.correct,
-            totalItems: questions.length,
-            timeTaken,
-            status: "done",
-            subjectId: trackedSubjectId,
-            topicId: activeExamId,
-            profileSnapshot: {
-              fullName: profile?.fullName,
-              schoolName: profile?.schoolName,
-              reviewType: profile?.reviewType,
-              avatarUrl: profile?.avatarUrl,
-            },
-          })
-        }
-      } catch {
-        // Best-effort: don't block the results UI
-      }
-    }
-  }, [
+    activeIndex,
+    setActiveIndex,
+    answers,
+    isSubmitted,
+    showSubmitModal,
+    setShowSubmitModal,
     attemptId,
+    isAttemptHydrating,
+    didResumeAttempt,
+    answeredCount,
+    result,
+    handleSubmit,
+    handleSelectAnswer,
+  } = useQuizSession({
+    user,
+    profile,
     categoryId,
     examId,
-    profile,
-    questions.length,
-    result.correct,
-    user,
-  ])
+    activeExamId,
+    totalQuestions,
+    totalSeconds,
+    rawQuestions,
+    flatListRef,
+  })
 
-  const handleSelectAnswer = useCallback(
-    (questionIndex: number, choiceIndex: number) => {
-      if (answers[questionIndex] === choiceIndex) {
-        return
-      }
-
-      setAnswers((previousAnswers) => {
-        if (previousAnswers[questionIndex] === choiceIndex) {
-          return previousAnswers
-        }
-
-        return {
-          ...previousAnswers,
-          [questionIndex]: choiceIndex,
-        }
-      })
-
-      if (!attemptId) {
-        return
-      }
-
-      const question = questions[questionIndex]
-      const choiceId = question?.choiceIds[choiceIndex]
-
-      if (!question || !choiceId) {
-        return
-      }
-
-      void recordQuizAnswer({
-        attemptId,
-        userId: user?.$id,
-        questionId: question.questionId,
-        choiceId,
-        isCorrect: choiceIndex === question.answerIndex,
-        currentQuestionIndex: questionIndex,
-      })
-    },
-    [answers, attemptId, questions, user?.$id]
-  )
-
+  // 4. NAVIGATION HANDLERS
   const scrollToIndex = useCallback((index: number) => {
     flatListRef.current?.scrollToIndex({ index, animated: true })
   }, [])
@@ -757,14 +653,13 @@ export default function QuizScreen() {
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       const first = viewableItems[0]
       const nextIndex = first?.index
-
       if (typeof nextIndex === "number") {
         setActiveIndex((currentIndex) =>
           currentIndex === nextIndex ? currentIndex : nextIndex
         )
       }
     },
-    []
+    [setActiveIndex]
   )
 
   const viewabilityConfig = useMemo(
@@ -786,41 +681,16 @@ export default function QuizScreen() {
     [screenWidth]
   )
 
-  const renderLoadingSkeleton = useCallback(
-    ({ item }: { item: string }) => <Skeleton className={item} />,
-    []
-  )
-
-  const renderResultQuestion = useCallback(
-    ({
-      item: question,
-      index: questionIndex,
-    }: {
-      item: QuizQuestion
-      index: number
-    }) => (
-      <QuizResultQuestionCard
-        question={question}
+  const renderNavigatorDot = useCallback(
+    ({ index: questionIndex }: { index: number }) => (
+      <QuizNavigatorDot
+        isActive={questionIndex === activeIndex}
+        isAnswered={typeof answers[questionIndex] === "number"}
+        onPressDot={scrollToIndex}
         questionIndex={questionIndex}
-        selectedChoiceIndex={answers[questionIndex]}
         theme={theme}
       />
     ),
-    [answers, theme]
-  )
-
-  const renderNavigatorDot = useCallback(
-    ({ index: questionIndex }: { index: number }) => {
-      return (
-        <QuizNavigatorDot
-          isActive={questionIndex === activeIndex}
-          isAnswered={typeof answers[questionIndex] === "number"}
-          onPressDot={scrollToIndex}
-          questionIndex={questionIndex}
-          theme={theme}
-        />
-      )
-    },
     [activeIndex, answers, scrollToIndex, theme]
   )
 
@@ -837,198 +707,51 @@ export default function QuizScreen() {
     [answers, handleSelectAnswer, screenWidth]
   )
 
-  if (totalSeconds <= 0) {
-    return (
-      <SafeAreaView className="flex-1 bg-background">
-        <View className="flex-1 items-center justify-center gap-4 px-6">
-          <Text className="text-center text-xl font-extrabold text-foreground">
-            Invalid Quiz Setup
-          </Text>
-          <Text className="text-center text-sm text-muted-foreground">
-            Go back and select a category and mode.
-          </Text>
-          <Button className="w-full" onPress={() => router.replace("/")}>
-            <Home size={16} color={theme.primaryForeground} />
-            <Text className="font-bold text-primary-foreground">
-              Go to Categories
-            </Text>
-          </Button>
-        </View>
-      </SafeAreaView>
-    )
-  }
-
-  if (
+  // 5. DECOMPOSITION OF COMPLEX CONDITIONALS
+  const isInvalidSetup = totalSeconds <= 0
+  const isLoadingQuizData =
     questionsQuery.isLoading ||
     (categoryId !== "all-categories" && categoryQuery.isLoading) ||
     examQuery.isLoading ||
     (isAttemptHydrating && !attemptId)
-  ) {
-    return (
-      <SafeAreaView className="flex-1 bg-background">
-        <FlashList
-          data={LOADING_SKELETON_CLASSES}
-          keyExtractor={(_, index) => `quiz-loading-${index}`}
-          renderItem={renderLoadingSkeleton}
-          ItemSeparatorComponent={QuizVerticalSeparator}
-          contentContainerStyle={QUIZ_LOADING_CONTENT_STYLE}
-          showsVerticalScrollIndicator={false}
-        />
-      </SafeAreaView>
-    )
+
+  const hasDataError =
+    questionsQuery.error || categoryQuery.error || examQuery.error
+  const isEmptyState = questions.length === 0
+
+  if (isInvalidSetup) return <QuizInvalidSetupState theme={theme} />
+  if (isLoadingQuizData) return <QuizLoadingState theme={theme} />
+
+  if (hasDataError) {
+    const errorMsg =
+      examQuery.error instanceof Error
+        ? examQuery.error.message
+        : questionsQuery.error instanceof Error
+          ? questionsQuery.error.message
+          : categoryQuery.error instanceof Error
+            ? categoryQuery.error.message
+            : "Unable to load quiz questions from Appwrite."
+    return <QuizErrorState theme={theme} errorMsg={errorMsg} />
   }
 
-  if (questionsQuery.error || categoryQuery.error || examQuery.error) {
-    return (
-      <SafeAreaView className="flex-1 bg-background">
-        <View className="flex-1 items-center justify-center gap-4 px-6">
-          <Text className="text-center text-xl font-extrabold text-foreground">
-            Quiz unavailable
-          </Text>
-          <Text className="text-center text-sm text-muted-foreground">
-            {examQuery.error instanceof Error
-              ? examQuery.error.message
-              : questionsQuery.error instanceof Error
-                ? questionsQuery.error.message
-                : categoryQuery.error instanceof Error
-                  ? categoryQuery.error.message
-                  : "Unable to load quiz questions from Appwrite."}
-          </Text>
-          <Button className="w-full" onPress={() => router.replace("/")}>
-            <Home size={16} color={theme.primaryForeground} />
-            <Text className="font-bold text-primary-foreground">
-              Go to Categories
-            </Text>
-          </Button>
-        </View>
-      </SafeAreaView>
-    )
-  }
+  if (isEmptyState) return <QuizEmptyState theme={theme} />
 
-  if (questions.length === 0) {
-    return (
-      <SafeAreaView className="flex-1 bg-background">
-        <View className="flex-1 items-center justify-center gap-4 px-6">
-          <Text className="text-center text-xl font-extrabold text-foreground">
-            No quiz questions yet
-          </Text>
-          <Text className="text-center text-sm text-muted-foreground">
-            This quiz mode is now Appwrite-backed, but there are not enough
-            published question and choice documents for this selection yet.
-          </Text>
-          <Button className="w-full" onPress={() => router.replace("/")}>
-            <Home size={16} color={theme.primaryForeground} />
-            <Text className="font-bold text-primary-foreground">
-              Go to Categories
-            </Text>
-          </Button>
-        </View>
-      </SafeAreaView>
-    )
-  }
-
-  // ── Results screen ──────────────────────────────────────────────────────────
   if (isSubmitted) {
     return (
-      <SafeAreaView className="flex-1 bg-background">
-        <FlashList
-          data={questions}
-          keyExtractor={(item) => item.id}
-          style={{ flex: 1 }}
-          contentContainerStyle={QUIZ_RESULTS_CONTENT_STYLE}
-          showsVerticalScrollIndicator={false}
-          ItemSeparatorComponent={QuizVerticalSeparator}
-          ListHeaderComponent={
-            <View className={QUIZ_CARD_CLASS}>
-              <Text className="text-xl font-black text-card-foreground">
-                Results
-              </Text>
-              <Text className="mt-1 text-sm text-muted-foreground">
-                {quizTitle}
-              </Text>
-
-              <View className="mt-4 flex-row gap-3">
-                <View
-                  className="flex-1 rounded-2xl p-3"
-                  style={{
-                    backgroundColor: withOpacity(theme.primary, 0.15),
-                    borderWidth: 1,
-                    borderColor: withOpacity(theme.primary, 0.3),
-                  }}
-                >
-                  <View className="flex-row items-center gap-1">
-                    <Check size={13} color={theme.primary} />
-                    <Text className="text-xs font-bold uppercase tracking-wide text-primary">
-                      Correct
-                    </Text>
-                  </View>
-                  <Text className="mt-1 text-2xl font-black text-card-foreground">
-                    {result.correct}
-                  </Text>
-                </View>
-                <View
-                  className="flex-1 rounded-2xl p-3"
-                  style={{
-                    backgroundColor: "hsl(0 84% 60% / 0.1)",
-                    borderWidth: 1,
-                    borderColor: "hsl(0 84% 60% / 0.25)",
-                  }}
-                >
-                  <Text className="text-xs font-bold uppercase tracking-wide text-destructive">
-                    Wrong
-                  </Text>
-                  <Text className="mt-1 text-2xl font-black text-card-foreground">
-                    {result.wrong}
-                  </Text>
-                </View>
-                <View
-                  className="flex-1 rounded-2xl p-3"
-                  style={{
-                    backgroundColor: withOpacity(theme.accent, 0.18),
-                    borderWidth: 1,
-                    borderColor: withOpacity(theme.accent, 0.3),
-                  }}
-                >
-                  <Text
-                    className="text-[10px] font-bold uppercase tracking-wide"
-                    style={{ color: theme.accent }}
-                  >
-                    Score
-                  </Text>
-                  <Text className="mt-1 text-2xl font-black text-card-foreground">
-                    {questions.length > 0
-                      ? Math.round((result.correct / questions.length) * 100)
-                      : 0}
-                    %
-                  </Text>
-                </View>
-              </View>
-
-              <Text className="mt-3 text-sm text-muted-foreground">
-                Answered {answeredCount} of {questions.length}
-              </Text>
-            </View>
-          }
-          renderItem={renderResultQuestion}
-          ListFooterComponent={
-            <View className="pt-4">
-              <Button className="h-11" onPress={() => router.replace("/")}>
-                <RefreshCcw size={16} color={theme.primaryForeground} />
-                <Text className="font-bold text-primary-foreground">
-                  Start New Review
-                </Text>
-              </Button>
-            </View>
-          }
-        />
-      </SafeAreaView>
+      <QuizResultsView
+        questions={questions}
+        result={result}
+        answers={answers}
+        answeredCount={answeredCount}
+        quizTitle={quizTitle}
+        theme={theme}
+      />
     )
   }
 
-  // ── Active quiz screen ──────────────────────────────────────────────────────
+  // ACTIVE QUIZ UI
   return (
     <SafeAreaView className="flex-1 bg-background">
-      {/* Header bar with timer */}
       <View className="gap-3 px-4 pb-3 pt-2">
         <View className="flex-row items-center justify-between">
           <View className="flex-1">
@@ -1050,7 +773,6 @@ export default function QuizScreen() {
           />
         </View>
 
-        {/* Progress bar */}
         <View className="h-1.5 overflow-hidden rounded-full bg-muted">
           <View
             className="h-full rounded-full"
@@ -1061,7 +783,6 @@ export default function QuizScreen() {
           />
         </View>
 
-        {/* Dot navigator (compact horizontal scroll) */}
         <FlashList
           horizontal
           data={questions}
@@ -1083,7 +804,6 @@ export default function QuizScreen() {
         ) : null}
       </View>
 
-      {/* Question FlatList */}
       <FlatList
         ref={flatListRef}
         data={questions}
@@ -1100,7 +820,6 @@ export default function QuizScreen() {
         contentContainerStyle={QUIZ_PAGER_CONTENT_STYLE}
       />
 
-      {/* Bottom navigation */}
       <View className="flex-row gap-2.5 px-4 pb-4 pt-2">
         <Button
           className="h-12 flex-1"
@@ -1139,7 +858,6 @@ export default function QuizScreen() {
         )}
       </View>
 
-      {/* Submit confirmation modal */}
       <Modal
         visible={showSubmitModal}
         transparent

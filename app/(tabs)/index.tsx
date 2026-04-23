@@ -652,7 +652,7 @@ export default function ReviewerHomeScreen() {
     queryKey: ["home-activity-overview", user?.$id],
     enabled: Boolean(user?.$id),
     queryFn: () =>
-      getUserActivityFeed(user?.$id ?? "", {
+      getUserActivityFeed({ userId: user?.$id ?? "" }, {
         quizAttemptsLimit: 80,
         learningHistoryLimit: 80,
         achievementsLimit: 6,

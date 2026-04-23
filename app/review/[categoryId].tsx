@@ -178,7 +178,7 @@ export default function ReviewCategoryScreen() {
     queryKey: ["review-learning-history", user?.$id, categoryId],
     enabled: Boolean(user?.$id) && Boolean(categoryId),
     queryFn: () =>
-      listRecentLearningHistory(user?.$id ?? "", {
+      listRecentLearningHistory({ userId: user?.$id ?? "" }, {
         subjectId: categoryId,
         limit: 12,
       }),
@@ -189,7 +189,7 @@ export default function ReviewCategoryScreen() {
     queryKey: ["review-stack-activity-overview", user?.$id],
     enabled: Boolean(user?.$id),
     queryFn: () =>
-      getUserActivityFeed(user?.$id ?? "", {
+      getUserActivityFeed({ userId: user?.$id ?? "" }, {
         quizAttemptsLimit: 80,
         learningHistoryLimit: 80,
         achievementsLimit: 6,
