@@ -79,6 +79,13 @@ export type LearningMaterialDetail = {
   material: LearningMaterial
 }
 
+type MaterialStats = {
+  total: number
+  free: number
+  premium: number
+  visible: number
+}
+
 type PremiumMaterialFunctionResponse = {
   ok: boolean
   message?: string
@@ -119,9 +126,7 @@ function ensureLearningContentConfigured() {
 function mapSubjectDocument(
   subject: SubjectDocument,
   topicCount: number,
-  materialCount: number,
-  freeMaterialCount: number,
-  premiumMaterialCount: number,
+  stats: MaterialStats,
   viewerIsPremium: boolean
 ): LearningSubject {
   return {
@@ -131,19 +136,17 @@ function mapSubjectDocument(
     iconUrl: subject.iconUrl ?? null,
     order: subject.order,
     topicCount,
-    materialCount,
-    freeMaterialCount,
-    premiumMaterialCount,
-    hasPremiumContent: premiumMaterialCount > 0,
-    isLocked: !viewerIsPremium && materialCount > 0 && freeMaterialCount === 0,
+    materialCount: stats.total,
+    freeMaterialCount: stats.free,
+    premiumMaterialCount: stats.premium,
+    hasPremiumContent: stats.premium > 0,
+    isLocked: !viewerIsPremium && stats.total > 0 && stats.free === 0,
   }
 }
 
 function mapTopicDocument(
   topic: TopicDocument,
-  materialCount: number,
-  freeMaterialCount: number,
-  premiumMaterialCount: number,
+  stats: MaterialStats,
   viewerIsPremium: boolean,
   primaryMaterialId: string | null
 ): LearningTopicSummary {
@@ -153,11 +156,11 @@ function mapTopicDocument(
     title: topic.title,
     description: topic.description ?? "",
     order: topic.order,
-    materialCount,
-    freeMaterialCount,
-    premiumMaterialCount,
-    hasPremiumContent: premiumMaterialCount > 0,
-    isLocked: !viewerIsPremium && materialCount > 0 && freeMaterialCount === 0,
+    materialCount: stats.total,
+    freeMaterialCount: stats.free,
+    premiumMaterialCount: stats.premium,
+    hasPremiumContent: stats.premium > 0,
+    isLocked: !viewerIsPremium && stats.total > 0 && stats.free === 0,
     firstMaterialId: primaryMaterialId,
   }
 }
@@ -222,35 +225,28 @@ function sortMaterials(materials: LearningMaterialDocument[]) {
 function getMaterialStats(
   materials: LearningMaterialDocument[],
   viewerIsPremium: boolean
-) {
-  const freeMaterialCount = materials.filter(
-    (material) => !material.isPremium
-  ).length
-  const premiumMaterialCount = materials.length - freeMaterialCount
-  const visibleMaterialCount = viewerIsPremium
-    ? materials.length
-    : freeMaterialCount
+): MaterialStats {
+  const free = materials.filter((material) => !material.isPremium).length
+  const premium = materials.length - free
+  const visible = viewerIsPremium ? materials.length : free
 
   return {
-    freeMaterialCount,
-    premiumMaterialCount,
-    visibleMaterialCount,
+    total: materials.length,
+    free,
+    premium,
+    visible,
   }
 }
 
-async function resolveMaterialAccessViaFunction(
-  materialId: string
-): Promise<MaterialAccessResolution | null> {
+async function executeMaterialAccessFunction(materialId: string) {
   const functionId = APPWRITE_CONFIG.premiumMaterialAccessFunctionId
 
   if (!functionId) {
     return null
   }
 
-  let execution
-
   try {
-    execution = await functions.createExecution({
+    return await functions.createExecution({
       functionId,
       body: JSON.stringify({ materialId }),
       async: false,
@@ -264,21 +260,39 @@ async function resolveMaterialAccessViaFunction(
     // Keep lesson loading resilient while function deployment/config is still stabilizing.
     return null
   }
+}
 
-  const responseStatusCode = execution.responseStatusCode ?? 500
-  const responseBody = execution.responseBody ?? ""
-  let payload: PremiumMaterialFunctionResponse | null = null
+function parseFunctionPayload(responseBody: string): PremiumMaterialFunctionResponse | null {
+  if (!responseBody) return null
+  try {
+    return JSON.parse(responseBody) as PremiumMaterialFunctionResponse
+  } catch {
+    return null
+  }
+}
 
-  if (responseBody) {
-    try {
-      payload = JSON.parse(responseBody) as PremiumMaterialFunctionResponse
-    } catch {
-      payload = null
-    }
+function isAccessDenied(statusCode: number, payload: PremiumMaterialFunctionResponse | null) {
+  return statusCode >= 400 || !payload?.ok || !payload?.material
+}
+
+function isUnauthorized(statusCode: number) {
+  return statusCode === 401 || statusCode === 403
+}
+
+async function resolveMaterialAccessViaFunction(
+  materialId: string
+): Promise<MaterialAccessResolution | null> {
+  const execution = await executeMaterialAccessFunction(materialId)
+
+  if (!execution) {
+    return null
   }
 
-  if (responseStatusCode >= 400 || !payload?.ok || !payload.material) {
-    if (responseStatusCode === 401 || responseStatusCode === 403) {
+  const statusCode = execution.responseStatusCode ?? 500
+  const payload = parseFunctionPayload(execution.responseBody ?? "")
+
+  if (isAccessDenied(statusCode, payload)) {
+    if (isUnauthorized(statusCode)) {
       return {
         kind: "denied",
         message:
@@ -295,7 +309,7 @@ async function resolveMaterialAccessViaFunction(
 
   return {
     kind: "success",
-    material: mapPremiumMaterialPayload(payload.material),
+    material: mapPremiumMaterialPayload(payload!.material!),
   }
 }
 
@@ -331,65 +345,48 @@ async function getLearningSnapshot() {
   return { subjects, topicsBySubjectId, materialsByTopicId }
 }
 
-async function listRemoteSubjects() {
+async function listContentDocuments<T>(tableId: string, queries: string[]): Promise<T[]> {
   ensureLearningContentConfigured()
 
   const { rows } = await tablesDB.listRows({
     databaseId: DB_ID,
-    tableId: COLLECTIONS.SUBJECTS,
-    queries: [Query.orderAsc("order"), Query.limit(CONTENT_QUERY_LIMIT)],
+    tableId,
+    queries,
   })
 
-  return rows as unknown as SubjectDocument[]
+  return rows as unknown as T[]
 }
 
-async function listRemoteTopicsBySubjectId(subjectId: string) {
-  ensureLearningContentConfigured()
-
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.TOPICS,
-    queries: [
-      Query.equal("subjectId", subjectId),
-      Query.orderAsc("order"),
-      Query.limit(CONTENT_QUERY_LIMIT),
-    ],
-  })
-
-  return rows as unknown as TopicDocument[]
+function listRemoteSubjects() {
+  return listContentDocuments<SubjectDocument>(COLLECTIONS.SUBJECTS, [
+    Query.orderAsc("order"),
+    Query.limit(CONTENT_QUERY_LIMIT),
+  ])
 }
 
-async function listRemoteMaterials() {
-  ensureLearningContentConfigured()
-
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.LEARNING_MATERIALS,
-    queries: [
-      Query.orderAsc("order"),
-      Query.orderAsc("createdAt"),
-      Query.limit(CONTENT_QUERY_LIMIT),
-    ],
-  })
-
-  return rows as unknown as LearningMaterialDocument[]
+function listRemoteTopicsBySubjectId(subjectId: string) {
+  return listContentDocuments<TopicDocument>(COLLECTIONS.TOPICS, [
+    Query.equal("subjectId", subjectId),
+    Query.orderAsc("order"),
+    Query.limit(CONTENT_QUERY_LIMIT),
+  ])
 }
 
-async function listRemoteMaterialsByTopicId(topicId: string) {
-  ensureLearningContentConfigured()
+function listRemoteMaterials() {
+  return listContentDocuments<LearningMaterialDocument>(COLLECTIONS.LEARNING_MATERIALS, [
+    Query.orderAsc("order"),
+    Query.orderAsc("createdAt"),
+    Query.limit(CONTENT_QUERY_LIMIT),
+  ])
+}
 
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.LEARNING_MATERIALS,
-    queries: [
-      Query.equal("topicId", topicId),
-      Query.orderAsc("order"),
-      Query.orderAsc("createdAt"),
-      Query.limit(CONTENT_QUERY_LIMIT),
-    ],
-  })
-
-  return rows as unknown as LearningMaterialDocument[]
+function listRemoteMaterialsByTopicId(topicId: string) {
+  return listContentDocuments<LearningMaterialDocument>(COLLECTIONS.LEARNING_MATERIALS, [
+    Query.equal("topicId", topicId),
+    Query.orderAsc("order"),
+    Query.orderAsc("createdAt"),
+    Query.limit(CONTENT_QUERY_LIMIT),
+  ])
 }
 
 function toContentError(error: unknown, fallback: string) {
@@ -430,9 +427,7 @@ export async function listLearningSubjects(
       return mapSubjectDocument(
         subject,
         subjectTopics.length,
-        subjectMaterials.length,
-        stats.freeMaterialCount,
-        stats.premiumMaterialCount,
+        stats,
         viewerIsPremium
       )
     })
@@ -470,9 +465,7 @@ export async function getLearningTopicById(
 
     return mapTopicDocument(
       topic,
-      materials.length,
-      stats.freeMaterialCount,
-      stats.premiumMaterialCount,
+      stats,
       viewerIsPremium,
       visibleMaterials[0]?.$id ?? null
     )
@@ -518,9 +511,7 @@ export async function listLearningTopicsBySubjectId(
 
       return mapTopicDocument(
         topic,
-        materials.length,
-        stats.freeMaterialCount,
-        stats.premiumMaterialCount,
+        stats,
         viewerIsPremium,
         visibleMaterials[0]?.$id ?? null
       )
@@ -580,16 +571,12 @@ export async function getLearningTopicDetail(
       subject: mapSubjectDocument(
         subject,
         1,
-        orderedMaterials.length,
-        stats.freeMaterialCount,
-        stats.premiumMaterialCount,
+        stats,
         viewerIsPremium
       ),
       topic: mapTopicDocument(
         topic,
-        orderedMaterials.length,
-        stats.freeMaterialCount,
-        stats.premiumMaterialCount,
+        stats,
         viewerIsPremium,
         visibleMaterials[0]?.$id ?? null
       ),
@@ -652,16 +639,12 @@ export async function getLearningMaterialDetail(
       subject: mapSubjectDocument(
         subject,
         1,
-        orderedTopicMaterials.length,
-        stats.freeMaterialCount,
-        stats.premiumMaterialCount,
+        stats,
         viewerIsPremium
       ),
       topic: mapTopicDocument(
         topic,
-        orderedTopicMaterials.length,
-        stats.freeMaterialCount,
-        stats.premiumMaterialCount,
+        stats,
         viewerIsPremium,
         visibleMaterials[0]?.$id ?? null
       ),

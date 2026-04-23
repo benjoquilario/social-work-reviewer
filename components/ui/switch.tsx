@@ -18,7 +18,10 @@ function Switch({
   return (
     <Pressable
       accessibilityRole="switch"
-      accessibilityState={{ checked, disabled }}
+      accessibilityState={{
+        checked: Boolean(checked),
+        disabled: typeof disabled === "boolean" ? disabled : undefined,
+      }}
       className={cn(
         "h-7 w-12 rounded-full border px-0.5 py-0.5",
         checked ? "border-primary bg-primary" : "border-border bg-muted",

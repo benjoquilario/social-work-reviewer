@@ -299,6 +299,34 @@ export type LearningMaterialStatusSnapshot = {
   completedAt: string | null
 }
 
+type UpsertUserProgressParams = {
+  userId: string
+  subjectId: string
+  topicId: string
+  nowIso?: string
+  averageScore?: number
+  completedMaterialsDelta?: number
+}
+
+type UserProgressUpsertData = {
+  userId: string
+  subjectId: string
+  topicId: string
+  completedMaterials: number
+  averageScore: number
+  lastStudied: string
+  dayStreak: number
+  weeklyAverageScore: number
+  lastActiveAt: string
+}
+
+type UserAnswerRowData = {
+  attemptId: string
+  questionId: string
+  choiceId: string
+  isCorrect: boolean
+}
+
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
@@ -371,92 +399,105 @@ function computeNextDayStreak(
   return 1
 }
 
+async function listFirstRow<T>(tableId: string, queries: string[]) {
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId,
+    queries,
+  })
+
+  const [row] = rows as unknown as T[]
+  return row ?? null
+}
+
 async function findUserProgressRow(
   userId: string,
   subjectId: string,
   topicId: string
 ) {
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.USER_PROGRESS,
-    queries: [
-      Query.equal("userId", userId),
-      Query.equal("subjectId", subjectId),
-      Query.equal("topicId", topicId),
-      Query.limit(1),
-    ],
-  })
-
-  const [row] = rows as unknown as UserProgressDocument[]
-  return row ?? null
+  return listFirstRow<UserProgressDocument>(COLLECTIONS.USER_PROGRESS, [
+    Query.equal("userId", userId),
+    Query.equal("subjectId", subjectId),
+    Query.equal("topicId", topicId),
+    Query.limit(1),
+  ])
 }
 
-async function upsertUserProgress(params: {
-  userId: string
-  subjectId: string
-  topicId: string
-  nowIso?: string
-  averageScore?: number
-  completedMaterialsDelta?: number
-}) {
-  const nowIso = params.nowIso ?? new Date().toISOString()
-  const existing = await findUserProgressRow(
-    params.userId,
-    params.subjectId,
-    params.topicId
-  )
+function resolveAverageScoreValues(
+  existing: UserProgressDocument | null,
+  averageScore: number | undefined
+) {
+  const existingWeeklyAverageScore = existing?.weeklyAverageScore ?? 0
 
-  const baseCompleted = existing?.completedMaterials ?? 0
+  if (typeof averageScore !== "number") {
+    return {
+      averageScore: existing?.averageScore ?? 0,
+      weeklyAverageScore: existingWeeklyAverageScore,
+    }
+  }
+
+  const normalizedAverageScore = clampNumber(averageScore, 0, 100)
+  const weightedWeeklyAverage =
+    Math.round(
+      (existingWeeklyAverageScore * 0.8 + normalizedAverageScore * 0.2) * 100
+    ) / 100
+
+  return {
+    averageScore: normalizedAverageScore,
+    weeklyAverageScore: clampNumber(weightedWeeklyAverage, 0, 100),
+  }
+}
+
+function buildUserProgressUpsertData(
+  params: UpsertUserProgressParams,
+  existing: UserProgressDocument | null,
+  nowIso: string
+): UserProgressUpsertData {
   const completedMaterials = Math.max(
     0,
-    baseCompleted + (params.completedMaterialsDelta ?? 0)
+    (existing?.completedMaterials ?? 0) + (params.completedMaterialsDelta ?? 0)
   )
   const dayStreak = computeNextDayStreak(
     existing?.dayStreak ?? 0,
     existing?.lastActiveAt,
     nowIso
   )
-  const existingWeeklyAverageScore = existing?.weeklyAverageScore ?? 0
-  const hasNewAverage = typeof params.averageScore === "number"
-  const nextAverageScore = hasNewAverage
-    ? clampNumber(params.averageScore ?? 0, 0, 100)
-    : (existing?.averageScore ?? 0)
-  const nextWeeklyAverageScore = hasNewAverage
-    ? clampNumber(
-        Math.round(
-          (existingWeeklyAverageScore * 0.8 + nextAverageScore * 0.2) * 100
-        ) / 100,
-        0,
-        100
-      )
-    : existingWeeklyAverageScore
+  const { averageScore, weeklyAverageScore } = resolveAverageScoreValues(
+    existing,
+    params.averageScore
+  )
 
-  const progressData = {
+  return {
     userId: params.userId,
     subjectId: params.subjectId,
     topicId: params.topicId,
     completedMaterials,
-    averageScore: nextAverageScore,
+    averageScore,
     lastStudied: nowIso,
     dayStreak,
-    weeklyAverageScore: nextWeeklyAverageScore,
+    weeklyAverageScore,
     lastActiveAt: nowIso,
   }
+}
 
-  if (existing) {
-    await tablesDB.updateRow({
-      databaseId: DB_ID,
-      tableId: COLLECTIONS.USER_PROGRESS,
-      rowId: existing.$id,
-      data: progressData,
-    })
+async function updateExistingUserProgress(
+  existing: UserProgressDocument,
+  progressData: UserProgressUpsertData
+) {
+  await tablesDB.updateRow({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.USER_PROGRESS,
+    rowId: existing.$id,
+    data: progressData,
+  })
 
-    return {
-      ...existing,
-      ...progressData,
-    }
+  return {
+    ...existing,
+    ...progressData,
   }
+}
 
+async function createUserProgressRow(progressData: UserProgressUpsertData) {
   await tablesDB.createRow({
     databaseId: DB_ID,
     tableId: COLLECTIONS.USER_PROGRESS,
@@ -470,23 +511,32 @@ async function upsertUserProgress(params: {
   }
 }
 
+async function upsertUserProgress(params: UpsertUserProgressParams) {
+  const nowIso = params.nowIso ?? new Date().toISOString()
+  const existing = await findUserProgressRow(
+    params.userId,
+    params.subjectId,
+    params.topicId
+  )
+  const progressData = buildUserProgressUpsertData(params, existing, nowIso)
+
+  if (!existing) {
+    return createUserProgressRow(progressData)
+  }
+
+  return updateExistingUserProgress(existing, progressData)
+}
+
 async function findLearningHistoryRow(
   userId: string,
   learningMaterialId: string
 ) {
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.LEARNING_HISTORY,
-    queries: [
-      Query.equal("userId", userId),
-      Query.equal("learningMaterialId", learningMaterialId),
-      Query.orderDesc("$updatedAt"),
-      Query.limit(1),
-    ],
-  })
-
-  const [row] = rows as unknown as LearningHistoryDocument[]
-  return row ?? null
+  return listFirstRow<LearningHistoryDocument>(COLLECTIONS.LEARNING_HISTORY, [
+    Query.equal("userId", userId),
+    Query.equal("learningMaterialId", learningMaterialId),
+    Query.orderDesc("$updatedAt"),
+    Query.limit(1),
+  ])
 }
 
 async function upsertLearningHistory(params: {
@@ -1332,6 +1382,100 @@ export async function startQuizAttempt(
   return attemptId
 }
 
+async function createUserAnswerRow(params: {
+  answerRowId: string
+  answerData: UserAnswerRowData
+  userId?: string
+}) {
+  await tablesDB.createRow({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.USER_ANSWERS,
+    rowId: params.answerRowId,
+    data: params.answerData,
+    permissions: params.userId
+      ? getUserOwnedPermissions(params.userId)
+      : undefined,
+  })
+}
+
+async function updateUserAnswerRow(params: {
+  answerRowId: string
+  answerData: UserAnswerRowData
+}) {
+  await tablesDB.updateRow({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.USER_ANSWERS,
+    rowId: params.answerRowId,
+    data: params.answerData,
+  })
+}
+
+function disableUserAnswersSyncIfUnauthorized(
+  createError: unknown,
+  updateError: unknown
+) {
+  if (
+    !isAppwriteUnauthorizedError(createError) &&
+    !isAppwriteUnauthorizedError(updateError)
+  ) {
+    return
+  }
+
+  isUserAnswersSyncDisabled = true
+  warnUserAnswersUnauthorizedOnce()
+}
+
+async function syncUserAnswerRow(params: {
+  answerRowId: string
+  answerData: UserAnswerRowData
+  userId?: string
+}) {
+  if (isUserAnswersSyncDisabled) {
+    return
+  }
+
+  try {
+    await createUserAnswerRow(params)
+    return
+  } catch (createError) {
+    try {
+      await updateUserAnswerRow(params)
+      return
+    } catch (updateError) {
+      disableUserAnswersSyncIfUnauthorized(createError, updateError)
+    }
+  }
+}
+
+async function syncAttemptQuestionProgress(params: {
+  attemptId: string
+  currentQuestionIndex: number
+  nowIso: string
+}) {
+  if (isAttemptProgressSyncDisabled) {
+    return
+  }
+
+  try {
+    await tablesDB.updateRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.EXAM_ATTEMPTS,
+      rowId: params.attemptId,
+      data: {
+        currentQuestionIndex: params.currentQuestionIndex,
+        lastAnsweredAt: params.nowIso,
+      },
+    })
+  } catch (error) {
+    if (!isAppwriteUnauthorizedError(error)) {
+      return
+    }
+
+    isAttemptProgressSyncDisabled = true
+    warnAttemptSyncUnauthorizedOnce()
+  }
+}
+
 export async function recordQuizAnswer(
   payload: RecordQuizAnswerPayload
 ): Promise<void> {
@@ -1347,55 +1491,17 @@ export async function recordQuizAnswer(
     isCorrect: payload.isCorrect,
   }
 
-  if (!isUserAnswersSyncDisabled) {
-    try {
-      await tablesDB.createRow({
-        databaseId: DB_ID,
-        tableId: COLLECTIONS.USER_ANSWERS,
-        rowId: answerRowId,
-        data: answerData,
-        permissions: payload.userId
-          ? getUserOwnedPermissions(payload.userId)
-          : undefined,
-      })
-    } catch (createError) {
-      try {
-        await tablesDB.updateRow({
-          databaseId: DB_ID,
-          tableId: COLLECTIONS.USER_ANSWERS,
-          rowId: answerRowId,
-          data: answerData,
-        })
-      } catch (updateError) {
-        if (
-          isAppwriteUnauthorizedError(createError) ||
-          isAppwriteUnauthorizedError(updateError)
-        ) {
-          isUserAnswersSyncDisabled = true
-          warnUserAnswersUnauthorizedOnce()
-        }
-      }
-    }
-  }
+  await syncUserAnswerRow({
+    answerRowId,
+    answerData,
+    userId: payload.userId,
+  })
 
-  if (!isAttemptProgressSyncDisabled) {
-    try {
-      await tablesDB.updateRow({
-        databaseId: DB_ID,
-        tableId: COLLECTIONS.EXAM_ATTEMPTS,
-        rowId: payload.attemptId,
-        data: {
-          currentQuestionIndex: payload.currentQuestionIndex,
-          lastAnsweredAt: now,
-        },
-      })
-    } catch (error) {
-      if (isAppwriteUnauthorizedError(error)) {
-        isAttemptProgressSyncDisabled = true
-        warnAttemptSyncUnauthorizedOnce()
-      }
-    }
-  }
+  await syncAttemptQuestionProgress({
+    attemptId: payload.attemptId,
+    currentQuestionIndex: payload.currentQuestionIndex,
+    nowIso: now,
+  })
 }
 
 export async function completeQuizAttempt(
@@ -1486,57 +1592,69 @@ export async function completeQuizAttempt(
   })
 }
 
+async function syncLearningActivityProgress(params: {
+  payload: LearningActivityPayload
+  nowIso: string
+  completedMaterialsDelta?: number
+}) {
+  const subjectProgress = await upsertUserProgress({
+    userId: params.payload.userId,
+    subjectId: params.payload.subjectId,
+    topicId: params.payload.topicId,
+    nowIso: params.nowIso,
+    completedMaterialsDelta: params.completedMaterialsDelta,
+  })
+
+  const globalProgress = await touchGlobalActivity({
+    userId: params.payload.userId,
+    nowIso: params.nowIso,
+    profileSnapshot: params.payload.profileSnapshot,
+  })
+
+  return {
+    subjectProgress,
+    globalProgress,
+  }
+}
+
+async function trackLearningMaterialInProgress(params: {
+  payload: LearningActivityPayload
+  progressPercent: number
+  lastPosition: number
+}) {
+  const { nowIso } = await upsertLearningHistory({
+    userId: params.payload.userId,
+    subjectId: params.payload.subjectId,
+    topicId: params.payload.topicId,
+    learningMaterialId: params.payload.learningMaterialId,
+    status: "in_progress",
+    progressPercent: params.progressPercent,
+    lastPosition: params.lastPosition,
+  })
+
+  await syncLearningActivityProgress({
+    payload: params.payload,
+    nowIso,
+  })
+}
+
 export async function trackLearningMaterialOpened(
   payload: LearningActivityPayload
 ): Promise<void> {
-  const { nowIso } = await upsertLearningHistory({
-    userId: payload.userId,
-    subjectId: payload.subjectId,
-    topicId: payload.topicId,
-    learningMaterialId: payload.learningMaterialId,
-    status: "in_progress",
+  await trackLearningMaterialInProgress({
+    payload,
     progressPercent: 5,
     lastPosition: 0,
-  })
-
-  await upsertUserProgress({
-    userId: payload.userId,
-    subjectId: payload.subjectId,
-    topicId: payload.topicId,
-    nowIso,
-  })
-
-  await touchGlobalActivity({
-    userId: payload.userId,
-    nowIso,
-    profileSnapshot: payload.profileSnapshot,
   })
 }
 
 export async function trackLearningMaterialResourceOpened(
   payload: LearningActivityPayload
 ): Promise<void> {
-  const { nowIso } = await upsertLearningHistory({
-    userId: payload.userId,
-    subjectId: payload.subjectId,
-    topicId: payload.topicId,
-    learningMaterialId: payload.learningMaterialId,
-    status: "in_progress",
+  await trackLearningMaterialInProgress({
+    payload,
     progressPercent: 35,
     lastPosition: 1,
-  })
-
-  await upsertUserProgress({
-    userId: payload.userId,
-    subjectId: payload.subjectId,
-    topicId: payload.topicId,
-    nowIso,
-  })
-
-  await touchGlobalActivity({
-    userId: payload.userId,
-    nowIso,
-    profileSnapshot: payload.profileSnapshot,
   })
 }
 
@@ -1552,27 +1670,10 @@ export async function trackLearningMaterialSession(
     95
   )
 
-  const { nowIso } = await upsertLearningHistory({
-    userId: payload.userId,
-    subjectId: payload.subjectId,
-    topicId: payload.topicId,
-    learningMaterialId: payload.learningMaterialId,
-    status: "in_progress",
+  await trackLearningMaterialInProgress({
+    payload,
     progressPercent: progressFromTime,
     lastPosition: payload.lastPosition ?? 0,
-  })
-
-  await upsertUserProgress({
-    userId: payload.userId,
-    subjectId: payload.subjectId,
-    topicId: payload.topicId,
-    nowIso,
-  })
-
-  await touchGlobalActivity({
-    userId: payload.userId,
-    nowIso,
-    profileSnapshot: payload.profileSnapshot,
   })
 }
 
@@ -1590,19 +1691,12 @@ export async function trackLearningMaterialCompleted(
     completedAt: new Date().toISOString(),
   })
 
-  const subjectProgress = await upsertUserProgress({
-    userId: payload.userId,
-    subjectId: payload.subjectId,
-    topicId: payload.topicId,
-    nowIso,
-    completedMaterialsDelta: wasPreviouslyCompleted ? 0 : 1,
-  })
-
-  const globalProgress = await touchGlobalActivity({
-    userId: payload.userId,
-    nowIso,
-    profileSnapshot: payload.profileSnapshot,
-  })
+  const { subjectProgress, globalProgress } =
+    await syncLearningActivityProgress({
+      payload,
+      nowIso,
+      completedMaterialsDelta: wasPreviouslyCompleted ? 0 : 1,
+    })
 
   await createAchievementIfMissing({
     userId: payload.userId,

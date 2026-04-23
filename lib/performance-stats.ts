@@ -1,13 +1,9 @@
-import {
-  COLLECTIONS,
-  DB_ID,
-  Query,
-  tablesDB,
-} from "./appwrite"
+import { COLLECTIONS, DB_ID, Query, tablesDB } from "./appwrite"
 import type {
   ExamAttemptDocument,
   SubjectDocument,
   UserAnswerDocument,
+  UserProgressDocument,
 } from "./schema"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -55,6 +51,26 @@ export type QuestionsAnsweredTimeline = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const QUERY_LIMIT = 500
+const ATTEMPT_ID_QUERY_CHUNK_SIZE = 50
+const GLOBAL_PROGRESS_SUBJECT_ID = "__global__"
+
+type SubjectProgressTotals = {
+  totalCorrect: number
+  totalAnswered: number
+}
+
+type TimelineBucket = {
+  date: Date
+  key: string
+  label: string
+}
+
+type TimelineBucketConfig = {
+  buckets: TimelineBucket[]
+  rangeLabel: string
+  startDate: Date
+  endDate: Date
+}
 
 // Hoist Intl formatters to module scope — constructing Intl objects is expensive
 // on Hermes because it allocates locale data each time.
@@ -101,212 +117,323 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
 
-// ─── Overall Performance ──────────────────────────────────────────────────────
+function chunkValues<T>(values: T[], size: number) {
+  const chunks: T[][] = []
 
-export async function getOverallPerformanceStats(
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size))
+  }
+
+  return chunks
+}
+
+function calculatePercent(value: number, total: number) {
+  return total > 0 ? Math.round((value / total) * 100) : 0
+}
+
+function incrementCount(
+  counts: Map<string, number>,
+  key: string,
+  value: number
+) {
+  counts.set(key, (counts.get(key) ?? 0) + value)
+}
+
+async function listDoneAttempts(
   userId: string
-): Promise<OverallPerformanceStats> {
-  // Fetch all data in a single parallel batch (avoids sequential round-trips)
-  const [
-    attemptsResult,
-    answersResult,
-    subjectsResult,
-    questionsCountResult,
-    progressResult,
-  ] = await Promise.all([
-    tablesDB.listRows({
-      databaseId: DB_ID,
-      tableId: COLLECTIONS.EXAM_ATTEMPTS,
-      queries: [
-        Query.equal("userId", userId),
-        Query.equal("status", "done"),
-        Query.orderDesc("$updatedAt"),
-        Query.limit(QUERY_LIMIT),
-      ],
-    }),
-    tablesDB.listRows({
-      databaseId: DB_ID,
-      tableId: COLLECTIONS.USER_ANSWERS,
-      queries: [
-        Query.equal("userId", userId),
-        Query.limit(QUERY_LIMIT),
-      ],
-    }),
-    tablesDB.listRows({
-      databaseId: DB_ID,
-      tableId: COLLECTIONS.SUBJECTS,
-      queries: [Query.orderAsc("order"), Query.limit(QUERY_LIMIT)],
-    }),
-    tablesDB.listRows({
-      databaseId: DB_ID,
-      tableId: COLLECTIONS.QUESTIONS,
-      queries: [Query.limit(QUERY_LIMIT)],
-    }),
-    tablesDB.listRows({
-      databaseId: DB_ID,
-      tableId: COLLECTIONS.USER_PROGRESS,
-      queries: [
-        Query.equal("userId", userId),
-        Query.orderDesc("$updatedAt"),
-        Query.limit(QUERY_LIMIT),
-      ],
-    }),
-  ])
+): Promise<ExamAttemptDocument[]> {
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.EXAM_ATTEMPTS,
+    queries: [
+      Query.equal("userId", userId),
+      Query.equal("status", "done"),
+      Query.orderDesc("$updatedAt"),
+      Query.limit(QUERY_LIMIT),
+    ],
+  })
 
-  const attempts =
-    attemptsResult.rows as unknown as ExamAttemptDocument[]
-  const allAnswers =
-    answersResult.rows as unknown as UserAnswerDocument[]
-  const subjects = subjectsResult.rows as unknown as SubjectDocument[]
-  const totalQuestions = questionsCountResult.rows.length
+  return rows as unknown as ExamAttemptDocument[]
+}
 
-  // Build a set of attempt IDs belonging to this user's done attempts
-  const userAttemptIds = new Set(attempts.map((a) => a.$id))
+async function listSubjects(): Promise<SubjectDocument[]> {
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.SUBJECTS,
+    queries: [Query.orderAsc("order"), Query.limit(QUERY_LIMIT)],
+  })
 
-  // Filter answers to only this user's attempts
-  const userAnswers = allAnswers.filter((a) => userAttemptIds.has(a.attemptId))
+  return rows as unknown as SubjectDocument[]
+}
 
-  // Unique questions answered
-  const uniqueQuestionIds = new Set(userAnswers.map((a) => a.questionId))
-  const uniqueQuestionsAnswered = uniqueQuestionIds.size
+async function listTotalQuestions(): Promise<number> {
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.QUESTIONS,
+    queries: [Query.limit(QUERY_LIMIT)],
+  })
 
-  // Correct answers
-  const correctAnswers = userAnswers.filter((a) => a.isCorrect).length
-  const totalAnswered = userAnswers.length
-  const correctPercent =
-    totalAnswered > 0 ? Math.round((correctAnswers / totalAnswered) * 100) : 0
+  return rows.length
+}
 
-  // Average time per question
-  const totalTime = attempts.reduce((sum, a) => sum + a.timeTaken, 0)
-  const totalItems = attempts.reduce((sum, a) => sum + a.totalItems, 0)
-  const averageTimePerQuestion =
-    totalItems > 0 ? Math.round(totalTime / totalItems) : 0
+async function listUserProgressRows(
+  userId: string
+): Promise<UserProgressDocument[]> {
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.USER_PROGRESS,
+    queries: [
+      Query.equal("userId", userId),
+      Query.orderDesc("$updatedAt"),
+      Query.limit(QUERY_LIMIT),
+    ],
+  })
 
-  // Best streak (most correct in a row) — compute from the user answers
-  // We'll compute from per-attempt sequential correctness
-  let bestStreak = 0
+  return rows as unknown as UserProgressDocument[]
+}
 
-  // Group answers by attempt
+async function listAnswersByAttemptIds(
+  attemptIds: string[]
+): Promise<UserAnswerDocument[]> {
+  if (attemptIds.length === 0) {
+    return []
+  }
+
+  const attemptIdChunks = chunkValues(attemptIds, ATTEMPT_ID_QUERY_CHUNK_SIZE)
+  const answerResults = await Promise.all(
+    attemptIdChunks.map((chunk) =>
+      tablesDB.listRows({
+        databaseId: DB_ID,
+        tableId: COLLECTIONS.USER_ANSWERS,
+        queries: [Query.equal("attemptId", chunk), Query.limit(QUERY_LIMIT)],
+      })
+    )
+  )
+
+  return answerResults.flatMap(
+    (result) => result.rows as unknown as UserAnswerDocument[]
+  )
+}
+
+function filterAnswersByAttemptIds(
+  allAnswers: UserAnswerDocument[],
+  attemptIds: Set<string>
+) {
+  return allAnswers.filter((answer) => attemptIds.has(answer.attemptId))
+}
+
+function computeBestStreak(userAnswers: UserAnswerDocument[]) {
   const answersByAttempt = new Map<string, UserAnswerDocument[]>()
+
   for (const answer of userAnswers) {
     const existing = answersByAttempt.get(answer.attemptId) ?? []
     existing.push(answer)
     answersByAttempt.set(answer.attemptId, existing)
   }
 
-  for (const [, attemptAnswers] of answersByAttempt) {
+  let bestStreak = 0
+
+  for (const attemptAnswers of answersByAttempt.values()) {
     let streak = 0
+
     for (const answer of attemptAnswers) {
-      if (answer.isCorrect) {
-        streak += 1
-        bestStreak = Math.max(bestStreak, streak)
-      } else {
+      if (!answer.isCorrect) {
         streak = 0
+        continue
       }
+
+      streak += 1
+      bestStreak = Math.max(bestStreak, streak)
     }
   }
 
-  // Per-subject breakdown
-  // Use user_progress (already fetched in parallel above) to resolve subject mapping
-  const progressRows =
-    progressResult.rows as unknown as Array<{
-      $id: string
-      subjectId: string
-      topicId: string
-      averageScore: number
-    }>
+  return bestStreak
+}
 
-  // Build subject breakdown from user_progress rows
-  // Filter out the global progress sentinel
-  const subjectProgressMap = new Map<
-    string,
-    { totalCorrect: number; totalAnswered: number }
-  >()
+function summarizeAnswers(userAnswers: UserAnswerDocument[]) {
+  const uniqueQuestionIds = new Set(
+    userAnswers.map((answer) => answer.questionId)
+  )
+  const correctAnswers = userAnswers.filter((answer) => answer.isCorrect).length
+  const totalAnswered = userAnswers.length
 
-  // Also try to resolve via exam attempts -> examId mapping
-  // For each attempt, the examId may be a subjectId directly (when launching from a subject category)
-  const subjectIdSet = new Set(subjects.map((s) => s.$id))
+  return {
+    uniqueQuestionsAnswered: uniqueQuestionIds.size,
+    correctAnswers,
+    totalAnswered,
+    correctPercent: calculatePercent(correctAnswers, totalAnswered),
+    bestStreak: computeBestStreak(userAnswers),
+  }
+}
+
+function computeAverageTimePerQuestion(attempts: ExamAttemptDocument[]) {
+  const totalTime = attempts.reduce(
+    (sum, attempt) => sum + attempt.timeTaken,
+    0
+  )
+  const totalItems = attempts.reduce(
+    (sum, attempt) => sum + attempt.totalItems,
+    0
+  )
+
+  return totalItems > 0 ? Math.round(totalTime / totalItems) : 0
+}
+
+function buildExamProgressLookup(progressRows: UserProgressDocument[]) {
+  const lookup = new Map<string, UserProgressDocument>()
+
+  for (const progress of progressRows) {
+    if (progress.subjectId === GLOBAL_PROGRESS_SUBJECT_ID) {
+      continue
+    }
+
+    if (!lookup.has(progress.topicId)) {
+      lookup.set(progress.topicId, progress)
+    }
+
+    if (!lookup.has(progress.subjectId)) {
+      lookup.set(progress.subjectId, progress)
+    }
+  }
+
+  return lookup
+}
+
+function resolveSubjectIdForAttempt(
+  attempt: ExamAttemptDocument,
+  subjectIdSet: Set<string>,
+  examProgressLookup: Map<string, UserProgressDocument>
+) {
+  if (subjectIdSet.has(attempt.examId)) {
+    return attempt.examId
+  }
+
+  const matchingProgress = examProgressLookup.get(attempt.examId)
+  if (!matchingProgress) {
+    return null
+  }
+
+  return subjectIdSet.has(matchingProgress.subjectId)
+    ? matchingProgress.subjectId
+    : null
+}
+
+function buildSubjectProgressMap(
+  attempts: ExamAttemptDocument[],
+  subjectIdSet: Set<string>,
+  examProgressLookup: Map<string, UserProgressDocument>
+) {
+  const subjectProgressMap = new Map<string, SubjectProgressTotals>()
 
   for (const attempt of attempts) {
-    // The examId might be the subjectId itself (category quiz) or an actual exam ID
-    let resolvedSubjectId: string | null = null
+    const subjectId = resolveSubjectIdForAttempt(
+      attempt,
+      subjectIdSet,
+      examProgressLookup
+    )
 
-    if (subjectIdSet.has(attempt.examId)) {
-      resolvedSubjectId = attempt.examId
-    } else {
-      // Check if we have a matching progress row with this examId as topicId
-      const matchingProgress = progressRows.find(
-        (p) =>
-          (p.topicId === attempt.examId || p.subjectId === attempt.examId) &&
-          p.subjectId !== "__global__"
-      )
-      if (matchingProgress && subjectIdSet.has(matchingProgress.subjectId)) {
-        resolvedSubjectId = matchingProgress.subjectId
-      }
+    if (!subjectId) {
+      continue
     }
 
-    if (resolvedSubjectId) {
-      const existing = subjectProgressMap.get(resolvedSubjectId) ?? {
-        totalCorrect: 0,
-        totalAnswered: 0,
-      }
-      existing.totalCorrect += attempt.score
-      existing.totalAnswered += attempt.totalItems
-      subjectProgressMap.set(resolvedSubjectId, existing)
+    const totals = subjectProgressMap.get(subjectId) ?? {
+      totalCorrect: 0,
+      totalAnswered: 0,
     }
+    totals.totalCorrect += attempt.score
+    totals.totalAnswered += attempt.totalItems
+    subjectProgressMap.set(subjectId, totals)
   }
 
-  // Build subject breakdown, including subjects with 0 progress
+  return subjectProgressMap
+}
+
+function markStrongestSubject(
+  subjectBreakdown: SubjectPerformance[],
+  strongestSubjectId: string | null
+) {
+  if (!strongestSubjectId) {
+    return subjectBreakdown
+  }
+
+  const strongest = subjectBreakdown.find(
+    (subject) => subject.subjectId === strongestSubjectId
+  )
+
+  if (strongest) {
+    strongest.label = "STRONGEST"
+  }
+
+  return subjectBreakdown
+}
+
+function buildSubjectBreakdown(
+  subjects: SubjectDocument[],
+  subjectProgressMap: Map<string, SubjectProgressTotals>
+) {
   let highestPercent = -1
   let strongestSubjectId: string | null = null
 
   const subjectBreakdown: SubjectPerformance[] = subjects.map((subject) => {
     const progress = subjectProgressMap.get(subject.$id)
-    const cp =
-      progress && progress.totalAnswered > 0
-        ? Math.round((progress.totalCorrect / progress.totalAnswered) * 100)
-        : 0
+    const totalCorrect = progress?.totalCorrect ?? 0
+    const totalAnswered = progress?.totalAnswered ?? 0
+    const correctPercent = calculatePercent(totalCorrect, totalAnswered)
 
-    if (cp > highestPercent && progress && progress.totalAnswered > 0) {
-      highestPercent = cp
+    if (totalAnswered > 0 && correctPercent > highestPercent) {
+      highestPercent = correctPercent
       strongestSubjectId = subject.$id
     }
 
     return {
       subjectId: subject.$id,
       subjectName: subject.name,
-      correctPercent: cp,
-      totalAnswered: progress?.totalAnswered ?? 0,
-      totalCorrect: progress?.totalCorrect ?? 0,
+      correctPercent,
+      totalAnswered,
+      totalCorrect,
       label: null,
     }
   })
 
-  // Mark strongest
-  if (strongestSubjectId) {
-    const item = subjectBreakdown.find(
-      (s) => s.subjectId === strongestSubjectId
-    )
-    if (item) {
-      item.label = "STRONGEST"
-    }
-  }
+  return markStrongestSubject(subjectBreakdown, strongestSubjectId)
+}
+
+// ─── Overall Performance ──────────────────────────────────────────────────────
+
+export async function getOverallPerformanceStats(
+  userId: string
+): Promise<OverallPerformanceStats> {
+  const [attempts, subjects, totalQuestions, progressRows] = await Promise.all([
+    listDoneAttempts(userId),
+    listSubjects(),
+    listTotalQuestions(),
+    listUserProgressRows(userId),
+  ])
+
+  const attemptIds = attempts.map((attempt) => attempt.$id)
+  const allAnswers = await listAnswersByAttemptIds(attemptIds)
+  const userAnswers = filterAnswersByAttemptIds(allAnswers, new Set(attemptIds))
+  const answerSummary = summarizeAnswers(userAnswers)
+
+  const subjectIdSet = new Set(subjects.map((subject) => subject.$id))
+  const examProgressLookup = buildExamProgressLookup(progressRows)
+  const subjectProgressMap = buildSubjectProgressMap(
+    attempts,
+    subjectIdSet,
+    examProgressLookup
+  )
 
   return {
-    uniqueQuestionsAnswered,
+    ...answerSummary,
     totalQuestions,
-    correctAnswers,
-    totalAnswered,
-    correctPercent,
-    averageTimePerQuestion,
-    bestStreak,
-    subjectBreakdown,
+    averageTimePerQuestion: computeAverageTimePerQuestion(attempts),
+    subjectBreakdown: buildSubjectBreakdown(subjects, subjectProgressMap),
   }
 }
 
 // ─── Questions Answered Timeline ──────────────────────────────────────────────
 
-function getWeekBuckets(offset: number) {
+function getWeekBuckets(offset: number): TimelineBucketConfig {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -316,7 +443,7 @@ function getWeekBuckets(offset: number) {
   const monday = new Date(today)
   monday.setDate(today.getDate() + mondayOffset + offset * 7)
 
-  const buckets: { date: Date; key: string; label: string }[] = []
+  const buckets: TimelineBucket[] = []
   for (let i = 0; i < 7; i++) {
     const date = new Date(monday)
     date.setDate(monday.getDate() + i)
@@ -338,7 +465,7 @@ function getWeekBuckets(offset: number) {
   }
 }
 
-function getMonthBuckets(offset: number) {
+function getMonthBuckets(offset: number): TimelineBucketConfig {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -348,7 +475,7 @@ function getMonthBuckets(offset: number) {
   const daysInMonth = new Date(year, month + 1, 0).getDate()
 
   // Group into ~4 weeks (7-day spans)
-  const buckets: { date: Date; key: string; label: string }[] = []
+  const buckets: TimelineBucket[] = []
   for (let week = 0; week < 4; week++) {
     const startDay = week * 7 + 1
     const endDay = Math.min(startDay + 6, daysInMonth)
@@ -368,11 +495,11 @@ function getMonthBuckets(offset: number) {
   }
 }
 
-function getYearBuckets(offset: number) {
+function getYearBuckets(offset: number): TimelineBucketConfig {
   const today = new Date()
   const year = today.getFullYear() + offset
 
-  const buckets: { date: Date; key: string; label: string }[] = []
+  const buckets: TimelineBucket[] = []
   for (let month = 0; month < 12; month++) {
     const date = new Date(year, month, 1)
     buckets.push({
@@ -390,103 +517,131 @@ function getYearBuckets(offset: number) {
   }
 }
 
-export async function getQuestionsAnsweredTimeline(
-  userId: string,
+function getTimelineBucketConfig(
   window: TimelineWindow,
-  offset = 0
-): Promise<QuestionsAnsweredTimeline> {
-  // Fetch all done attempts
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.EXAM_ATTEMPTS,
-    queries: [
-      Query.equal("userId", userId),
-      Query.equal("status", "done"),
-      Query.orderDesc("$updatedAt"),
-      Query.limit(QUERY_LIMIT),
-    ],
-  })
-
-  const attempts = rows as unknown as ExamAttemptDocument[]
-
-  let bucketConfig: ReturnType<typeof getWeekBuckets>
-
+  offset: number
+): TimelineBucketConfig {
   if (window === "week") {
-    bucketConfig = getWeekBuckets(offset)
-  } else if (window === "month") {
-    bucketConfig = getMonthBuckets(offset)
-  } else {
-    bucketConfig = getYearBuckets(offset)
+    return getWeekBuckets(offset)
   }
 
-  // For weekly view, count totalItems per day
-  // For monthly view, count totalItems per week bucket
-  // For yearly view, count totalItems per month
-  const countByBucket = new Map<string, number>(
-    bucketConfig.buckets.map((b) => [b.key, 0])
-  )
+  if (window === "month") {
+    return getMonthBuckets(offset)
+  }
 
-  // Also track per-day counts (for "most answered in one day")
+  return getYearBuckets(offset)
+}
+
+function toAttemptTimestamp(attempt: ExamAttemptDocument) {
+  const refDate = attempt.finishedAt ?? attempt.startedAt
+  const timestamp = new Date(refDate)
+  return Number.isNaN(timestamp.getTime()) ? null : timestamp
+}
+
+function isWithinRange(timestamp: Date, bucketConfig: TimelineBucketConfig) {
+  return (
+    timestamp >= bucketConfig.startDate && timestamp <= bucketConfig.endDate
+  )
+}
+
+function getTimelineBucketKey(
+  window: TimelineWindow,
+  timestamp: Date,
+  bucketConfig: TimelineBucketConfig
+) {
+  if (window === "week") {
+    return toDayKey(timestamp)
+  }
+
+  if (window === "month") {
+    const dayOfMonth = timestamp.getDate()
+    const weekIndex = clamp(Math.floor((dayOfMonth - 1) / 7), 0, 3)
+    return bucketConfig.buckets[weekIndex]?.key ?? null
+  }
+
+  return `${timestamp.getFullYear()}-${String(timestamp.getMonth() + 1).padStart(2, "0")}`
+}
+
+function aggregateTimelineCounts(
+  attempts: ExamAttemptDocument[],
+  window: TimelineWindow,
+  bucketConfig: TimelineBucketConfig
+) {
+  const countByBucket = new Map<string, number>(
+    bucketConfig.buckets.map((bucket) => [bucket.key, 0])
+  )
   const countByDay = new Map<string, number>()
 
   for (const attempt of attempts) {
-    const refDate = attempt.finishedAt ?? attempt.startedAt
-    const timestamp = new Date(refDate)
-
-    if (Number.isNaN(timestamp.getTime())) continue
-    if (
-      timestamp < bucketConfig.startDate ||
-      timestamp > bucketConfig.endDate
-    ) {
-      // Still track for "most answered" if within range
+    const timestamp = toAttemptTimestamp(attempt)
+    if (!timestamp || !isWithinRange(timestamp, bucketConfig)) {
       continue
     }
 
     const dayKey = toDayKey(timestamp)
-    countByDay.set(dayKey, (countByDay.get(dayKey) ?? 0) + attempt.totalItems)
+    incrementCount(countByDay, dayKey, attempt.totalItems)
 
-    if (window === "week") {
-      countByBucket.set(dayKey, (countByBucket.get(dayKey) ?? 0) + attempt.totalItems)
-    } else if (window === "month") {
-      // Find which week bucket this day falls into
-      const dayOfMonth = timestamp.getDate()
-      const weekIndex = clamp(Math.floor((dayOfMonth - 1) / 7), 0, 3)
-      const bucketKey = bucketConfig.buckets[weekIndex]?.key
-      if (bucketKey) {
-        countByBucket.set(
-          bucketKey,
-          (countByBucket.get(bucketKey) ?? 0) + attempt.totalItems
-        )
-      }
-    } else {
-      // Year — group by month
-      const monthKey = `${timestamp.getFullYear()}-${String(timestamp.getMonth() + 1).padStart(2, "0")}`
-      countByBucket.set(
-        monthKey,
-        (countByBucket.get(monthKey) ?? 0) + attempt.totalItems
-      )
+    const bucketKey = getTimelineBucketKey(window, timestamp, bucketConfig)
+    if (!bucketKey) {
+      continue
     }
+
+    incrementCount(countByBucket, bucketKey, attempt.totalItems)
   }
 
-  // Points for the chart
-  const points: TimelineBarPoint[] = bucketConfig.buckets.map((bucket) => ({
+  return { countByBucket, countByDay }
+}
+
+function buildTimelinePoints(
+  bucketConfig: TimelineBucketConfig,
+  countByBucket: Map<string, number>
+) {
+  return bucketConfig.buckets.map((bucket) => ({
     key: bucket.key,
     label: bucket.label,
     value: countByBucket.get(bucket.key) ?? 0,
     dateLabel: formatDateShortNoYear(bucket.date),
   }))
+}
 
-  // Summary stats
-  const questionsThisPeriod = points.reduce((sum, p) => sum + p.value, 0)
+function getMostAnsweredDay(countByDay: Map<string, number>) {
   let mostAnsweredInOneDay = 0
   let mostAnsweredDate = ""
 
   for (const [dayKey, count] of countByDay) {
-    if (count > mostAnsweredInOneDay) {
-      mostAnsweredInOneDay = count
-      mostAnsweredDate = formatDateShort(new Date(dayKey))
+    if (count <= mostAnsweredInOneDay) {
+      continue
     }
+
+    mostAnsweredInOneDay = count
+    mostAnsweredDate = formatDateShort(new Date(dayKey))
   }
+
+  return {
+    mostAnsweredInOneDay,
+    mostAnsweredDate: mostAnsweredDate || "—",
+  }
+}
+
+export async function getQuestionsAnsweredTimeline(
+  userId: string,
+  window: TimelineWindow,
+  offset = 0
+): Promise<QuestionsAnsweredTimeline> {
+  const attempts = await listDoneAttempts(userId)
+  const bucketConfig = getTimelineBucketConfig(window, offset)
+  const { countByBucket, countByDay } = aggregateTimelineCounts(
+    attempts,
+    window,
+    bucketConfig
+  )
+  const points = buildTimelinePoints(bucketConfig, countByBucket)
+  const questionsThisPeriod = points.reduce(
+    (sum, point) => sum + point.value,
+    0
+  )
+  const { mostAnsweredInOneDay, mostAnsweredDate } =
+    getMostAnsweredDay(countByDay)
 
   return {
     window,
@@ -494,7 +649,7 @@ export async function getQuestionsAnsweredTimeline(
     rangeLabel: bucketConfig.rangeLabel,
     questionsThisPeriod,
     mostAnsweredInOneDay,
-    mostAnsweredDate: mostAnsweredDate || "—",
+    mostAnsweredDate,
     offset,
   }
 }

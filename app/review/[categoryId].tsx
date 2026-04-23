@@ -145,6 +145,8 @@ export default function ReviewCategoryScreen() {
   const [query, setQuery] = useState("")
   const deferredQuery = useDeferredValue(query)
   const isPremiumUser = profile?.isPremium === true
+  const isDark = colorScheme === "dark"
+  const theme = isDark ? THEME.dark : THEME.light
 
   useEffect(() => {
     if (isAuthenticated && !profile) {
@@ -460,7 +462,7 @@ export default function ReviewCategoryScreen() {
                     <View
                       className="flex-1 rounded-2xl border px-3.5 py-3"
                       style={{
-                        borderColor: withOpacity(activeTheme.primary, 0.25),
+                        borderColor: theme.border,
                         backgroundColor: withOpacity(activeTheme.primary, 0.08),
                       }}
                     >
@@ -478,7 +480,7 @@ export default function ReviewCategoryScreen() {
                     <View
                       className="flex-1 rounded-2xl border px-3.5 py-3"
                       style={{
-                        borderColor: withOpacity(activeTheme.accent, 0.25),
+                        borderColor: theme.border,
                         backgroundColor: withOpacity(activeTheme.accent, 0.08),
                       }}
                     >
@@ -497,7 +499,10 @@ export default function ReviewCategoryScreen() {
                     </View>
                   </View>
 
-                  <View className="rounded-2xl border border-border bg-card px-3.5 py-3">
+                  <View
+                    className="rounded-2xl border border-border bg-card px-3.5 py-3"
+                    style={{ borderColor: theme.border }}
+                  >
                     <View className="gap-1.5">
                       <View className="flex-row items-center justify-between">
                         <Text className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">

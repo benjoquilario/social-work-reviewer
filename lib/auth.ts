@@ -59,6 +59,27 @@ export type UploadProfilePhotoInput = {
   size: number
 }
 
+export type CreateAccountInput = {
+  email: string
+  password: string
+  fullName: string
+}
+
+export type LoginInput = {
+  email: string
+  password: string
+}
+
+export type ChangePasswordInput = {
+  currentPassword: string
+  nextPassword: string
+}
+
+export type EmailVerificationInput = {
+  userId: string
+  secret: string
+}
+
 type AccountProfileResult = {
   user: AuthUser
   profile: UserProfile | null
@@ -253,12 +274,7 @@ function getBootstrapFailureMessage() {
   return "Your account was created, but Appwrite blocked the app from creating your user profile. In Appwrite Console, allow collection-level create access for signed-in users on user_profiles and user_roles, then keep document read/update/delete restricted to the owner. Do not send create as a document permission. Best practice: move this bootstrap into an Appwrite Function so profile creation is handled server-side."
 }
 
-export async function ensureUserProfileSetup(
-  user: AuthUser,
-  fullName?: string,
-  email?: string
-): Promise<UserProfile | null> {
-  // 1. Fast path — try direct document fetch
+async function fetchExistingProfile(user: AuthUser): Promise<UserProfile | null> {
   try {
     const profile = await withRetry("Profile lookup", () =>
       tablesDB.getRow({
@@ -280,37 +296,54 @@ export async function ensureUserProfileSetup(
         return fallbackProfile
       }
     }
+    return null
+  }
+}
+
+function handleProfileCreationError(error: unknown) {
+  if (error instanceof AppwriteException && error.code !== 409) {
+    if (isAppwriteUnauthorizedError(error)) {
+      throw new Error(getBootstrapFailureMessage())
+    }
+    throw new Error(
+      toErrorMessage(error, "Unable to create the user profile document.")
+    )
+  }
+}
+
+function handleRoleCreationError(error: unknown) {
+  if (error instanceof AppwriteException && error.code !== 409) {
+    if (isAppwriteUnauthorizedError(error)) {
+      throw new Error(getBootstrapFailureMessage())
+    }
+    console.warn(
+      "[Auth] Unable to create default user role:",
+      toErrorMessage(error, "Unknown Appwrite error.")
+    )
+  }
+}
+
+export async function ensureUserProfileSetup(
+  user: AuthUser,
+  fullName?: string,
+  email?: string
+): Promise<UserProfile | null> {
+  const existingProfile = await fetchExistingProfile(user)
+  if (existingProfile) {
+    return existingProfile
   }
 
-  // 2. Profile doesn't exist yet — create profile + role in parallel
   const [profileResult, roleResult] = await Promise.allSettled([
     createUserProfileDocument(user, fullName, email),
     createUserRoleDocument(user.$id),
   ])
 
   if (profileResult.status === "rejected") {
-    const error = profileResult.reason
-    if (error instanceof AppwriteException && error.code !== 409) {
-      if (isAppwriteUnauthorizedError(error)) {
-        throw new Error(getBootstrapFailureMessage())
-      }
-      throw new Error(
-        toErrorMessage(error, "Unable to create the user profile document.")
-      )
-    }
+    handleProfileCreationError(profileResult.reason)
   }
 
   if (roleResult.status === "rejected") {
-    const error = roleResult.reason
-    if (error instanceof AppwriteException && error.code !== 409) {
-      if (isAppwriteUnauthorizedError(error)) {
-        throw new Error(getBootstrapFailureMessage())
-      }
-      console.warn(
-        "[Auth] Unable to create default user role:",
-        toErrorMessage(error, "Unknown Appwrite error.")
-      )
-    }
+    handleRoleCreationError(roleResult.reason)
   }
 
   return getUserProfile(user.$id)
@@ -319,25 +352,23 @@ export async function ensureUserProfileSetup(
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
 export async function createAccount(
-  email: string,
-  password: string,
-  fullName: string
+  input: CreateAccountInput
 ): Promise<AuthUser> {
   assertAppwriteConfigured()
 
   const userId = ID.unique()
   await withRetry("Account creation", () =>
-    account.create({ userId, email, password, name: fullName })
+    account.create({ userId, ...input, name: input.fullName })
   )
 
   await withRetry("Login", () =>
-    account.createEmailPasswordSession({ email, password })
+    account.createEmailPasswordSession({ email: input.email, password: input.password })
   )
 
   const newUser = await withRetry("Session lookup", () => account.get())
 
   // Fire-and-forget profile bootstrap — don't block registration
-  ensureUserProfileSetup(newUser, fullName, email).catch((error) =>
+  ensureUserProfileSetup(newUser, input.fullName, input.email).catch((error) =>
     console.warn(
       "[Auth] Profile bootstrap failed after registration:",
       toErrorMessage(error, "Unknown Appwrite error.")
@@ -347,14 +378,11 @@ export async function createAccount(
   return newUser
 }
 
-export async function login(
-  email: string,
-  password: string
-): Promise<AuthUser> {
+export async function login(input: LoginInput): Promise<AuthUser> {
   assertAppwriteConfigured()
 
   await withRetry("Login", () =>
-    account.createEmailPasswordSession({ email, password })
+    account.createEmailPasswordSession(input)
   )
 
   return withRetry("Session lookup", () => account.get())
@@ -471,13 +499,7 @@ export async function updateCurrentEmail(
   }
 }
 
-export async function uploadCurrentUserProfilePhoto(
-  input: UploadProfilePhotoInput
-): Promise<string> {
-  assertAppwriteConfigured()
-
-  const bucketId = getProfileImagesBucketId()
-
+function validateProfilePhotoInput(input: UploadProfilePhotoInput) {
   if (!input.uri.trim()) {
     throw new Error("Selected image is missing a valid local URI.")
   }
@@ -493,7 +515,15 @@ export async function uploadCurrentUserProfilePhoto(
   if (input.size > 5 * 1024 * 1024) {
     throw new Error("Profile photos must be 5 MB or smaller.")
   }
+}
 
+export async function uploadCurrentUserProfilePhoto(
+  input: UploadProfilePhotoInput
+): Promise<string> {
+  assertAppwriteConfigured()
+  validateProfilePhotoInput(input)
+
+  const bucketId = getProfileImagesBucketId()
   const currentUser = await withRetry("Session lookup", () => account.get())
   const uploadedFile = await withRetry("Profile photo upload", () =>
     storage.createFile({
@@ -521,26 +551,24 @@ export async function sendCurrentUserVerificationEmail(): Promise<void> {
 }
 
 export async function completeCurrentUserEmailVerification(
-  userId: string,
-  secret: string
+  input: EmailVerificationInput
 ): Promise<AuthUser> {
   assertAppwriteConfigured()
 
   await withRetry("Email verification completion", () =>
-    account.updateEmailVerification({ userId, secret })
+    account.updateEmailVerification(input)
   )
 
   return withRetry("Session lookup", () => account.get())
 }
 
 export async function changeCurrentUserPassword(
-  currentPassword: string,
-  nextPassword: string
+  input: ChangePasswordInput
 ): Promise<void> {
   assertAppwriteConfigured()
 
-  const oldPassword = currentPassword.trim()
-  const password = nextPassword.trim()
+  const oldPassword = input.currentPassword.trim()
+  const password = input.nextPassword.trim()
 
   if (!oldPassword) {
     throw new Error("Current password is required.")
@@ -561,9 +589,7 @@ export async function changeCurrentUserPassword(
   )
 }
 
-export async function deleteCurrentAccount(): Promise<void> {
-  assertAppwriteConfigured()
-
+async function executeDeleteAccountFunction() {
   const functionId = APPWRITE_CONFIG.accountDeleteFunctionId
 
   if (!functionId) {
@@ -572,7 +598,7 @@ export async function deleteCurrentAccount(): Promise<void> {
     )
   }
 
-  const execution = await withRetry("Delete account", () =>
+  return await withRetry("Delete account", () =>
     functions.createExecution({
       functionId,
       body: JSON.stringify({ action: "delete-account" }),
@@ -584,27 +610,39 @@ export async function deleteCurrentAccount(): Promise<void> {
       },
     })
   )
+}
 
-  const responseStatusCode = execution.responseStatusCode ?? 500
+function parseDeleteAccountPayload(responseBody: string) {
+  if (!responseBody) return null
+  try {
+    return JSON.parse(responseBody) as { ok?: boolean; message?: string }
+  } catch {
+    return null
+  }
+}
+
+function validateDeleteAccountResponse(
+  statusCode: number,
+  payload: { ok?: boolean; message?: string } | null
+) {
+  if (statusCode >= 400 || payload?.ok === false) {
+    throw new Error(payload?.message ?? "Unable to delete the account.")
+  }
+}
+
+export async function deleteCurrentAccount(): Promise<void> {
+  assertAppwriteConfigured()
+
+  const execution = await executeDeleteAccountFunction()
+  const statusCode = execution.responseStatusCode ?? 500
   const responseBody = execution.responseBody ?? ""
 
-  if (!responseBody && responseStatusCode < 400) {
+  if (!responseBody && statusCode < 400) {
     return
   }
 
-  let payload: { ok?: boolean; message?: string } | null = null
-
-  try {
-    payload = responseBody
-      ? (JSON.parse(responseBody) as { ok?: boolean; message?: string })
-      : null
-  } catch {
-    payload = null
-  }
-
-  if (responseStatusCode >= 400 || payload?.ok === false) {
-    throw new Error(payload?.message ?? "Unable to delete the account.")
-  }
+  const payload = parseDeleteAccountPayload(responseBody)
+  validateDeleteAccountResponse(statusCode, payload)
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {

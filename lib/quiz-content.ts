@@ -306,6 +306,9 @@ function buildDummyFullExamQuizQuestions(
       categoryId: question.categoryId,
       prompt: question.prompt,
       choices: question.choices,
+      choiceIds: question.choices.map(
+        (_choice, choiceIndex) => `${question.id}-choice-${choiceIndex + 1}`
+      ),
       answerIndex: question.answerIndex,
       explanation: question.explanation,
     }))

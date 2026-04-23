@@ -1,7 +1,11 @@
 import { memo, useCallback, useEffect, useMemo } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { DAILY_TRACKER, PERFORMANCE_METRICS } from "@/data/reviewer-data"
-import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list"
+import {
+  FlashList,
+  type ListRenderItem,
+  type ListRenderItemInfo,
+} from "@shopify/flash-list"
 import { useQuery } from "@tanstack/react-query"
 import { useRouter } from "expo-router"
 import {
@@ -25,6 +29,7 @@ import {
   getUserActivityFeed,
   type ActivityLearningHistory,
   type ActivityQuizAttempt,
+  type UserActivityFeed,
 } from "@/lib/progress"
 import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
@@ -43,6 +48,44 @@ const DAILY_ACTIVITY_TARGET = 4
 
 type ThemePalette = (typeof THEME)["light"] | (typeof THEME)["dark"]
 
+type TrackingSnapshot = {
+  dailyCount: number
+  weeklyActiveDays: number
+  weeklyTotalActivities: number
+}
+
+type TrackingMetrics = {
+  trackingSnapshot: TrackingSnapshot
+  effectiveDayStreak: number
+  effectiveWeeklyAverage: number
+  effectiveDailyTrackingCount: number
+  effectiveWeeklyActiveDays: number
+  dailyTrackingProgress: number
+  weeklyTrackingProgress: number
+}
+
+function getSubjectCardPresentation(theme: ThemePalette, isLocked: boolean) {
+  const tone = isLocked ? theme.accent : theme.primary
+  const primaryCtaText = isLocked
+    ? theme.secondaryForeground
+    : theme.primaryForeground
+
+  return {
+    tone,
+    statusIconBg: isLocked
+      ? withOpacity(theme.accent, 0.14)
+      : withOpacity(theme.primary, 0.12),
+    statusIcon: isLocked ? LockKeyhole : FolderOpen,
+    badgeBg: isLocked ? withOpacity(theme.accent, 0.14) : theme.secondary,
+    badgeText: isLocked ? theme.accent : theme.secondaryForeground,
+    statusLabel: isLocked ? "Premium" : "Open",
+    primaryIcon: isLocked ? LockKeyhole : ArrowRight,
+    primaryLabel: isLocked ? "Unlock" : "Start Quiz",
+    primaryCtaBg: isLocked ? theme.secondary : tone,
+    primaryCtaText,
+  }
+}
+
 const HomeSubjectCard = memo(function HomeSubjectCard({
   subject,
   theme,
@@ -54,14 +97,12 @@ const HomeSubjectCard = memo(function HomeSubjectCard({
   onPrimaryAction: (subject: LearningSubject) => void
   onSecondaryAction: (subject: LearningSubject) => void
 }) {
-  const isLocked = subject.isLocked
-  const tone = isLocked ? theme.accent : theme.primary
-  const badgeBg = isLocked ? withOpacity(theme.accent, 0.14) : theme.secondary
-  const badgeText = isLocked ? theme.accent : theme.secondaryForeground
-  const primaryCtaBg = isLocked ? theme.secondary : tone
-  const primaryCtaText = isLocked
-    ? theme.secondaryForeground
-    : theme.primaryForeground
+  const cardPresentation = getSubjectCardPresentation(theme, subject.isLocked)
+  const StatusIcon = cardPresentation.statusIcon
+  const PrimaryIcon = cardPresentation.primaryIcon
+  const premiumCountColor = subject.hasPremiumContent
+    ? cardPresentation.tone
+    : theme.mutedForeground
 
   return (
     <View className="w-[300px]">
@@ -77,17 +118,9 @@ const HomeSubjectCard = memo(function HomeSubjectCard({
           <View className="flex-row items-start gap-3">
             <View
               className="h-12 w-12 items-center justify-center rounded-2xl"
-              style={{
-                backgroundColor: isLocked
-                  ? withOpacity(theme.accent, 0.14)
-                  : withOpacity(theme.primary, 0.12),
-              }}
+              style={{ backgroundColor: cardPresentation.statusIconBg }}
             >
-              {isLocked ? (
-                <LockKeyhole size={18} color={tone} />
-              ) : (
-                <FolderOpen size={18} color={tone} />
-              )}
+              <StatusIcon size={18} color={cardPresentation.tone} />
             </View>
 
             <View className="flex-1 gap-1.5">
@@ -100,13 +133,13 @@ const HomeSubjectCard = memo(function HomeSubjectCard({
                 </Text>
                 <View
                   className="rounded-full px-2.5 py-1"
-                  style={{ backgroundColor: badgeBg }}
+                  style={{ backgroundColor: cardPresentation.badgeBg }}
                 >
                   <Text
                     className="text-[10px] font-black uppercase tracking-[0.7px]"
-                    style={{ color: badgeText }}
+                    style={{ color: cardPresentation.badgeText }}
                   >
-                    {isLocked ? "Premium" : "Open"}
+                    {cardPresentation.statusLabel}
                   </Text>
                 </View>
               </View>
@@ -143,11 +176,7 @@ const HomeSubjectCard = memo(function HomeSubjectCard({
               </Text>
               <Text
                 className="text-[13px] font-black"
-                style={{
-                  color: subject.hasPremiumContent
-                    ? tone
-                    : theme.mutedForeground,
-                }}
+                style={{ color: premiumCountColor }}
               >
                 {subject.premiumMaterialCount}
               </Text>
@@ -157,19 +186,15 @@ const HomeSubjectCard = memo(function HomeSubjectCard({
           <View className="flex-row gap-2">
             <MotionPressable
               className="h-11 flex-1 flex-row items-center justify-center gap-2 rounded-2xl px-3"
-              style={{ backgroundColor: primaryCtaBg }}
+              style={{ backgroundColor: cardPresentation.primaryCtaBg }}
               onPress={() => onPrimaryAction(subject)}
             >
-              {isLocked ? (
-                <LockKeyhole size={15} color={theme.secondaryForeground} />
-              ) : (
-                <ArrowRight size={15} color={primaryCtaText} />
-              )}
+              <PrimaryIcon size={15} color={cardPresentation.primaryCtaText} />
               <Text
                 className="text-[13px] font-black"
-                style={{ color: primaryCtaText }}
+                style={{ color: cardPresentation.primaryCtaText }}
               >
-                {isLocked ? "Unlock" : "Start Quiz"}
+                {cardPresentation.primaryLabel}
               </Text>
             </MotionPressable>
 
@@ -193,6 +218,262 @@ const HomeSubjectCard = memo(function HomeSubjectCard({
           </View>
         </CardContent>
       </Card>
+    </View>
+  )
+})
+
+const TrackingPulseSection = memo(function TrackingPulseSection({
+  theme,
+  isSignedIn,
+  isLoading,
+  errorMessage,
+  effectiveDailyTrackingCount,
+  effectiveWeeklyActiveDays,
+  dailyTrackingProgress,
+  weeklyTrackingProgress,
+  weeklyTotalActivities,
+}: {
+  theme: ThemePalette
+  isSignedIn: boolean
+  isLoading: boolean
+  errorMessage: string | null
+  effectiveDailyTrackingCount: number
+  effectiveWeeklyActiveDays: number
+  dailyTrackingProgress: number
+  weeklyTrackingProgress: number
+  weeklyTotalActivities: number
+}) {
+  return (
+    <View className="gap-2.5">
+      <View className="gap-0.5">
+        <Text className="text-[11px] font-black uppercase tracking-[1.4px] text-primary">
+          Tracking Pulse
+        </Text>
+        <Text className="text-[17px] font-extrabold text-foreground">
+          Daily And Weekly Tracking
+        </Text>
+        <Text className="text-[12px] leading-5 text-muted-foreground">
+          Real streak, weekly average, and activity momentum from your Appwrite
+          progress data.
+        </Text>
+      </View>
+
+      {!isSignedIn ? (
+        <Card>
+          <CardContent className="gap-1.5 px-4 py-3.5">
+            <Text className="text-[13px] font-bold text-card-foreground">
+              Sign in to track progress
+            </Text>
+            <Text className="text-[12px] leading-5 text-muted-foreground">
+              Streak, weekly average, and daily tracking are shown for signed-in
+              learners.
+            </Text>
+          </CardContent>
+        </Card>
+      ) : isLoading ? (
+        <View className="gap-2.5">
+          <Skeleton className="h-24 rounded-2xl" />
+          <Skeleton className="h-24 rounded-2xl" />
+        </View>
+      ) : errorMessage ? (
+        <Card>
+          <CardContent className="gap-1.5 px-4 py-3.5">
+            <Text className="text-[13px] font-bold text-card-foreground">
+              Tracking unavailable
+            </Text>
+            <Text className="text-[12px] leading-5 text-muted-foreground">
+              {errorMessage}
+            </Text>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <View className="flex-row gap-2.5">
+            <Card
+              className="flex-1"
+              style={{ borderWidth: 1, borderColor: theme.border }}
+            >
+              <CardContent className="gap-1.5 px-3.5 py-3">
+                <Text className="text-[10px] font-bold uppercase tracking-[1.1px] text-primary">
+                  Daily Tracking
+                </Text>
+                <Text className="text-[19px] font-black text-card-foreground">
+                  {effectiveDailyTrackingCount}
+                </Text>
+                <Text className="text-[11px] text-muted-foreground">
+                  activities today
+                </Text>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="flex-1"
+              style={{ borderWidth: 1, borderColor: theme.border }}
+            >
+              <CardContent className="gap-1.5 px-3.5 py-3">
+                <Text className="text-[10px] font-bold uppercase tracking-[1.1px] text-primary">
+                  Weekly Tracking
+                </Text>
+                <Text className="text-[19px] font-black text-card-foreground">
+                  {effectiveWeeklyActiveDays}/7
+                </Text>
+                <Text className="text-[11px] text-muted-foreground">
+                  active days
+                </Text>
+              </CardContent>
+            </Card>
+          </View>
+
+          <Card style={{ borderWidth: 1, borderColor: theme.border }}>
+            <CardContent className="gap-3 px-4 py-3.5">
+              <View className="gap-1.5">
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    Daily Goal Progress
+                  </Text>
+                  <Text className="text-[11px] font-black text-primary">
+                    {effectiveDailyTrackingCount}/{DAILY_ACTIVITY_TARGET}
+                  </Text>
+                </View>
+                <View
+                  className="h-2 overflow-hidden rounded-full"
+                  style={{
+                    backgroundColor: withOpacity(theme.primary, 0.14),
+                  }}
+                >
+                  <View
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${dailyTrackingProgress}%`,
+                      backgroundColor: theme.primary,
+                    }}
+                  />
+                </View>
+              </View>
+
+              <View className="gap-1.5">
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    Weekly Consistency
+                  </Text>
+                  <Text className="text-[11px] font-black text-primary">
+                    {effectiveWeeklyActiveDays}/7 days
+                  </Text>
+                </View>
+                <View
+                  className="h-2 overflow-hidden rounded-full"
+                  style={{
+                    backgroundColor: withOpacity(theme.accent, 0.16),
+                  }}
+                >
+                  <View
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${weeklyTrackingProgress}%`,
+                      backgroundColor: theme.accent,
+                    }}
+                  />
+                </View>
+                <Text className="text-[11px] leading-5 text-muted-foreground">
+                  {weeklyTotalActivities} total learning activities in the last
+                  7 days.
+                </Text>
+              </View>
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </View>
+  )
+})
+
+const PracticeAreasSection = memo(function PracticeAreasSection({
+  theme,
+  isLoading,
+  errorMessage,
+  reviewSubjects,
+  renderSubjectCard,
+}: {
+  theme: ThemePalette
+  isLoading: boolean
+  errorMessage: string | null
+  reviewSubjects: LearningSubject[]
+  renderSubjectCard: ListRenderItem<LearningSubject>
+}) {
+  return (
+    <View className="gap-2.5">
+      <View className="gap-0.5">
+        <Text className="text-[11px] font-black uppercase tracking-[1.4px] text-primary">
+          Practice Areas
+        </Text>
+        <Text className="text-[17px] font-extrabold text-foreground">
+          Quiz Categories
+        </Text>
+      </View>
+
+      {isLoading ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 10, paddingRight: 16 }}
+        >
+          {Array.from({ length: 3 }).map((_, index) => (
+            <View key={`subject-skeleton-${index}`} className="w-[300px]">
+              <Card>
+                <CardContent className="gap-3 px-4 py-4">
+                  <View className="flex-row items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-2xl" />
+                    <View className="flex-1 gap-1.5">
+                      <Skeleton className="h-4 w-36 rounded-lg" />
+                      <Skeleton className="h-3 w-24 rounded-lg" />
+                    </View>
+                  </View>
+                  <Skeleton className="h-8 rounded-xl" />
+                  <View className="flex-row gap-2">
+                    <Skeleton className="h-10 flex-1 rounded-2xl" />
+                    <Skeleton className="h-10 w-12 rounded-2xl" />
+                  </View>
+                </CardContent>
+              </Card>
+            </View>
+          ))}
+        </ScrollView>
+      ) : errorMessage ? (
+        <Card className="rounded-[28px]">
+          <CardContent className="gap-2 px-4 py-4">
+            <Text className="text-sm font-black text-destructive">
+              Review subjects unavailable
+            </Text>
+            <Text className="text-[13px] leading-5 text-muted-foreground">
+              {errorMessage}
+            </Text>
+          </CardContent>
+        </Card>
+      ) : (
+        <FlashList
+          data={reviewSubjects}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingRight: 16 }}
+          keyExtractor={(item) => item.id}
+          decelerationRate="fast"
+          renderItem={renderSubjectCard}
+          ItemSeparatorComponent={SubjectCardSeparator}
+          ListEmptyComponent={
+            <Card className="w-[300px]">
+              <CardContent className="gap-2 px-4 py-4">
+                <Text className="text-sm font-black text-card-foreground">
+                  No review subjects yet
+                </Text>
+                <Text className="text-[13px] leading-5 text-muted-foreground">
+                  Add Appwrite subject and topic records to populate this
+                  section.
+                </Text>
+              </CardContent>
+            </Card>
+          }
+        />
+      )}
     </View>
   )
 })
@@ -222,46 +503,134 @@ function buildRecentDayKeys(days: number) {
   })
 }
 
+function parseDayKey(value: string | null | undefined) {
+  if (!value) {
+    return null
+  }
+
+  const timestamp = new Date(value)
+  if (Number.isNaN(timestamp.getTime())) {
+    return null
+  }
+
+  return toDayKey(timestamp)
+}
+
+function incrementDayActivityCount(
+  activityCountByDay: Map<string, number>,
+  dayKey: string
+) {
+  activityCountByDay.set(dayKey, (activityCountByDay.get(dayKey) ?? 0) + 1)
+}
+
+function collectActivityCounts<T>(
+  items: T[],
+  getTimestamp: (item: T) => string | null | undefined,
+  activityCountByDay: Map<string, number>
+) {
+  for (const item of items) {
+    const dayKey = parseDayKey(getTimestamp(item))
+    if (!dayKey) {
+      continue
+    }
+
+    incrementDayActivityCount(activityCountByDay, dayKey)
+  }
+}
+
+function summarizeWeeklySnapshot(
+  activityCountByDay: Map<string, number>,
+  weeklyKeys: string[]
+) {
+  let weeklyActiveDays = 0
+  let weeklyTotalActivities = 0
+
+  for (const dayKey of weeklyKeys) {
+    const count = activityCountByDay.get(dayKey) ?? 0
+    weeklyTotalActivities += count
+
+    if (count > 0) {
+      weeklyActiveDays += 1
+    }
+  }
+
+  return {
+    weeklyActiveDays,
+    weeklyTotalActivities,
+  }
+}
+
 function buildTrackingSnapshot(
   attempts: ActivityQuizAttempt[],
   learningHistory: ActivityLearningHistory[]
-) {
+): TrackingSnapshot {
   const activityCountByDay = new Map<string, number>()
-
-  for (const attempt of attempts) {
-    const timestamp = new Date(attempt.finishedAt ?? attempt.startedAt)
-
-    if (Number.isNaN(timestamp.getTime())) {
-      continue
-    }
-
-    const dayKey = toDayKey(timestamp)
-    activityCountByDay.set(dayKey, (activityCountByDay.get(dayKey) ?? 0) + 1)
-  }
-
-  for (const entry of learningHistory) {
-    const timestamp = new Date(entry.lastAccessedAt)
-
-    if (Number.isNaN(timestamp.getTime())) {
-      continue
-    }
-
-    const dayKey = toDayKey(timestamp)
-    activityCountByDay.set(dayKey, (activityCountByDay.get(dayKey) ?? 0) + 1)
-  }
-
   const todayKey = toDayKey(new Date())
   const weeklyKeys = buildRecentDayKeys(7)
 
+  collectActivityCounts(
+    attempts,
+    (attempt) => attempt.finishedAt ?? attempt.startedAt,
+    activityCountByDay
+  )
+  collectActivityCounts(
+    learningHistory,
+    (entry) => entry.lastAccessedAt,
+    activityCountByDay
+  )
+
+  const { weeklyActiveDays, weeklyTotalActivities } = summarizeWeeklySnapshot(
+    activityCountByDay,
+    weeklyKeys
+  )
+
   return {
     dailyCount: activityCountByDay.get(todayKey) ?? 0,
-    weeklyActiveDays: weeklyKeys.filter(
-      (dayKey) => (activityCountByDay.get(dayKey) ?? 0) > 0
-    ).length,
-    weeklyTotalActivities: weeklyKeys.reduce(
-      (total, dayKey) => total + (activityCountByDay.get(dayKey) ?? 0),
-      0
-    ),
+    weeklyActiveDays,
+    weeklyTotalActivities,
+  }
+}
+
+function buildTrackingMetrics(
+  activityFeed: UserActivityFeed | null
+): TrackingMetrics {
+  const weeklyMetric = PERFORMANCE_METRICS.find(
+    (metric) => metric.window === "week"
+  )
+  const trackingSnapshot = buildTrackingSnapshot(
+    activityFeed?.quizAttempts ?? [],
+    activityFeed?.learningHistory ?? []
+  )
+  const hasActivityData = Boolean(
+    activityFeed?.quizAttempts || activityFeed?.learningHistory
+  )
+  const effectiveDayStreak = activityFeed?.dayStreak ?? DAILY_TRACKER.streakDays
+  const effectiveWeeklyAverage = Math.round(
+    activityFeed?.weeklyAverageScore ?? weeklyMetric?.averageScore ?? 0
+  )
+  const effectiveDailyTrackingCount = hasActivityData
+    ? trackingSnapshot.dailyCount
+    : DAILY_TRACKER.completedSessions
+  const effectiveWeeklyActiveDays = hasActivityData
+    ? trackingSnapshot.weeklyActiveDays
+    : Math.min(DAILY_TRACKER.streakDays, 7)
+  const dailyTrackingProgress = Math.min(
+    100,
+    Math.round((effectiveDailyTrackingCount / DAILY_ACTIVITY_TARGET) * 100)
+  )
+  const weeklyTrackingProgress = Math.min(
+    100,
+    Math.round((effectiveWeeklyActiveDays / 7) * 100)
+  )
+
+  return {
+    trackingSnapshot,
+    effectiveDayStreak,
+    effectiveWeeklyAverage,
+    effectiveDailyTrackingCount,
+    effectiveWeeklyActiveDays,
+    dailyTrackingProgress,
+    weeklyTrackingProgress,
   }
 }
 
@@ -292,52 +661,16 @@ export default function ReviewerHomeScreen() {
   })
 
   const activityFeed = activityOverviewQuery.data ?? null
-  const trackingMetrics = useMemo(() => {
-    const weeklyMetric = PERFORMANCE_METRICS.find(
-      (metric) => metric.window === "week"
-    )
-    const trackingSnapshot = buildTrackingSnapshot(
-      activityFeed?.quizAttempts ?? [],
-      activityFeed?.learningHistory ?? []
-    )
-    const hasActivityData = Boolean(
-      activityFeed?.quizAttempts || activityFeed?.learningHistory
-    )
-    const effectiveDayStreak =
-      activityFeed?.dayStreak ?? DAILY_TRACKER.streakDays
-    const effectiveWeeklyAverage = Math.round(
-      activityFeed?.weeklyAverageScore ?? weeklyMetric?.averageScore ?? 0
-    )
-    const effectiveDailyTrackingCount = hasActivityData
-      ? trackingSnapshot.dailyCount
-      : DAILY_TRACKER.completedSessions
-    const effectiveWeeklyActiveDays = hasActivityData
-      ? trackingSnapshot.weeklyActiveDays
-      : Math.min(DAILY_TRACKER.streakDays, 7)
-    const dailyTrackingProgress = Math.min(
-      100,
-      Math.round((effectiveDailyTrackingCount / DAILY_ACTIVITY_TARGET) * 100)
-    )
-    const weeklyTrackingProgress = Math.min(
-      100,
-      Math.round((effectiveWeeklyActiveDays / 7) * 100)
-    )
-
-    return {
-      trackingSnapshot,
-      effectiveDayStreak,
-      effectiveWeeklyAverage,
-      effectiveDailyTrackingCount,
-      effectiveWeeklyActiveDays,
-      dailyTrackingProgress,
-      weeklyTrackingProgress,
-    }
-  }, [
-    activityFeed?.dayStreak,
-    activityFeed?.learningHistory,
-    activityFeed?.quizAttempts,
-    activityFeed?.weeklyAverageScore,
-  ])
+  const activityOverviewErrorMessage =
+    activityOverviewQuery.error instanceof Error
+      ? activityOverviewQuery.error.message
+      : activityOverviewQuery.error
+        ? "Unable to load tracking metrics right now."
+        : null
+  const trackingMetrics = useMemo(
+    () => buildTrackingMetrics(activityFeed),
+    [activityFeed]
+  )
 
   const {
     trackingSnapshot,
@@ -404,6 +737,12 @@ export default function ReviewerHomeScreen() {
     queryKey: ["home-review-subjects", isPremiumUser],
     queryFn: () => listLearningSubjects({ viewerIsPremium: isPremiumUser }),
   })
+  const subjectsErrorMessage =
+    subjectsQuery.error instanceof Error
+      ? subjectsQuery.error.message
+      : subjectsQuery.error
+        ? "Unable to load review subjects from Appwrite."
+        : null
 
   const reviewSubjects = subjectsQuery.data ?? []
 
@@ -548,228 +887,27 @@ export default function ReviewerHomeScreen() {
         </FadeInView>
 
         <FadeInView delay={getStaggerDelay(2)}>
-          <View className="gap-2.5">
-            <View className="gap-0.5">
-              <Text className="text-[11px] font-black uppercase tracking-[1.4px] text-primary">
-                Tracking Pulse
-              </Text>
-              <Text className="text-[17px] font-extrabold text-foreground">
-                Daily And Weekly Tracking
-              </Text>
-              <Text className="text-[12px] leading-5 text-muted-foreground">
-                Real streak, weekly average, and activity momentum from your
-                Appwrite progress data.
-              </Text>
-            </View>
-
-            {!user ? (
-              <Card>
-                <CardContent className="gap-1.5 px-4 py-3.5">
-                  <Text className="text-[13px] font-bold text-card-foreground">
-                    Sign in to track progress
-                  </Text>
-                  <Text className="text-[12px] leading-5 text-muted-foreground">
-                    Streak, weekly average, and daily tracking are shown for
-                    signed-in learners.
-                  </Text>
-                </CardContent>
-              </Card>
-            ) : activityOverviewQuery.isLoading ? (
-              <View className="gap-2.5">
-                <Skeleton className="h-24 rounded-2xl" />
-                <Skeleton className="h-24 rounded-2xl" />
-              </View>
-            ) : activityOverviewQuery.error ? (
-              <Card>
-                <CardContent className="gap-1.5 px-4 py-3.5">
-                  <Text className="text-[13px] font-bold text-card-foreground">
-                    Tracking unavailable
-                  </Text>
-                  <Text className="text-[12px] leading-5 text-muted-foreground">
-                    {activityOverviewQuery.error instanceof Error
-                      ? activityOverviewQuery.error.message
-                      : "Unable to load tracking metrics right now."}
-                  </Text>
-                </CardContent>
-              </Card>
-            ) : (
-              <>
-                <View className="flex-row gap-2.5">
-                  <Card
-                    className="flex-1"
-                    style={{ borderWidth: 1, borderColor: theme.border }}
-                  >
-                    <CardContent className="gap-1.5 px-3.5 py-3">
-                      <Text className="text-[10px] font-bold uppercase tracking-[1.1px] text-primary">
-                        Daily Tracking
-                      </Text>
-                      <Text className="text-[19px] font-black text-card-foreground">
-                        {effectiveDailyTrackingCount}
-                      </Text>
-                      <Text className="text-[11px] text-muted-foreground">
-                        activities today
-                      </Text>
-                    </CardContent>
-                  </Card>
-
-                  <Card
-                    className="flex-1"
-                    style={{ borderWidth: 1, borderColor: theme.border }}
-                  >
-                    <CardContent className="gap-1.5 px-3.5 py-3">
-                      <Text className="text-[10px] font-bold uppercase tracking-[1.1px] text-primary">
-                        Weekly Tracking
-                      </Text>
-                      <Text className="text-[19px] font-black text-card-foreground">
-                        {effectiveWeeklyActiveDays}/7
-                      </Text>
-                      <Text className="text-[11px] text-muted-foreground">
-                        active days
-                      </Text>
-                    </CardContent>
-                  </Card>
-                </View>
-
-                <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-                  <CardContent className="gap-3 px-4 py-3.5">
-                    <View className="gap-1.5">
-                      <View className="flex-row items-center justify-between">
-                        <Text className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                          Daily Goal Progress
-                        </Text>
-                        <Text className="text-[11px] font-black text-primary">
-                          {effectiveDailyTrackingCount}/{DAILY_ACTIVITY_TARGET}
-                        </Text>
-                      </View>
-                      <View
-                        className="h-2 overflow-hidden rounded-full"
-                        style={{
-                          backgroundColor: withOpacity(theme.primary, 0.14),
-                        }}
-                      >
-                        <View
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${dailyTrackingProgress}%`,
-                            backgroundColor: theme.primary,
-                          }}
-                        />
-                      </View>
-                    </View>
-
-                    <View className="gap-1.5">
-                      <View className="flex-row items-center justify-between">
-                        <Text className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                          Weekly Consistency
-                        </Text>
-                        <Text className="text-[11px] font-black text-primary">
-                          {effectiveWeeklyActiveDays}/7 days
-                        </Text>
-                      </View>
-                      <View
-                        className="h-2 overflow-hidden rounded-full"
-                        style={{
-                          backgroundColor: withOpacity(theme.accent, 0.16),
-                        }}
-                      >
-                        <View
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${weeklyTrackingProgress}%`,
-                            backgroundColor: theme.accent,
-                          }}
-                        />
-                      </View>
-                      <Text className="text-[11px] leading-5 text-muted-foreground">
-                        {trackingSnapshot.weeklyTotalActivities} total learning
-                        activities in the last 7 days.
-                      </Text>
-                    </View>
-                  </CardContent>
-                </Card>
-              </>
-            )}
-          </View>
+          <TrackingPulseSection
+            theme={theme}
+            isSignedIn={Boolean(user)}
+            isLoading={activityOverviewQuery.isLoading}
+            errorMessage={activityOverviewErrorMessage}
+            effectiveDailyTrackingCount={effectiveDailyTrackingCount}
+            effectiveWeeklyActiveDays={effectiveWeeklyActiveDays}
+            dailyTrackingProgress={dailyTrackingProgress}
+            weeklyTrackingProgress={weeklyTrackingProgress}
+            weeklyTotalActivities={trackingSnapshot.weeklyTotalActivities}
+          />
         </FadeInView>
 
         <FadeInView delay={getStaggerDelay(3)}>
-          <View className="gap-2.5">
-            <View className="gap-0.5">
-              <Text className="text-[11px] font-black uppercase tracking-[1.4px] text-primary">
-                Practice Areas
-              </Text>
-              <Text className="text-[17px] font-extrabold text-foreground">
-                Quiz Categories
-              </Text>
-            </View>
-
-            {subjectsQuery.isLoading ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 10, paddingRight: 16 }}
-              >
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <View key={`subject-skeleton-${index}`} className="w-[300px]">
-                    <Card>
-                      <CardContent className="gap-3 px-4 py-4">
-                        <View className="flex-row items-center gap-3">
-                          <Skeleton className="h-10 w-10 rounded-2xl" />
-                          <View className="flex-1 gap-1.5">
-                            <Skeleton className="h-4 w-36 rounded-lg" />
-                            <Skeleton className="h-3 w-24 rounded-lg" />
-                          </View>
-                        </View>
-                        <Skeleton className="h-8 rounded-xl" />
-                        <View className="flex-row gap-2">
-                          <Skeleton className="h-10 flex-1 rounded-2xl" />
-                          <Skeleton className="h-10 w-12 rounded-2xl" />
-                        </View>
-                      </CardContent>
-                    </Card>
-                  </View>
-                ))}
-              </ScrollView>
-            ) : subjectsQuery.error ? (
-              <Card className="rounded-[28px]">
-                <CardContent className="gap-2 px-4 py-4">
-                  <Text className="text-sm font-black text-destructive">
-                    Review subjects unavailable
-                  </Text>
-                  <Text className="text-[13px] leading-5 text-muted-foreground">
-                    {subjectsQuery.error instanceof Error
-                      ? subjectsQuery.error.message
-                      : "Unable to load review subjects from Appwrite."}
-                  </Text>
-                </CardContent>
-              </Card>
-            ) : (
-              <FlashList
-                data={reviewSubjects}
-                estimatedItemSize={200}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingRight: 16 }}
-                keyExtractor={(item) => item.id}
-                decelerationRate="fast"
-                renderItem={renderSubjectCard}
-                ItemSeparatorComponent={SubjectCardSeparator}
-                ListEmptyComponent={
-                  <Card className="w-[300px]">
-                    <CardContent className="gap-2 px-4 py-4">
-                      <Text className="text-sm font-black text-card-foreground">
-                        No review subjects yet
-                      </Text>
-                      <Text className="text-[13px] leading-5 text-muted-foreground">
-                        Add Appwrite subject and topic records to populate this
-                        section.
-                      </Text>
-                    </CardContent>
-                  </Card>
-                }
-              />
-            )}
-          </View>
+          <PracticeAreasSection
+            theme={theme}
+            isLoading={subjectsQuery.isLoading}
+            errorMessage={subjectsErrorMessage}
+            reviewSubjects={reviewSubjects}
+            renderSubjectCard={renderSubjectCard}
+          />
         </FadeInView>
       </ScrollView>
     </SafeAreaView>

@@ -9,7 +9,7 @@ import { vars } from "nativewind"
 
 import "react-native-reanimated"
 
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { View } from "react-native"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 
@@ -58,22 +58,29 @@ function RootNavigator() {
   const authState = useAuth((state) => state.authState)
   const colorScheme = useColorScheme()
   const navTheme = colorScheme === "dark" ? NAV_THEME.dark : NAV_THEME.light
-  const nativewindThemeVariables = useMemo(() => vars(
-    colorScheme === "dark"
-      ? NATIVEWIND_THEME_VARIABLES.dark
-      : NATIVEWIND_THEME_VARIABLES.light
-  ), [colorScheme])
+  const nativewindThemeVariables = useMemo(
+    () =>
+      vars(
+        colorScheme === "dark"
+          ? NATIVEWIND_THEME_VARIABLES.dark
+          : NATIVEWIND_THEME_VARIABLES.light
+      ),
+    [colorScheme]
+  )
 
-  const screenOptions = useMemo(() => ({
-    headerShadowVisible: false,
-    headerStyle: { backgroundColor: navTheme.colors.background },
-    headerTintColor: navTheme.colors.primary,
-    headerBackButtonDisplayMode: "minimal" as const,
-    headerTitleStyle: {
-      fontFamily: APP_FONTS.extraBold,
-      fontSize: 18,
-    },
-  }), [navTheme.colors.background, navTheme.colors.primary])
+  const screenOptions = useMemo(
+    () => ({
+      headerShadowVisible: false,
+      headerStyle: { backgroundColor: navTheme.colors.background },
+      headerTintColor: navTheme.colors.primary,
+      headerBackButtonDisplayMode: "minimal" as const,
+      headerTitleStyle: {
+        fontFamily: APP_FONTS.extraBold,
+        fontSize: 18,
+      },
+    }),
+    [navTheme.colors.background, navTheme.colors.primary]
+  )
 
   useEffect(() => {
     if (fontsLoaded && isReady && authState.status !== "loading") {

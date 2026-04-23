@@ -24,6 +24,9 @@ import {
 } from "./schema"
 
 const COMMUNITY_LIMIT = 200
+const MAX_THREAD_PHOTO_SIZE_BYTES = 8 * 1024 * 1024
+const UNKNOWN_POST_ATTRIBUTE_PATTERN =
+  /unknown attribute|attribute not found|Invalid document structure/i
 
 export type CommunityAuthor = {
   id: string
@@ -161,13 +164,9 @@ function normalizePhotoUrl(value?: string): string | null {
   return trimmed
 }
 
-export async function uploadCommunityPostPhoto(
+function validateUploadCommunityPostPhotoInput(
   input: UploadCommunityPostPhotoInput
-): Promise<string> {
-  ensureCommunityConfigured()
-
-  const bucketId = getCommunityPostImagesBucketId()
-
+) {
   if (!input.uri.trim()) {
     throw createAppwriteContentError(
       "request",
@@ -189,12 +188,21 @@ export async function uploadCommunityPostPhoto(
     )
   }
 
-  if (input.size > 8 * 1024 * 1024) {
+  if (input.size > MAX_THREAD_PHOTO_SIZE_BYTES) {
     throw createAppwriteContentError(
       "request",
       "Thread photos must be 8 MB or smaller."
     )
   }
+}
+
+export async function uploadCommunityPostPhoto(
+  input: UploadCommunityPostPhotoInput
+): Promise<string> {
+  ensureCommunityConfigured()
+
+  const bucketId = getCommunityPostImagesBucketId()
+  validateUploadCommunityPostPhotoInput(input)
 
   const uploadedFile = await storage.createFile({
     bucketId,
@@ -287,13 +295,268 @@ async function listRowsSafe<T>(tableId: string, queries: string[]) {
   return rows as unknown as T[]
 }
 
+type CommunityFeedRows = {
+  posts: PostDocument[]
+  comments: CommentDocument[]
+  replies: ReplyDocument[]
+  postLikes: PostLikeDocument[]
+  profiles: UserProfileDocument[]
+  subjects: SubjectDocument[]
+  flaggedItems: FlaggedContentDocument[]
+}
+
+type HiddenCommunityContent = {
+  hiddenPostIds: Set<string>
+  hiddenCommentIds: Set<string>
+  hiddenReplyIds: Set<string>
+}
+
+type CommunityPostMappingContext = {
+  commentsByPostId: Map<string, CommunityCommentItem[]>
+  postLikesByPostId: Map<string, Set<string>>
+  subjectMap: Map<string, string>
+  profileMap: Map<string, UserProfileDocument>
+  currentUserId?: string
+}
+
+async function listCommunityFeedRows(): Promise<CommunityFeedRows> {
+  const [
+    posts,
+    comments,
+    replies,
+    postLikes,
+    profiles,
+    subjects,
+    flaggedItems,
+  ] = await Promise.all([
+    listRowsSafe<PostDocument>(COLLECTIONS.POSTS, [
+      Query.orderDesc("createdAt"),
+      Query.limit(COMMUNITY_LIMIT),
+    ]),
+    listRowsSafe<CommentDocument>(COLLECTIONS.COMMENTS, [
+      Query.orderAsc("createdAt"),
+      Query.limit(COMMUNITY_LIMIT),
+    ]),
+    listRowsSafe<ReplyDocument>(COLLECTIONS.REPLIES, [
+      Query.orderAsc("createdAt"),
+      Query.limit(COMMUNITY_LIMIT),
+    ]),
+    listRowsSafe<PostLikeDocument>(COLLECTIONS.POST_LIKES, [
+      Query.limit(COMMUNITY_LIMIT),
+    ]),
+    listRowsSafe<UserProfileDocument>(COLLECTIONS.USER_PROFILES, [
+      Query.limit(COMMUNITY_LIMIT),
+    ]).catch(() => []),
+    listRowsSafe<SubjectDocument>(COLLECTIONS.SUBJECTS, [
+      Query.orderAsc("order"),
+      Query.limit(COMMUNITY_LIMIT),
+    ]).catch(() => []),
+    listRowsSafe<FlaggedContentDocument>(COLLECTIONS.FLAGGED_CONTENT, [
+      Query.limit(COMMUNITY_LIMIT),
+    ]).catch(() => []),
+  ])
+
+  return {
+    posts,
+    comments,
+    replies,
+    postLikes,
+    profiles,
+    subjects,
+    flaggedItems,
+  }
+}
+
+function buildHiddenCommunityContent(
+  flaggedItems: FlaggedContentDocument[]
+): HiddenCommunityContent {
+  const activeFlags = flaggedItems.filter((flag) => flag.status !== "dismissed")
+
+  return {
+    hiddenPostIds: new Set(
+      activeFlags
+        .filter((flag) => flag.contentType === "post")
+        .map((flag) => flag.contentId)
+    ),
+    hiddenCommentIds: new Set(
+      activeFlags
+        .filter((flag) => flag.contentType === "comment")
+        .map((flag) => flag.contentId)
+    ),
+    hiddenReplyIds: new Set(
+      activeFlags
+        .filter((flag) => flag.contentType === "reply")
+        .map((flag) => flag.contentId)
+    ),
+  }
+}
+
+function buildProfileMap(profiles: UserProfileDocument[]) {
+  return new Map(profiles.map((profile) => [profile.userId, profile]))
+}
+
+function buildSubjectMap(subjects: SubjectDocument[]) {
+  return new Map(subjects.map((subject) => [subject.$id, subject.name]))
+}
+
+function buildPostLikesByPostId(postLikes: PostLikeDocument[]) {
+  const postLikesByPostId = new Map<string, Set<string>>()
+
+  for (const like of postLikes) {
+    const users = postLikesByPostId.get(like.postId) ?? new Set<string>()
+    users.add(like.userId)
+    postLikesByPostId.set(like.postId, users)
+  }
+
+  return postLikesByPostId
+}
+
+function shouldHideReply(
+  reply: ReplyDocument,
+  hiddenContent: HiddenCommunityContent
+) {
+  return (
+    hiddenContent.hiddenReplyIds.has(reply.$id) ||
+    hiddenContent.hiddenCommentIds.has(reply.commentId)
+  )
+}
+
+function toCommunityReplyItem(
+  reply: ReplyDocument,
+  profileMap: Map<string, UserProfileDocument>
+): CommunityReplyItem {
+  return {
+    id: reply.$id,
+    commentId: reply.commentId,
+    content: reply.content,
+    createdAt: reply.createdAt,
+    createdAtLabel: formatRelativeTime(reply.createdAt),
+    author: mapAuthor(reply.userId, profileMap),
+  }
+}
+
+function buildRepliesByCommentId(
+  replies: ReplyDocument[],
+  hiddenContent: HiddenCommunityContent,
+  profileMap: Map<string, UserProfileDocument>
+) {
+  const repliesByCommentId = new Map<string, CommunityReplyItem[]>()
+
+  for (const reply of replies) {
+    if (shouldHideReply(reply, hiddenContent)) {
+      continue
+    }
+
+    const current = repliesByCommentId.get(reply.commentId) ?? []
+    current.push(toCommunityReplyItem(reply, profileMap))
+    repliesByCommentId.set(reply.commentId, current)
+  }
+
+  return repliesByCommentId
+}
+
+function shouldHideComment(
+  comment: CommentDocument,
+  hiddenContent: HiddenCommunityContent
+) {
+  return (
+    hiddenContent.hiddenCommentIds.has(comment.$id) ||
+    hiddenContent.hiddenPostIds.has(comment.postId)
+  )
+}
+
+function toCommunityCommentItem(
+  comment: CommentDocument,
+  profileMap: Map<string, UserProfileDocument>,
+  repliesByCommentId: Map<string, CommunityReplyItem[]>
+): CommunityCommentItem {
+  return {
+    id: comment.$id,
+    postId: comment.postId,
+    content: comment.content,
+    createdAt: comment.createdAt,
+    createdAtLabel: formatRelativeTime(comment.createdAt),
+    author: mapAuthor(comment.userId, profileMap),
+    replies: repliesByCommentId.get(comment.$id) ?? [],
+  }
+}
+
+function buildCommentsByPostId(
+  comments: CommentDocument[],
+  hiddenContent: HiddenCommunityContent,
+  profileMap: Map<string, UserProfileDocument>,
+  repliesByCommentId: Map<string, CommunityReplyItem[]>
+) {
+  const commentsByPostId = new Map<string, CommunityCommentItem[]>()
+
+  for (const comment of comments) {
+    if (shouldHideComment(comment, hiddenContent)) {
+      continue
+    }
+
+    const current = commentsByPostId.get(comment.postId) ?? []
+    current.push(
+      toCommunityCommentItem(comment, profileMap, repliesByCommentId)
+    )
+    commentsByPostId.set(comment.postId, current)
+  }
+
+  return commentsByPostId
+}
+
+function mapCommunityPost(
+  post: PostDocument,
+  context: CommunityPostMappingContext
+): CommunityPostItem {
+  const threadComments = context.commentsByPostId.get(post.$id) ?? []
+  const repliesCount = threadComments.reduce(
+    (count, comment) => count + comment.replies.length,
+    0
+  )
+  const likedUsers =
+    context.postLikesByPostId.get(post.$id) ?? new Set<string>()
+
+  return {
+    id: post.$id,
+    userId: post.userId,
+    title: post.title,
+    content: post.content,
+    category: post.category,
+    subjectId: post.subjectId ?? null,
+    subjectName: post.subjectId
+      ? (context.subjectMap.get(post.subjectId) ?? null)
+      : null,
+    photoUrl: post.photoUrl?.trim() || null,
+    createdAt: post.createdAt,
+    createdAtLabel: formatRelativeTime(post.createdAt),
+    likesCount: likedUsers.size || post.likesCount,
+    commentsCount: threadComments.length,
+    repliesCount,
+    isLiked: context.currentUserId
+      ? likedUsers.has(context.currentUserId)
+      : false,
+    author: mapAuthor(post.userId, context.profileMap),
+    comments: threadComments,
+  }
+}
+
+function buildCommunityFeedStats(
+  posts: CommunityPostItem[]
+): CommunityFeed["stats"] {
+  return {
+    activeLearners: new Set(posts.map((post) => post.userId)).size,
+    openTopics: posts.length,
+    answeredToday: posts.filter((post) => post.commentsCount > 0).length,
+  }
+}
+
 export async function listCommunityFeed(
   currentUserId?: string
 ): Promise<CommunityFeed> {
   ensureCommunityConfigured()
 
   try {
-    const [
+    const {
       posts,
       comments,
       replies,
@@ -301,150 +564,39 @@ export async function listCommunityFeed(
       profiles,
       subjects,
       flaggedItems,
-    ] = await Promise.all([
-      listRowsSafe<PostDocument>(COLLECTIONS.POSTS, [
-        Query.orderDesc("createdAt"),
-        Query.limit(COMMUNITY_LIMIT),
-      ]),
-      listRowsSafe<CommentDocument>(COLLECTIONS.COMMENTS, [
-        Query.orderAsc("createdAt"),
-        Query.limit(COMMUNITY_LIMIT),
-      ]),
-      listRowsSafe<ReplyDocument>(COLLECTIONS.REPLIES, [
-        Query.orderAsc("createdAt"),
-        Query.limit(COMMUNITY_LIMIT),
-      ]),
-      listRowsSafe<PostLikeDocument>(COLLECTIONS.POST_LIKES, [
-        Query.limit(COMMUNITY_LIMIT),
-      ]),
-      listRowsSafe<UserProfileDocument>(COLLECTIONS.USER_PROFILES, [
-        Query.limit(COMMUNITY_LIMIT),
-      ]).catch(() => []),
-      listRowsSafe<SubjectDocument>(COLLECTIONS.SUBJECTS, [
-        Query.orderAsc("order"),
-        Query.limit(COMMUNITY_LIMIT),
-      ]).catch(() => []),
-      listRowsSafe<FlaggedContentDocument>(COLLECTIONS.FLAGGED_CONTENT, [
-        Query.limit(COMMUNITY_LIMIT),
-      ]).catch(() => []),
-    ])
+    } = await listCommunityFeedRows()
 
-    const activeFlags = flaggedItems.filter(
-      (flag) => flag.status !== "dismissed"
+    const hiddenContent = buildHiddenCommunityContent(flaggedItems)
+    const profileMap = buildProfileMap(profiles)
+    const subjectMap = buildSubjectMap(subjects)
+    const postLikesByPostId = buildPostLikesByPostId(postLikes)
+    const repliesByCommentId = buildRepliesByCommentId(
+      replies,
+      hiddenContent,
+      profileMap
     )
-    const hiddenPostIds = new Set(
-      activeFlags
-        .filter((flag) => flag.contentType === "post")
-        .map((flag) => flag.contentId)
+    const commentsByPostId = buildCommentsByPostId(
+      comments,
+      hiddenContent,
+      profileMap,
+      repliesByCommentId
     )
-    const hiddenCommentIds = new Set(
-      activeFlags
-        .filter((flag) => flag.contentType === "comment")
-        .map((flag) => flag.contentId)
-    )
-    const hiddenReplyIds = new Set(
-      activeFlags
-        .filter((flag) => flag.contentType === "reply")
-        .map((flag) => flag.contentId)
-    )
-
-    const profileMap = new Map(
-      profiles.map((profile) => [profile.userId, profile])
-    )
-    const subjectMap = new Map(
-      subjects.map((subject) => [subject.$id, subject.name])
-    )
-    const postLikesByPostId = new Map<string, Set<string>>()
-
-    for (const like of postLikes) {
-      const users = postLikesByPostId.get(like.postId) ?? new Set<string>()
-      users.add(like.userId)
-      postLikesByPostId.set(like.postId, users)
-    }
-
-    const repliesByCommentId = new Map<string, CommunityReplyItem[]>()
-    for (const reply of replies) {
-      if (
-        hiddenReplyIds.has(reply.$id) ||
-        hiddenCommentIds.has(reply.commentId)
-      ) {
-        continue
-      }
-
-      const current = repliesByCommentId.get(reply.commentId) ?? []
-      current.push({
-        id: reply.$id,
-        commentId: reply.commentId,
-        content: reply.content,
-        createdAt: reply.createdAt,
-        createdAtLabel: formatRelativeTime(reply.createdAt),
-        author: mapAuthor(reply.userId, profileMap),
-      })
-      repliesByCommentId.set(reply.commentId, current)
-    }
-
-    const commentsByPostId = new Map<string, CommunityCommentItem[]>()
-    for (const comment of comments) {
-      if (
-        hiddenCommentIds.has(comment.$id) ||
-        hiddenPostIds.has(comment.postId)
-      ) {
-        continue
-      }
-
-      const current = commentsByPostId.get(comment.postId) ?? []
-      current.push({
-        id: comment.$id,
-        postId: comment.postId,
-        content: comment.content,
-        createdAt: comment.createdAt,
-        createdAtLabel: formatRelativeTime(comment.createdAt),
-        author: mapAuthor(comment.userId, profileMap),
-        replies: repliesByCommentId.get(comment.$id) ?? [],
-      })
-      commentsByPostId.set(comment.postId, current)
-    }
 
     const mappedPosts = posts
-      .filter((post) => !hiddenPostIds.has(post.$id))
-      .map((post) => {
-        const threadComments = commentsByPostId.get(post.$id) ?? []
-        const repliesCount = threadComments.reduce(
-          (count, comment) => count + comment.replies.length,
-          0
-        )
-        const likedUsers = postLikesByPostId.get(post.$id) ?? new Set<string>()
-
-        return {
-          id: post.$id,
-          userId: post.userId,
-          title: post.title,
-          content: post.content,
-          category: post.category,
-          subjectId: post.subjectId ?? null,
-          subjectName: post.subjectId
-            ? (subjectMap.get(post.subjectId) ?? null)
-            : null,
-          photoUrl: post.photoUrl?.trim() || null,
-          createdAt: post.createdAt,
-          createdAtLabel: formatRelativeTime(post.createdAt),
-          likesCount: likedUsers.size || post.likesCount,
-          commentsCount: threadComments.length,
-          repliesCount,
-          isLiked: currentUserId ? likedUsers.has(currentUserId) : false,
-          author: mapAuthor(post.userId, profileMap),
-          comments: threadComments,
-        } satisfies CommunityPostItem
-      })
+      .filter((post) => !hiddenContent.hiddenPostIds.has(post.$id))
+      .map((post) =>
+        mapCommunityPost(post, {
+          commentsByPostId,
+          postLikesByPostId,
+          subjectMap,
+          profileMap,
+          currentUserId,
+        })
+      )
 
     return {
       posts: mappedPosts,
-      stats: {
-        activeLearners: new Set(mappedPosts.map((post) => post.userId)).size,
-        openTopics: mappedPosts.length,
-        answeredToday: mappedPosts.filter((post) => post.commentsCount > 0)
-          .length,
-      },
+      stats: buildCommunityFeedStats(mappedPosts),
     }
   } catch (error) {
     throw toCommunityError(
@@ -454,12 +606,51 @@ export async function listCommunityFeed(
   }
 }
 
+type CommunityPostPayload = {
+  userId: string
+  title: string
+  content: string
+  category: CreateCommunityPostInput["category"]
+  likesCount: number
+  createdAt: string
+  subjectId?: string
+  photoUrl?: string
+}
+
+type CreateCommunityPostRetryPayload = Omit<CommunityPostPayload, "photoUrl">
+
+async function createCommunityPostRow(
+  payload: CommunityPostPayload | CreateCommunityPostRetryPayload,
+  userId: string
+) {
+  await tablesDB.createRow({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.POSTS,
+    rowId: ID.unique(),
+    data: payload,
+    permissions: getOwnerPermissions(userId),
+  })
+}
+
+function isUnknownPostAttributeError(error: unknown) {
+  return (
+    error instanceof Error && UNKNOWN_POST_ATTRIBUTE_PATTERN.test(error.message)
+  )
+}
+
+function shouldRetryCreatePostWithoutPhoto(
+  photoUrl: string | null,
+  error: unknown
+) {
+  return Boolean(photoUrl) && isUnknownPostAttributeError(error)
+}
+
 export async function createCommunityPost(input: CreateCommunityPostInput) {
   ensureCommunityConfigured()
 
   const photoUrl = normalizePhotoUrl(input.photoUrl)
 
-  const payload = {
+  const payload: CommunityPostPayload = {
     userId: input.userId,
     title: input.title,
     content: input.content,
@@ -471,33 +662,14 @@ export async function createCommunityPost(input: CreateCommunityPostInput) {
   }
 
   try {
-    await tablesDB.createRow({
-      databaseId: DB_ID,
-      tableId: COLLECTIONS.POSTS,
-      rowId: ID.unique(),
-      data: payload,
-      permissions: getOwnerPermissions(input.userId),
-    })
+    await createCommunityPostRow(payload, input.userId)
   } catch (error) {
     // If Appwrite posts schema has not yet been updated with photoUrl,
     // retry once without it so posting still works.
-    if (
-      photoUrl &&
-      error instanceof Error &&
-      /unknown attribute|attribute not found|Invalid document structure/i.test(
-        error.message
-      )
-    ) {
+    if (shouldRetryCreatePostWithoutPhoto(photoUrl, error)) {
       try {
-        const { photoUrl: _, ...payloadWithoutPhoto } = payload
-
-        await tablesDB.createRow({
-          databaseId: DB_ID,
-          tableId: COLLECTIONS.POSTS,
-          rowId: ID.unique(),
-          data: payloadWithoutPhoto,
-          permissions: getOwnerPermissions(input.userId),
-        })
+        const { photoUrl: _photoUrl, ...payloadWithoutPhoto } = payload
+        await createCommunityPostRow(payloadWithoutPhoto, input.userId)
         return
       } catch {
         // Fall through to canonical error handling below.
@@ -508,20 +680,25 @@ export async function createCommunityPost(input: CreateCommunityPostInput) {
   }
 }
 
-export async function createCommunityComment(input: {
+type CreateCommunityThreadEntryInput = {
+  tableId: string
   userId: string
-  postId: string
   content: string
-}) {
-  ensureCommunityConfigured()
+  parentField: "postId" | "commentId"
+  parentId: string
+  fallbackMessage: string
+}
 
+async function createCommunityThreadEntry(
+  input: CreateCommunityThreadEntryInput
+) {
   try {
     await tablesDB.createRow({
       databaseId: DB_ID,
-      tableId: COLLECTIONS.COMMENTS,
+      tableId: input.tableId,
       rowId: ID.unique(),
       data: {
-        postId: input.postId,
+        [input.parentField]: input.parentId,
         userId: input.userId,
         content: input.content,
         likesCount: 0,
@@ -530,8 +707,25 @@ export async function createCommunityComment(input: {
       permissions: getOwnerPermissions(input.userId),
     })
   } catch (error) {
-    throw toCommunityError(error, "Unable to add the comment.")
+    throw toCommunityError(error, input.fallbackMessage)
   }
+}
+
+export async function createCommunityComment(input: {
+  userId: string
+  postId: string
+  content: string
+}) {
+  ensureCommunityConfigured()
+
+  await createCommunityThreadEntry({
+    tableId: COLLECTIONS.COMMENTS,
+    userId: input.userId,
+    content: input.content,
+    parentField: "postId",
+    parentId: input.postId,
+    fallbackMessage: "Unable to add the comment.",
+  })
 }
 
 export async function createCommunityReply(input: {
@@ -541,23 +735,14 @@ export async function createCommunityReply(input: {
 }) {
   ensureCommunityConfigured()
 
-  try {
-    await tablesDB.createRow({
-      databaseId: DB_ID,
-      tableId: COLLECTIONS.REPLIES,
-      rowId: ID.unique(),
-      data: {
-        commentId: input.commentId,
-        userId: input.userId,
-        content: input.content,
-        likesCount: 0,
-        createdAt: new Date().toISOString(),
-      },
-      permissions: getOwnerPermissions(input.userId),
-    })
-  } catch (error) {
-    throw toCommunityError(error, "Unable to add the reply.")
-  }
+  await createCommunityThreadEntry({
+    tableId: COLLECTIONS.REPLIES,
+    userId: input.userId,
+    content: input.content,
+    parentField: "commentId",
+    parentId: input.commentId,
+    fallbackMessage: "Unable to add the reply.",
+  })
 }
 
 export async function toggleCommunityPostLike(input: {

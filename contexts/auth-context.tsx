@@ -136,7 +136,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
   login: async (email, password) => {
     try {
-      const user = await loginWithPassword(email, password)
+      const user = await loginWithPassword({ email, password })
       // Show authenticated immediately — profile loads in background
       set(toAuthSnapshot({ status: "authenticated", user, profile: null }))
 
@@ -157,7 +157,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     }
   },
   register: async (email, password, fullName) => {
-    const user = await createAccount(email, password, fullName)
+    const user = await createAccount({ email, password, fullName })
     const profile = await bootstrapProfileSafely(user, fullName, email)
     set(toAuthSnapshot({ status: "authenticated", user, profile }))
   },
@@ -221,7 +221,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     await sendCurrentUserVerificationEmail()
   },
   completeEmailVerification: async (userId, secret) => {
-    const user = await completeCurrentUserEmailVerification(userId, secret)
+    const user = await completeCurrentUserEmailVerification({ userId, secret })
     const profile = await bootstrapProfileSafely(user)
     set(toAuthSnapshot({ status: "authenticated", user, profile }))
   },
@@ -230,7 +230,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       throw new Error("You need to sign in again to change your password.")
     }
 
-    await changeCurrentUserPassword(currentPassword, nextPassword)
+    await changeCurrentUserPassword({ currentPassword, nextPassword })
   },
   deleteAccount: async () => {
     if (get().authState.status !== "authenticated") {

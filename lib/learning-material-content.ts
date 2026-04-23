@@ -91,99 +91,168 @@ function extractNodeText(node: unknown): string {
   return [...textCandidates, ...childText].join(" ").trim()
 }
 
-function parseBlocksFromSections(input: string): ContentBlock[] {
-  const sections = input
+type SectionParser = (lines: string[]) => ContentBlock[] | null
+
+const BULLET_LIST_ITEM_PREFIX = /^[-*•]\s+/
+const NUMBERED_LIST_ITEM_PREFIX = /^\d+[.)]\s+/
+const MARKDOWN_HEADING_PATTERN = /^(#{1,6})\s+(.*)$/
+
+function splitMarkdownSections(input: string) {
+  return input
     .replace(/\r\n/g, "\n")
     .split(/\n\s*\n/g)
     .map((section) => section.trim())
     .filter(Boolean)
+}
 
-  return sections.reduce<ContentBlock[]>((blocks, section) => {
-    const lines = section
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
+function toSectionLines(section: string) {
+  return section
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
 
-    if (lines.length === 0) {
-      return blocks
+function isFencedCodeSection(lines: string[]) {
+  return Boolean(
+    lines[0]?.startsWith("```") && lines[lines.length - 1]?.startsWith("```")
+  )
+}
+
+function tryParseImageSection(lines: string[]): ContentBlock[] | null {
+  if (lines.length !== 1) {
+    return null
+  }
+
+  const image = parseMarkdownImage(lines[0])
+  if (!image) {
+    return null
+  }
+
+  return [
+    {
+      kind: "image",
+      alt: image.alt,
+      src: image.src,
+    },
+  ]
+}
+
+function tryParseCodeSection(lines: string[]): ContentBlock[] | null {
+  if (!isFencedCodeSection(lines)) {
+    return null
+  }
+
+  return [
+    {
+      kind: "code",
+      text: lines.slice(1, -1).join("\n").trim(),
+    },
+  ]
+}
+
+function tryParseBulletListSection(lines: string[]): ContentBlock[] | null {
+  if (!lines.every((line) => BULLET_LIST_ITEM_PREFIX.test(line))) {
+    return null
+  }
+
+  return [
+    {
+      kind: "bullet-list",
+      items: lines.map((line) =>
+        line.replace(BULLET_LIST_ITEM_PREFIX, "").trim()
+      ),
+    },
+  ]
+}
+
+function tryParseNumberedListSection(lines: string[]): ContentBlock[] | null {
+  if (!lines.every((line) => NUMBERED_LIST_ITEM_PREFIX.test(line))) {
+    return null
+  }
+
+  return [
+    {
+      kind: "numbered-list",
+      items: lines.map((line) =>
+        line.replace(NUMBERED_LIST_ITEM_PREFIX, "").trim()
+      ),
+    },
+  ]
+}
+
+function tryParseQuoteSection(lines: string[]): ContentBlock[] | null {
+  if (!lines.every((line) => line.startsWith(">"))) {
+    return null
+  }
+
+  return [
+    {
+      kind: "quote",
+      text: lines
+        .map((line) => line.replace(/^>\s?/, "").trim())
+        .join("\n")
+        .trim(),
+    },
+  ]
+}
+
+function tryParseHeadingSection(lines: string[]): ContentBlock[] | null {
+  const headingMatch = lines[0].match(MARKDOWN_HEADING_PATTERN)
+  if (!headingMatch) {
+    return null
+  }
+
+  const [, hashes, headingText] = headingMatch
+  const rest = lines.slice(1).join(" ").trim()
+  const blocks: ContentBlock[] = [
+    {
+      kind: "heading",
+      text: headingText.trim(),
+      level: hashes.length,
+    },
+  ]
+
+  if (rest) {
+    blocks.push({ kind: "paragraph", text: rest })
+  }
+
+  return blocks
+}
+
+const SECTION_PARSERS: SectionParser[] = [
+  tryParseImageSection,
+  tryParseCodeSection,
+  tryParseBulletListSection,
+  tryParseNumberedListSection,
+  tryParseQuoteSection,
+  tryParseHeadingSection,
+]
+
+function parseSectionBlocks(section: string): ContentBlock[] {
+  const lines = toSectionLines(section)
+  if (lines.length === 0) {
+    return []
+  }
+
+  for (const parseSection of SECTION_PARSERS) {
+    const parsed = parseSection(lines)
+    if (parsed !== null) {
+      return parsed
     }
+  }
 
-    if (lines.length === 1) {
-      const image = parseMarkdownImage(lines[0])
-
-      if (image) {
-        blocks.push({
-          kind: "image",
-          alt: image.alt,
-          src: image.src,
-        })
-        return blocks
-      }
-    }
-
-    if (
-      lines[0].startsWith("```") &&
-      lines[lines.length - 1]?.startsWith("```")
-    ) {
-      blocks.push({
-        kind: "code",
-        text: lines.slice(1, -1).join("\n").trim(),
-      })
-      return blocks
-    }
-
-    if (lines.every((line) => /^[-*•]\s+/.test(line))) {
-      blocks.push({
-        kind: "bullet-list",
-        items: lines.map((line) => line.replace(/^[-*•]\s+/, "").trim()),
-      })
-      return blocks
-    }
-
-    if (lines.every((line) => /^\d+[.)]\s+/.test(line))) {
-      blocks.push({
-        kind: "numbered-list",
-        items: lines.map((line) => line.replace(/^\d+[.)]\s+/, "").trim()),
-      })
-      return blocks
-    }
-
-    if (lines.every((line) => line.startsWith(">"))) {
-      blocks.push({
-        kind: "quote",
-        text: lines
-          .map((line) => line.replace(/^>\s?/, "").trim())
-          .join("\n")
-          .trim(),
-      })
-      return blocks
-    }
-
-    const headingMatch = lines[0].match(/^(#{1,6})\s+(.*)$/)
-    if (headingMatch) {
-      const [, hashes, headingText] = headingMatch
-      const rest = lines.slice(1).join(" ").trim()
-
-      blocks.push({
-        kind: "heading",
-        text: headingText.trim(),
-        level: hashes.length,
-      })
-
-      if (rest) {
-        blocks.push({ kind: "paragraph", text: rest })
-      }
-
-      return blocks
-    }
-
-    blocks.push({
+  return [
+    {
       kind: "paragraph",
       text: lines.join(" ").trim(),
-    })
+    },
+  ]
+}
 
-    return blocks
-  }, [])
+function parseBlocksFromSections(input: string): ContentBlock[] {
+  return splitMarkdownSections(input).flatMap((section) =>
+    parseSectionBlocks(section)
+  )
 }
 
 function getHeadingLevel(nodeType: string) {
@@ -243,6 +312,186 @@ function htmlToMarkdown(input: string) {
     .trim()
 }
 
+type RichNodeParserContext = {
+  nodeType: string
+  node: Record<string, unknown>
+  children: unknown
+}
+
+type RichNodeParser = (context: RichNodeParserContext) => ContentBlock[] | null
+
+function isBulletListNodeType(nodeType: string) {
+  return (
+    nodeType.includes("bullet") ||
+    nodeType === "ul" ||
+    nodeType === "unordered-list"
+  )
+}
+
+function isNumberedListNodeType(nodeType: string) {
+  return (
+    nodeType.includes("ordered") ||
+    nodeType === "ol" ||
+    nodeType === "numbered-list"
+  )
+}
+
+function isHeadingNodeType(nodeType: string) {
+  return nodeType.includes("heading") || /^h[1-6]$/.test(nodeType)
+}
+
+function isImageNodeType(nodeType: string) {
+  return nodeType.includes("image") || nodeType === "img"
+}
+
+function isQuoteNodeType(nodeType: string) {
+  return nodeType.includes("quote")
+}
+
+function isCodeNodeType(nodeType: string) {
+  return nodeType.includes("code")
+}
+
+function isParagraphNodeType(nodeType: string) {
+  return nodeType.includes("paragraph") || nodeType === "p"
+}
+
+function toListItems(children: unknown) {
+  return Array.isArray(children)
+    ? children.map((item) => extractNodeText(item)).filter(Boolean)
+    : []
+}
+
+function getImageSrc(node: Record<string, unknown>) {
+  const srcCandidates = [node.src, node.url, node.href, node.source].filter(
+    (candidate): candidate is string => typeof candidate === "string"
+  )
+
+  return srcCandidates.find(Boolean)?.trim() ?? ""
+}
+
+function getImageAlt(node: Record<string, unknown>) {
+  return typeof node.alt === "string" ? node.alt.trim() : ""
+}
+
+function parseBulletListNode({
+  nodeType,
+  children,
+}: RichNodeParserContext): ContentBlock[] | null {
+  if (!isBulletListNodeType(nodeType)) {
+    return null
+  }
+
+  const items = toListItems(children)
+  return items.length ? [{ kind: "bullet-list", items }] : []
+}
+
+function parseNumberedListNode({
+  nodeType,
+  children,
+}: RichNodeParserContext): ContentBlock[] | null {
+  if (!isNumberedListNodeType(nodeType)) {
+    return null
+  }
+
+  const items = toListItems(children)
+  return items.length ? [{ kind: "numbered-list", items }] : []
+}
+
+function parseHeadingNode({
+  nodeType,
+  node,
+}: RichNodeParserContext): ContentBlock[] | null {
+  if (!isHeadingNodeType(nodeType)) {
+    return null
+  }
+
+  const text = extractNodeText(node)
+
+  return text
+    ? [
+        {
+          kind: "heading",
+          text,
+          level: getHeadingLevel(nodeType),
+        },
+      ]
+    : []
+}
+
+function parseImageNode({
+  nodeType,
+  node,
+}: RichNodeParserContext): ContentBlock[] | null {
+  if (!isImageNodeType(nodeType)) {
+    return null
+  }
+
+  const src = getImageSrc(node)
+  const alt = getImageAlt(node)
+
+  return src ? [{ kind: "image", alt, src }] : []
+}
+
+function parseQuoteNode({
+  nodeType,
+  node,
+}: RichNodeParserContext): ContentBlock[] | null {
+  if (!isQuoteNodeType(nodeType)) {
+    return null
+  }
+
+  const text = extractNodeText(node)
+  return text ? [{ kind: "quote", text }] : []
+}
+
+function parseCodeNode({
+  nodeType,
+  node,
+}: RichNodeParserContext): ContentBlock[] | null {
+  if (!isCodeNodeType(nodeType)) {
+    return null
+  }
+
+  const text = extractNodeText(node)
+  return text ? [{ kind: "code", text }] : []
+}
+
+function parseParagraphNode({
+  nodeType,
+  node,
+}: RichNodeParserContext): ContentBlock[] | null {
+  if (!isParagraphNodeType(nodeType)) {
+    return null
+  }
+
+  const text = extractNodeText(node)
+  return text ? [{ kind: "paragraph", text }] : []
+}
+
+const RICH_NODE_PARSERS: RichNodeParser[] = [
+  parseBulletListNode,
+  parseNumberedListNode,
+  parseHeadingNode,
+  parseImageNode,
+  parseQuoteNode,
+  parseCodeNode,
+  parseParagraphNode,
+]
+
+function parseRichNodeByType(
+  context: RichNodeParserContext
+): ContentBlock[] | null {
+  for (const parseNode of RICH_NODE_PARSERS) {
+    const parsed = parseNode(context)
+    if (parsed !== null) {
+      return parsed
+    }
+  }
+
+  return null
+}
+
 function blocksFromRichJson(node: unknown): ContentBlock[] {
   if (typeof node === "string") {
     return parseBlocksFromSections(node)
@@ -259,67 +508,9 @@ function blocksFromRichJson(node: unknown): ContentBlock[] {
   const nodeType = String(node.type ?? node.nodeType ?? "").toLowerCase()
   const children = node.children ?? node.content ?? node.blocks ?? node.items
 
-  if (
-    nodeType.includes("bullet") ||
-    nodeType === "ul" ||
-    nodeType === "unordered-list"
-  ) {
-    const items = Array.isArray(children)
-      ? children.map((item) => extractNodeText(item)).filter(Boolean)
-      : []
-
-    return items.length ? [{ kind: "bullet-list", items }] : []
-  }
-
-  if (
-    nodeType.includes("ordered") ||
-    nodeType === "ol" ||
-    nodeType === "numbered-list"
-  ) {
-    const items = Array.isArray(children)
-      ? children.map((item) => extractNodeText(item)).filter(Boolean)
-      : []
-
-    return items.length ? [{ kind: "numbered-list", items }] : []
-  }
-
-  if (nodeType.includes("heading") || /^h[1-6]$/.test(nodeType)) {
-    const text = extractNodeText(node)
-
-    return text
-      ? [
-          {
-            kind: "heading",
-            text,
-            level: getHeadingLevel(nodeType),
-          },
-        ]
-      : []
-  }
-
-  if (nodeType.includes("image") || nodeType === "img") {
-    const srcCandidates = [node.src, node.url, node.href, node.source].filter(
-      (candidate): candidate is string => typeof candidate === "string"
-    )
-    const src = srcCandidates.find(Boolean)?.trim() ?? ""
-    const alt = typeof node.alt === "string" ? node.alt.trim() : ""
-
-    return src ? [{ kind: "image", alt, src }] : []
-  }
-
-  if (nodeType.includes("quote")) {
-    const text = extractNodeText(node)
-    return text ? [{ kind: "quote", text }] : []
-  }
-
-  if (nodeType.includes("code")) {
-    const text = extractNodeText(node)
-    return text ? [{ kind: "code", text }] : []
-  }
-
-  if (nodeType.includes("paragraph") || nodeType === "p") {
-    const text = extractNodeText(node)
-    return text ? [{ kind: "paragraph", text }] : []
+  const typedBlocks = parseRichNodeByType({ nodeType, node, children })
+  if (typedBlocks !== null) {
+    return typedBlocks
   }
 
   const nestedBlocks = blocksFromRichJson(children)
