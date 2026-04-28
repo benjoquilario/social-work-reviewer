@@ -22,7 +22,8 @@ type CommunityFeedHeaderProps = {
     answeredToday: number
   }
   theme: ThemePalette
-  currentUserAvatar?: string
+  currentUserAvatarLabel?: string
+  currentUserAvatarUrl?: string | null
 }
 
 export function CommunityFeedHeader({
@@ -33,7 +34,8 @@ export function CommunityFeedHeader({
   totalPosts,
   stats,
   theme,
-  currentUserAvatar,
+  currentUserAvatarLabel,
+  currentUserAvatarUrl,
 }: CommunityFeedHeaderProps) {
   return (
     <View className="gap-3 pb-2">
@@ -60,13 +62,14 @@ export function CommunityFeedHeader({
         style={{ borderWidth: 1, borderColor: theme.border }}
       >
         <CommunityAvatar
-          label={currentUserAvatar ?? "RV"}
+          label={currentUserAvatarLabel ?? "RV"}
+          sourceUri={currentUserAvatarUrl}
           theme={theme}
           size="md"
         />
         <Pressable className="flex-1" onPress={onOpenComposer}>
           <Text className="text-[14px] text-muted-foreground">
-            What&apos;s on your mind?
+            What's on your mind?
           </Text>
         </Pressable>
         <Pressable

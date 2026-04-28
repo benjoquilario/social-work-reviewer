@@ -39,6 +39,7 @@
           "photosPermission": "Allow Reviewer to access your photos so you can choose a profile picture."
         }
       ],
+      "expo-notifications",
       [
         "expo-splash-screen",
         {

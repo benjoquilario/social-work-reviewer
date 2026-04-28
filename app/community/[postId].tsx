@@ -64,6 +64,7 @@ const ReplyRow = memo(function ReplyRow({
     <View className="ml-12 flex-row gap-2.5 py-2">
       <CommunityAvatar
         label={reply.author.avatarSeed}
+        sourceUri={reply.author.avatarUrl}
         theme={theme}
         size="sm"
       />
@@ -120,6 +121,7 @@ const CommentRow = memo(function CommentRow({
       <View className="flex-row gap-2.5 py-2">
         <CommunityAvatar
           label={comment.author.avatarSeed}
+          sourceUri={comment.author.avatarUrl}
           theme={theme}
           size="md"
         />
@@ -207,6 +209,7 @@ export default function CommunityDiscussionScreen() {
     () => toAvatarSeed(profile?.fullName ?? user?.name ?? "RV"),
     [profile?.fullName, user?.name]
   )
+  const currentAvatarUrl = profile?.avatarUrl?.trim() || null
 
   const currentAuthor = useCallback(() => {
     if (!user) return null
@@ -220,6 +223,7 @@ export default function CommunityDiscussionScreen() {
         user.email ??
         "Community member",
       avatarSeed: toAvatarSeed(name),
+      avatarUrl: profile?.avatarUrl?.trim() || null,
     }
   }, [profile, user])
 
@@ -318,6 +322,7 @@ export default function CommunityDiscussionScreen() {
               <View className="flex-row items-center gap-3">
                 <CommunityAvatar
                   label={post.author.avatarSeed}
+                  sourceUri={post.author.avatarUrl}
                   theme={theme}
                   size="lg"
                 />
@@ -479,7 +484,12 @@ export default function CommunityDiscussionScreen() {
           className="flex-row items-center gap-2 border-t border-border/40 px-4 py-2.5"
           style={{ backgroundColor: theme.card }}
         >
-          <CommunityAvatar label={currentAvatarSeed} theme={theme} size="sm" />
+          <CommunityAvatar
+            label={currentAvatarSeed}
+            sourceUri={currentAvatarUrl}
+            theme={theme}
+            size="sm"
+          />
           <TextInput
             value={commentText}
             onChangeText={setCommentText}

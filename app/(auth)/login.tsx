@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
+import { Image } from "expo-image"
 import { useRouter } from "expo-router"
 import { BookOpenText, Eye, EyeOff, Lock, Mail } from "lucide-react-native"
 import {
@@ -67,20 +68,52 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Logo + branding */}
-          <View className="items-center gap-3">
-            <View
-              className="h-16 w-16 items-center justify-center rounded-3xl"
-              style={{ backgroundColor: theme.primary }}
-            >
-              <BookOpenText size={32} color={theme.primaryForeground} />
-            </View>
-            <View className="items-center gap-1">
-              <Text className="text-2xl font-black text-foreground">
-                Welcome back
-              </Text>
-              <Text className="text-sm text-muted-foreground">
-                Sign in to continue your review
-              </Text>
+          <View
+            className="overflow-hidden rounded-[30px] border px-5 py-5"
+            style={{
+              borderColor: borderColor,
+              backgroundColor: isDark ? theme.card : "hsl(42 55% 97%)",
+            }}
+          >
+            <View className="items-center gap-4">
+              <Image
+                source={require("@/assets/images/happy-graduation.png")}
+                style={{ width: 150, height: 150 }}
+                contentFit="contain"
+              />
+              <View className="items-center gap-1.5">
+                <Text className="text-center text-2xl font-black text-foreground">
+                  Welcome back to Reviewer
+                </Text>
+                <Text className="text-center text-sm leading-6 text-muted-foreground">
+                  Continue your drills, revisit quick access, and keep your
+                  study streak moving.
+                </Text>
+              </View>
+              <View
+                className="w-full flex-row items-center gap-2 rounded-2xl px-3.5 py-3"
+                style={{
+                  backgroundColor: isDark
+                    ? theme.muted
+                    : "hsl(0 0% 100% / 0.9)",
+                }}
+              >
+                <View
+                  className="h-10 w-10 items-center justify-center rounded-2xl"
+                  style={{ backgroundColor: theme.primary }}
+                >
+                  <BookOpenText size={18} color={theme.primaryForeground} />
+                </View>
+                <View className="flex-1 gap-0.5">
+                  <Text className="text-[13px] font-black text-foreground">
+                    Pick up where you left off
+                  </Text>
+                  <Text className="text-[12px] leading-5 text-muted-foreground">
+                    Resume your review and jump straight into today’s study
+                    plan.
+                  </Text>
+                </View>
+              </View>
             </View>
           </View>
 

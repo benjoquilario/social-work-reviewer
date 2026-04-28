@@ -41,6 +41,7 @@ const ReplyRow = memo(function ReplyRow({
       <View className="flex-row items-center gap-2.5">
         <CommunityAvatar
           label={reply.author.avatarSeed}
+          sourceUri={reply.author.avatarUrl}
           theme={theme}
           size="sm"
         />
@@ -91,6 +92,7 @@ const CommentRow = memo(function CommentRow({
       <View className="flex-row items-start gap-3">
         <CommunityAvatar
           label={comment.author.avatarSeed}
+          sourceUri={comment.author.avatarUrl}
           theme={theme}
           size="md"
         />
@@ -199,6 +201,7 @@ export function CommunityThreadDialog({
               <View className="flex-row items-start gap-3">
                 <CommunityAvatar
                   label={post.author.avatarSeed}
+                  sourceUri={post.author.avatarUrl}
                   theme={theme}
                   size="lg"
                 />

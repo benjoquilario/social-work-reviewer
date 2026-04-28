@@ -1,4 +1,5 @@
-import { View } from "react-native"
+import { useEffect, useMemo, useState } from "react"
+import { Image, View } from "react-native"
 
 import { THEME, withOpacity } from "@/lib/theme"
 import { cn } from "@/lib/utils"
@@ -11,6 +12,7 @@ type CommunityAvatarProps = {
   theme: ThemePalette
   size?: "sm" | "md" | "lg"
   className?: string
+  sourceUri?: string | null
 }
 
 const SIZE_STYLES = {
@@ -33,13 +35,24 @@ export function CommunityAvatar({
   theme,
   size = "md",
   className,
+  sourceUri,
 }: CommunityAvatarProps) {
   const sizeStyle = SIZE_STYLES[size]
+  const [imageFailed, setImageFailed] = useState(false)
+  const normalizedSourceUri = useMemo(
+    () => sourceUri?.trim() || null,
+    [sourceUri]
+  )
+  const shouldRenderImage = Boolean(normalizedSourceUri) && !imageFailed
+
+  useEffect(() => {
+    setImageFailed(false)
+  }, [normalizedSourceUri])
 
   return (
     <View
       className={cn(
-        "items-center justify-center border border-border bg-background",
+        "items-center justify-center overflow-hidden border border-border bg-background",
         sizeStyle.container,
         className
       )}
@@ -48,12 +61,21 @@ export function CommunityAvatar({
         borderColor: theme.border,
       }}
     >
-      <Text
-        className={cn("font-black uppercase text-primary", sizeStyle.text)}
-        style={{ color: theme.primary }}
-      >
-        {label}
-      </Text>
+      {shouldRenderImage ? (
+        <Image
+          source={{ uri: normalizedSourceUri as string }}
+          style={{ width: "100%", height: "100%" }}
+          resizeMode="cover"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <Text
+          className={cn("font-black uppercase text-primary", sizeStyle.text)}
+          style={{ color: theme.primary }}
+        >
+          {label}
+        </Text>
+      )}
     </View>
   )
 }

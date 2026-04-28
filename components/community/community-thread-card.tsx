@@ -45,6 +45,7 @@ export const CommunityThreadCard = memo(function CommunityThreadCard({
         <View className="flex-row items-center gap-2.5">
           <CommunityAvatar
             label={post.author.avatarSeed}
+            sourceUri={post.author.avatarUrl}
             theme={theme}
             size="lg"
           />

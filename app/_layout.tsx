@@ -22,6 +22,7 @@ import {
   useAppPreferences,
 } from "@/lib/app-preferences"
 import { APP_FONTS } from "@/lib/fonts"
+import { configureNotifications } from "@/lib/notifications"
 import { AppQueryProvider } from "@/lib/query-client"
 import { NATIVEWIND_THEME_VARIABLES, NAV_THEME } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
@@ -87,6 +88,10 @@ function RootNavigator() {
       SplashScreen.hideAsync().catch(() => undefined)
     }
   }, [fontsLoaded, isReady, authState.status])
+
+  useEffect(() => {
+    void configureNotifications()
+  }, [])
 
   useEffect(() => {
     if (!fontsLoaded || !isReady || authState.status === "loading") {
@@ -178,6 +183,24 @@ function RootNavigator() {
             />
             <Stack.Screen
               name="review/[categoryId]"
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="board-exams/index"
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="board-exams/[categoryId]"
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="board-exams/[categoryId]/[setId]"
               options={{
                 headerShown: false,
               }}

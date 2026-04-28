@@ -18,11 +18,13 @@ async function fetchAndMapResumedAttempt(
   resumableAttempt: { $id: string; timeTaken: number },
   questions: QuizQuestion[]
 ) {
-  const answerRows = await listAttemptAnswers({ attemptId: resumableAttempt.$id })
+  const answerRows = await listAttemptAnswers({
+    attemptId: resumableAttempt.$id,
+  })
   const choiceIdByQuestionId = new Map(
     answerRows.map((answerRow) => [answerRow.questionId, answerRow.choiceId])
   )
-  
+
   const answeredIndices: number[] = []
   const unansweredIndices: number[] = []
   const restoredAnswersByOriginalIndex: UserAnswers = {}
@@ -74,7 +76,9 @@ export interface UseQuizSessionProps {
   totalQuestions: number
   totalSeconds: number
   rawQuestions: QuizQuestion[]
-  flatListRef: React.RefObject<FlatList<QuizQuestion> | null> | React.RefObject<FlatList<QuizQuestion>>
+  flatListRef:
+    | React.RefObject<FlatList<QuizQuestion> | null>
+    | React.RefObject<FlatList<QuizQuestion>>
 }
 
 export function useQuizSession({
@@ -169,7 +173,8 @@ export function useQuizSession({
           setActiveIndex(safeIndex)
           setDidResumeAttempt(true)
           activeIndexRef.current = safeIndex
-          startTimeRef.current = Date.now() - Math.max(resumableAttempt.timeTaken, 0) * 1000
+          startTimeRef.current =
+            Date.now() - Math.max(resumableAttempt.timeTaken, 0) * 1000
 
           requestAnimationFrame(() => {
             flatListRef.current?.scrollToIndex({
@@ -214,7 +219,15 @@ export function useQuizSession({
     return () => {
       isCancelled = true
     }
-  }, [activeExamId, isSubmitted, questionSignature, questions, totalSeconds, user, flatListRef])
+  }, [
+    activeExamId,
+    isSubmitted,
+    questionSignature,
+    questions,
+    totalSeconds,
+    user,
+    flatListRef,
+  ])
 
   useEffect(() => {
     if (!attemptId || isSubmitted) {
@@ -285,12 +298,14 @@ export function useQuizSession({
             timeTaken,
             subjectId: trackedSubjectId,
             topicId: activeExamId,
-            profileSnapshot: profile ? {
-              fullName: profile.fullName,
-              schoolName: profile.schoolName,
-              reviewType: profile.reviewType,
-              avatarUrl: profile.avatarUrl,
-            } : undefined,
+            profileSnapshot: profile
+              ? {
+                  fullName: profile.fullName,
+                  schoolName: profile.schoolName,
+                  reviewType: profile.reviewType,
+                  avatarUrl: profile.avatarUrl,
+                }
+              : undefined,
           })
         } else {
           await saveQuizResult({
@@ -302,17 +317,27 @@ export function useQuizSession({
             status: "done",
             subjectId: trackedSubjectId,
             topicId: activeExamId,
-            profileSnapshot: profile ? {
-              fullName: profile.fullName,
-              schoolName: profile.schoolName,
-              reviewType: profile.reviewType,
-              avatarUrl: profile.avatarUrl,
-            } : undefined,
+            profileSnapshot: profile
+              ? {
+                  fullName: profile.fullName,
+                  schoolName: profile.schoolName,
+                  reviewType: profile.reviewType,
+                  avatarUrl: profile.avatarUrl,
+                }
+              : undefined,
           })
         }
       } catch {}
     }
-  }, [attemptId, categoryId, activeExamId, profile, questions.length, result.correct, user])
+  }, [
+    attemptId,
+    categoryId,
+    activeExamId,
+    profile,
+    questions.length,
+    result.correct,
+    user,
+  ])
 
   const handleSelectAnswer = useCallback(
     (questionIndex: number, choiceIndex: number) => {
@@ -349,6 +374,7 @@ export function useQuizSession({
         choiceId,
         isCorrect: choiceIndex === question.answerIndex,
         currentQuestionIndex: questionIndex,
+        totalItems: questions.length,
       })
     },
     [answers, attemptId, questions, user?.$id]
@@ -368,6 +394,6 @@ export function useQuizSession({
     answeredCount,
     result,
     handleSubmit,
-    handleSelectAnswer
+    handleSelectAnswer,
   }
 }

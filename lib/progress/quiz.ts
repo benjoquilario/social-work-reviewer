@@ -1,33 +1,68 @@
-import { COLLECTIONS, DB_ID, ID, isAppwriteUnauthorizedError, Query, tablesDB } from "../appwrite"
+import {
+  COLLECTIONS,
+  DB_ID,
+  ID,
+  isAppwriteUnauthorizedError,
+  Query,
+  tablesDB,
+} from "../appwrite"
 import type { UserAnswerDocument } from "../schema"
-import { countCompletedQuizzes, touchGlobalActivity, upsertUserProgress } from "./activity"
-import { awardMilestoneIfEligible, awardQuizScoreMilestones, createAchievementIfMissing } from "./milestones"
+import {
+  countCompletedQuizzes,
+  touchGlobalActivity,
+  upsertUserProgress,
+} from "./activity"
+import {
+  awardMilestoneIfEligible,
+  awardQuizScoreMilestones,
+  createAchievementIfMissing,
+} from "./milestones"
 import type {
   CompleteQuizAttemptPayload,
+  ExamAttempt,
   QuizResultPayload,
   RecordQuizAnswerPayload,
   ResumableAttemptSummary,
   StartQuizAttemptPayload,
   UserAnswerRowData,
-  ExamAttempt,
 } from "./types"
-import { buildUserAnswerRowId, clampNumber, getUserOwnedPermissions, uniqueStrings } from "./utils"
+import {
+  buildUserAnswerRowId,
+  clampNumber,
+  getUserOwnedPermissions,
+  uniqueStrings,
+} from "./utils"
 
 let hasLoggedUserAnswersUnauthorized = false
 let hasLoggedAttemptSyncUnauthorized = false
 let isUserAnswersSyncDisabled = false
 let isAttemptProgressSyncDisabled = false
 
+function normalizeAttemptIndex(
+  currentQuestionIndex: number,
+  totalItems: number
+) {
+  return clampNumber(currentQuestionIndex, 0, Math.max(totalItems - 1, 0))
+}
+
+function hasRemainingQuestions(answeredCount: number, totalItems: number) {
+  return answeredCount < Math.max(totalItems, 1)
+}
+
 function warnUserAnswersUnauthorizedOnce() {
   if (hasLoggedUserAnswersUnauthorized) return
   hasLoggedUserAnswersUnauthorized = true
-  console.warn("[progress] Unauthorized access to user_answers. Quiz continues, but per-question answer sync is temporarily disabled for this session.")
+  console.warn(
+    "[progress] Unauthorized access to user_answers. Quiz continues, but per-question answer sync is temporarily disabled for this session."
+  )
 }
 
 function warnAttemptSyncUnauthorizedOnce() {
   if (hasLoggedAttemptSyncUnauthorized) return
   hasLoggedAttemptSyncUnauthorized = true
-  console.warn("[progress] Unauthorized access to exam_attempts progress sync. Quiz continues, but resume position updates are disabled for this session.")
+  console.warn(
+    "[progress] Unauthorized access to exam_attempts progress sync. Quiz continues, but resume position updates are disabled for this session."
+  )
 }
 
 /**
@@ -117,7 +152,10 @@ function disableUserAnswersSyncIfUnauthorized(
   createError: unknown,
   updateError: unknown
 ) {
-  if (!isAppwriteUnauthorizedError(createError) && !isAppwriteUnauthorizedError(updateError)) {
+  if (
+    !isAppwriteUnauthorizedError(createError) &&
+    !isAppwriteUnauthorizedError(updateError)
+  ) {
     return
   }
 
@@ -151,10 +189,15 @@ async function syncAttemptQuestionProgress(params: {
   attemptId: string
   currentQuestionIndex: number
   nowIso: string
+  totalItems?: number
 }) {
   if (isAttemptProgressSyncDisabled) {
     return
   }
+
+  const safeTotalItems = Math.max(params.totalItems ?? 1, 1)
+  const answeredCount = Math.max(params.currentQuestionIndex + 1, 0)
+  const isResumable = hasRemainingQuestions(answeredCount, safeTotalItems)
 
   try {
     await tablesDB.updateRow({
@@ -162,7 +205,11 @@ async function syncAttemptQuestionProgress(params: {
       tableId: COLLECTIONS.EXAM_ATTEMPTS,
       rowId: params.attemptId,
       data: {
-        currentQuestionIndex: params.currentQuestionIndex,
+        currentQuestionIndex: normalizeAttemptIndex(
+          params.currentQuestionIndex,
+          safeTotalItems
+        ),
+        isResumable,
         lastAnsweredAt: params.nowIso,
       },
     })
@@ -201,10 +248,104 @@ export async function recordQuizAnswer(
     attemptId: payload.attemptId,
     currentQuestionIndex: payload.currentQuestionIndex,
     nowIso: now,
+    totalItems: payload.totalItems,
   })
 }
 
-async function updateAttemptAsDone(payload: CompleteQuizAttemptPayload, now: string) {
+async function listAttemptAnswerRows(attemptIds: string[]) {
+  const uniqueAttemptIds = uniqueStrings(attemptIds)
+
+  if (uniqueAttemptIds.length === 0) {
+    return [] as UserAnswerDocument[]
+  }
+
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.USER_ANSWERS,
+    queries: [Query.equal("attemptId", uniqueAttemptIds), Query.limit(500)],
+  })
+
+  return rows as unknown as UserAnswerDocument[]
+}
+
+async function sanitizeAttemptResumeState(attempts: ExamAttempt[]) {
+  if (attempts.length === 0) {
+    return attempts
+  }
+
+  try {
+    const answerRows = await listAttemptAnswerRows(
+      attempts.map((attempt) => attempt.$id)
+    )
+    const answeredQuestionIdsByAttemptId = new Map<string, Set<string>>()
+
+    for (const row of answerRows) {
+      const current =
+        answeredQuestionIdsByAttemptId.get(row.attemptId) ?? new Set<string>()
+      current.add(row.questionId)
+      answeredQuestionIdsByAttemptId.set(row.attemptId, current)
+    }
+
+    const staleAttemptUpdates = attempts.flatMap((attempt) => {
+      const answeredCount =
+        answeredQuestionIdsByAttemptId.get(attempt.$id)?.size ?? 0
+      const stillResumable = hasRemainingQuestions(
+        answeredCount,
+        attempt.totalItems
+      )
+
+      if (attempt.isResumable === stillResumable) {
+        return []
+      }
+
+      return [
+        tablesDB
+          .updateRow({
+            databaseId: DB_ID,
+            tableId: COLLECTIONS.EXAM_ATTEMPTS,
+            rowId: attempt.$id,
+            data: {
+              isResumable: stillResumable,
+              currentQuestionIndex: normalizeAttemptIndex(
+                Math.max(answeredCount - 1, 0),
+                attempt.totalItems
+              ),
+              ...(stillResumable
+                ? {}
+                : {
+                    lastAnsweredAt:
+                      attempt.lastAnsweredAt ??
+                      attempt.finishedAt ??
+                      attempt.startedAt,
+                  }),
+            },
+          })
+          .catch(() => undefined),
+      ]
+    })
+
+    if (staleAttemptUpdates.length > 0) {
+      await Promise.all(staleAttemptUpdates)
+    }
+
+    return attempts.filter((attempt) => {
+      const answeredCount =
+        answeredQuestionIdsByAttemptId.get(attempt.$id)?.size ?? 0
+      return hasRemainingQuestions(answeredCount, attempt.totalItems)
+    })
+  } catch {
+    return attempts.filter(
+      (attempt) =>
+        attempt.isResumable &&
+        attempt.currentQuestionIndex < attempt.totalItems - 1
+    )
+  }
+}
+
+async function updateAttemptAsDone(
+  payload: CompleteQuizAttemptPayload,
+  now: string
+) {
   await tablesDB.updateRow({
     databaseId: DB_ID,
     tableId: COLLECTIONS.EXAM_ATTEMPTS,
@@ -222,7 +363,11 @@ async function updateAttemptAsDone(payload: CompleteQuizAttemptPayload, now: str
   })
 }
 
-async function commitQuizProgressStats(payload: CompleteQuizAttemptPayload, averageScore: number, now: string) {
+async function commitQuizProgressStats(
+  payload: CompleteQuizAttemptPayload,
+  averageScore: number,
+  now: string
+) {
   await upsertUserProgress({
     userId: payload.userId,
     subjectId: payload.subjectId ?? payload.examId,
@@ -262,7 +407,8 @@ async function checkAndAwardQuizAchievements(
       userId: payload.userId,
       achievementType: "weekly_average",
       title: "Strong Weekly Average",
-      description: "Maintained a weekly average score of 80% or better across activity.",
+      description:
+        "Maintained a weekly average score of 80% or better across activity.",
       metricValue: globalProgress.weeklyAverageScore,
       dayStreak: globalProgress.dayStreak,
       weeklyAverageScore: globalProgress.weeklyAverageScore,
@@ -279,7 +425,9 @@ async function checkAndAwardQuizAchievements(
     profileSnapshot: payload.profileSnapshot,
   })
 
-  const completedQuizzes = await countCompletedQuizzes({ userId: payload.userId })
+  const completedQuizzes = await countCompletedQuizzes({
+    userId: payload.userId,
+  })
   await awardMilestoneIfEligible({
     configType: "quiz_completion",
     payload: {
@@ -297,16 +445,25 @@ export async function completeQuizAttempt(
 ): Promise<void> {
   const now = new Date().toISOString()
   const safeTotalItems = Math.max(payload.totalItems, 1)
-  const averageScore = clampNumber(Math.round((payload.score / safeTotalItems) * 100), 0, 100)
+  const averageScore = clampNumber(
+    Math.round((payload.score / safeTotalItems) * 100),
+    0,
+    100
+  )
 
   await updateAttemptAsDone(payload, now)
-  const globalProgress = await commitQuizProgressStats(payload, averageScore, now)
+  const globalProgress = await commitQuizProgressStats(
+    payload,
+    averageScore,
+    now
+  )
   await checkAndAwardQuizAchievements(payload, globalProgress, averageScore)
 }
 
-export async function getLatestResumableAttempt(
-  payload: { userId: string, examId: string }
-): Promise<ExamAttempt | null> {
+export async function getLatestResumableAttempt(payload: {
+  userId: string
+  examId: string
+}): Promise<ExamAttempt | null> {
   const { rows } = await tablesDB.listRows({
     databaseId: DB_ID,
     tableId: COLLECTIONS.EXAM_ATTEMPTS,
@@ -320,13 +477,17 @@ export async function getLatestResumableAttempt(
     ],
   })
 
-  const [attempt] = rows as unknown as ExamAttempt[]
+  const attempts = await sanitizeAttemptResumeState(
+    rows as unknown as ExamAttempt[]
+  )
+  const [attempt] = attempts
   return attempt ?? null
 }
 
-export async function listResumableAttemptsByExam(
-  payload: { userId: string, examIds: string[] }
-): Promise<Record<string, ResumableAttemptSummary>> {
+export async function listResumableAttemptsByExam(payload: {
+  userId: string
+  examIds: string[]
+}): Promise<Record<string, ResumableAttemptSummary>> {
   const uniqueExamIds = uniqueStrings(payload.examIds)
 
   if (uniqueExamIds.length === 0) {
@@ -346,7 +507,9 @@ export async function listResumableAttemptsByExam(
   })
 
   const allowedExamIds = new Set(uniqueExamIds)
-  const attempts = rows as unknown as ExamAttempt[]
+  const attempts = await sanitizeAttemptResumeState(
+    rows as unknown as ExamAttempt[]
+  )
   const summaryByExamId: Record<string, ResumableAttemptSummary> = {}
 
   for (const attempt of attempts) {
@@ -368,6 +531,29 @@ export async function listResumableAttemptsByExam(
   }
 
   return summaryByExamId
+}
+
+export async function listUserResumableAttempts(payload: {
+  userId: string
+  limit?: number
+}): Promise<ExamAttempt[]> {
+  try {
+    const { rows } = await tablesDB.listRows({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.EXAM_ATTEMPTS,
+      queries: [
+        Query.equal("userId", payload.userId),
+        Query.equal("status", "ongoing"),
+        Query.equal("isResumable", true),
+        Query.orderDesc("$updatedAt"),
+        Query.limit(Math.max(payload.limit ?? 20, 1)),
+      ],
+    })
+
+    return sanitizeAttemptResumeState(rows as unknown as ExamAttempt[])
+  } catch {
+    return []
+  }
 }
 
 export async function listAttemptAnswers(payload: { attemptId: string }) {
@@ -404,7 +590,9 @@ export async function syncOngoingAttemptProgress(payload: {
 /**
  * Fetches all exam attempts for a given user.
  */
-export async function getUserAttempts(payload: { userId: string }): Promise<ExamAttempt[]> {
+export async function getUserAttempts(payload: {
+  userId: string
+}): Promise<ExamAttempt[]> {
   try {
     const { rows } = await tablesDB.listRows({
       databaseId: DB_ID,

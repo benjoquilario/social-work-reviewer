@@ -1,0 +1,433 @@
+import { useMemo, useState } from "react"
+import { useAuth } from "@/contexts/auth-context"
+import { useQuery } from "@tanstack/react-query"
+import { useLocalSearchParams, useRouter } from "expo-router"
+import {
+  ArrowLeft,
+  Clock3,
+  FileQuestion,
+  LockKeyhole,
+  Play,
+} from "lucide-react-native"
+import { Pressable, TextInput, View } from "react-native"
+import { SafeAreaView } from "react-native-safe-area-context"
+
+import { getBoardExamSetDetail } from "@/lib/board-exams"
+import { THEME, withOpacity } from "@/lib/theme"
+import { useColorScheme } from "@/hooks/use-color-scheme"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Text } from "@/components/ui/text"
+import { ScrollView } from "@/components/ui/virtualized-scroll-view"
+import { AppShellHeader } from "@/components/app-shell-header"
+
+const MODE_CARD_STYLE = "rounded-[24px]"
+
+const BOARD_EXAM_MODE_PRESETS = [
+  {
+    id: "20-10",
+    label: "Set Mode",
+    description: "20 items in 10 minutes",
+    totalQuestions: 20,
+    minutes: 10,
+    isCustomMinutes: false,
+  },
+  {
+    id: "50-30",
+    label: "Practice Mode",
+    description: "50 items in 30 minutes",
+    totalQuestions: 50,
+    minutes: 30,
+    isCustomMinutes: false,
+  },
+  {
+    id: "80-45",
+    label: "Extended Mode",
+    description: "80 items in 45 minutes",
+    totalQuestions: 80,
+    minutes: 45,
+    isCustomMinutes: false,
+  },
+  {
+    id: "120-60",
+    label: "Challenge Mode",
+    description: "120 items in 60 minutes",
+    totalQuestions: 120,
+    minutes: 60,
+    isCustomMinutes: false,
+  },
+  {
+    id: "full-custom",
+    label: "Full Items",
+    description: "Answer all available items with custom minutes.",
+    totalQuestions: null,
+    minutes: 180,
+    isCustomMinutes: true,
+  },
+] as const
+
+type BoardExamModePreset = (typeof BOARD_EXAM_MODE_PRESETS)[number]
+
+function BoardExamModeCard({
+  preset,
+  isSelected,
+  isDisabled,
+  effectiveQuestionCount,
+  effectiveMinutes,
+  theme,
+  onPress,
+}: {
+  preset: BoardExamModePreset
+  isSelected: boolean
+  isDisabled: boolean
+  effectiveQuestionCount: number
+  effectiveMinutes: number
+  theme: (typeof THEME)["light"] | (typeof THEME)["dark"]
+  onPress: () => void
+}) {
+  return (
+    <Pressable onPress={onPress} disabled={isDisabled}>
+      <Card
+        className={MODE_CARD_STYLE}
+        style={{
+          borderWidth: 1,
+          borderColor: isSelected ? theme.primary : theme.border,
+          backgroundColor: isSelected
+            ? withOpacity(theme.primary, 0.08)
+            : theme.card,
+          opacity: isDisabled ? 0.55 : 1,
+        }}
+      >
+        <CardContent className="gap-3 px-4 py-4">
+          <View className="flex-row items-start justify-between gap-3">
+            <View className="flex-1 gap-1.5">
+              <Text className="text-[15px] font-black text-card-foreground">
+                {preset.label}
+              </Text>
+              <Text className="text-[12px] leading-5 text-muted-foreground">
+                {preset.description}
+              </Text>
+            </View>
+            {isSelected ? (
+              <View
+                className="rounded-full px-2.5 py-1"
+                style={{ backgroundColor: withOpacity(theme.primary, 0.14) }}
+              >
+                <Text className="text-[10px] font-black uppercase tracking-[1px] text-primary">
+                  Selected
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          <View className="flex-row flex-wrap items-center gap-2.5">
+            <View className="flex-row items-center gap-1.5">
+              <FileQuestion size={13} color={theme.primary} />
+              <Text className="text-[11px] font-semibold uppercase tracking-[0.9px] text-primary">
+                {effectiveQuestionCount} items
+              </Text>
+            </View>
+            <View className="flex-row items-center gap-1.5">
+              <Clock3 size={13} color={theme.accent} />
+              <Text
+                className="text-[11px] font-semibold uppercase tracking-[0.9px]"
+                style={{ color: theme.accent }}
+              >
+                {effectiveMinutes} minutes
+              </Text>
+            </View>
+          </View>
+
+          {isDisabled ? (
+            <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-muted-foreground">
+              Not enough visible questions for this mode
+            </Text>
+          ) : null}
+        </CardContent>
+      </Card>
+    </Pressable>
+  )
+}
+
+export default function BoardExamSetDetailScreen() {
+  const router = useRouter()
+  const profile = useAuth((state) => state.profile)
+  const colorScheme = useColorScheme()
+  const theme = colorScheme === "dark" ? THEME.dark : THEME.light
+  const params = useLocalSearchParams<{ categoryId?: string; setId?: string }>()
+  const categoryId = params.categoryId ?? ""
+  const setId = params.setId ?? ""
+  const isPremiumUser = profile?.isPremium === true
+
+  const setDetailQuery = useQuery({
+    queryKey: ["board-exam-set-detail", categoryId, setId, isPremiumUser],
+    enabled: Boolean(categoryId) && Boolean(setId),
+    queryFn: () =>
+      getBoardExamSetDetail(categoryId, setId, {
+        viewerIsPremium: isPremiumUser,
+      }),
+  })
+
+  const category = setDetailQuery.data?.category ?? null
+  const set = setDetailQuery.data?.set ?? null
+  const questions = useMemo(
+    () => setDetailQuery.data?.questions ?? [],
+    [setDetailQuery.data?.questions]
+  )
+  const hiddenPremiumQuestionCount =
+    setDetailQuery.data?.hiddenPremiumQuestionCount ?? 0
+  const visibleQuestionCount = questions.length
+  const [selectedModeId, setSelectedModeId] = useState<string | null>(null)
+  const [customMinutesDraft, setCustomMinutesDraft] = useState("180")
+
+  const stats = useMemo(
+    () => [
+      { label: "Questions", value: String(questions.length) },
+      {
+        label: "Type",
+        value: String(set?.questionType ?? "Board"),
+      },
+      {
+        label: "Hidden",
+        value: String(hiddenPremiumQuestionCount),
+      },
+    ],
+    [hiddenPremiumQuestionCount, questions.length, set?.questionType]
+  )
+
+  const errorMessage =
+    setDetailQuery.error instanceof Error
+      ? setDetailQuery.error.message
+      : setDetailQuery.error
+        ? "Unable to load board exam questions from Appwrite."
+        : null
+
+  const modeCards = useMemo(
+    () =>
+      BOARD_EXAM_MODE_PRESETS.map((preset) => {
+        const effectiveQuestionCount =
+          preset.totalQuestions ?? visibleQuestionCount
+        const effectiveMinutes = preset.isCustomMinutes
+          ? Math.max(Number(customMinutesDraft || "0"), 0)
+          : preset.minutes
+
+        return {
+          ...preset,
+          effectiveQuestionCount,
+          effectiveMinutes,
+          isDisabled:
+            visibleQuestionCount === 0 ||
+            effectiveQuestionCount > visibleQuestionCount,
+        }
+      }),
+    [customMinutesDraft, visibleQuestionCount]
+  )
+
+  const selectedMode = useMemo(
+    () => modeCards.find((preset) => preset.id === selectedModeId) ?? null,
+    [modeCards, selectedModeId]
+  )
+
+  const canStartQuiz =
+    Boolean(selectedMode) &&
+    selectedMode?.isDisabled !== true &&
+    (selectedMode?.effectiveMinutes ?? 0) > 0 &&
+    (selectedMode?.effectiveQuestionCount ?? 0) > 0
+
+  function handleStartQuiz() {
+    if (!selectedMode || !canStartQuiz) {
+      return
+    }
+
+    router.push({
+      pathname: "/quiz",
+      params: {
+        source: "board-exam",
+        categoryId,
+        setId,
+        totalQuestions: String(selectedMode.effectiveQuestionCount),
+        minutes: String(selectedMode.effectiveMinutes),
+      },
+    })
+  }
+
+  return (
+    <SafeAreaView className="flex-1 bg-background">
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerClassName="gap-3 px-4 pb-8 pt-4"
+        showsVerticalScrollIndicator={false}
+      >
+        <Pressable
+          className="h-10 flex-row items-center gap-2 rounded-2xl px-3"
+          style={{
+            borderWidth: 1,
+            borderColor: theme.border,
+            backgroundColor: theme.card,
+            alignSelf: "flex-start",
+          }}
+          onPress={() =>
+            router.push({
+              pathname: "/board-exams/[categoryId]",
+              params: { categoryId },
+            })
+          }
+        >
+          <ArrowLeft size={15} color={theme.primary} />
+          <Text className="text-[12px] font-bold text-primary">Sets</Text>
+        </Pressable>
+
+        <AppShellHeader
+          eyebrow="Board Exams"
+          title={set?.title ?? "Choose Mode"}
+          subtitle={`Category: ${category?.title ?? "Board Exam"}. Choose a timed mode and answer each question before moving forward.`}
+          avatarLabel="MODE"
+          badgeLabel="Set"
+          badgeValue={set?.setCode ?? "Selection"}
+          stats={stats}
+          compact
+        />
+
+        {setDetailQuery.isLoading ? (
+          <View className="gap-3">
+            <Skeleton className="h-36 rounded-3xl" />
+            <Skeleton className="h-36 rounded-3xl" />
+          </View>
+        ) : null}
+
+        {errorMessage ? (
+          <Card style={{ borderWidth: 1, borderColor: theme.border }}>
+            <CardContent className="gap-1.5 px-4 py-3.5">
+              <Text className="text-[13px] font-black text-destructive">
+                Board exam questions unavailable
+              </Text>
+              <Text className="text-[12px] leading-5 text-muted-foreground">
+                {errorMessage}
+              </Text>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {hiddenPremiumQuestionCount > 0 ? (
+          <Card
+            style={{
+              borderWidth: 1,
+              borderColor: withOpacity(theme.accent, 0.32),
+              backgroundColor: withOpacity(theme.accent, 0.08),
+            }}
+          >
+            <CardContent className="gap-1.5 px-4 py-3.5">
+              <View className="flex-row items-center gap-2">
+                <LockKeyhole size={14} color={theme.accent} />
+                <Text
+                  className="text-[11px] font-black uppercase tracking-[1.1px]"
+                  style={{ color: theme.accent }}
+                >
+                  Premium visibility note
+                </Text>
+              </View>
+              <Text className="text-[12px] leading-5 text-muted-foreground">
+                {hiddenPremiumQuestionCount} questions are hidden for free users
+                in this set.
+              </Text>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {!setDetailQuery.isLoading && !errorMessage && set ? (
+          <Card style={{ borderWidth: 1, borderColor: theme.border }}>
+            <CardContent className="gap-1.5 px-4 py-3.5">
+              <Text className="text-[13px] font-bold text-card-foreground">
+                Select a mode first
+              </Text>
+              <Text className="text-[12px] leading-5 text-muted-foreground">
+                You must choose a mode before starting. Correct answers are not
+                shown during the quiz, and you need to answer the current item
+                before moving to the next one.
+              </Text>
+            </CardContent>
+          </Card>
+        ) : null}
+        {!setDetailQuery.isLoading && !errorMessage ? (
+          <View className="gap-3">
+            {modeCards.map((preset) => (
+              <BoardExamModeCard
+                key={preset.id}
+                preset={preset}
+                isSelected={preset.id === selectedModeId}
+                isDisabled={preset.isDisabled}
+                effectiveQuestionCount={preset.effectiveQuestionCount}
+                effectiveMinutes={preset.effectiveMinutes}
+                theme={theme}
+                onPress={() => setSelectedModeId(preset.id)}
+              />
+            ))}
+
+            {selectedMode?.isCustomMinutes ? (
+              <Card style={{ borderWidth: 1, borderColor: theme.border }}>
+                <CardContent className="gap-2 px-4 py-4">
+                  <Text className="text-[11px] font-black uppercase tracking-[1.1px] text-primary">
+                    Full item minutes
+                  </Text>
+                  <Text className="text-[12px] leading-5 text-muted-foreground">
+                    Type how many minutes the learner should take for all
+                    available items in this set.
+                  </Text>
+                  <TextInput
+                    value={customMinutesDraft}
+                    onChangeText={(value) =>
+                      setCustomMinutesDraft(value.replace(/[^0-9]/g, ""))
+                    }
+                    keyboardType="number-pad"
+                    placeholder="180"
+                    placeholderTextColor={theme.mutedForeground}
+                    className="rounded-2xl border px-4 py-3 text-sm text-foreground"
+                    style={{
+                      borderColor: theme.border,
+                      backgroundColor:
+                        colorScheme === "dark"
+                          ? "hsl(240 10% 14%)"
+                          : "hsl(243 30% 97%)",
+                      color: theme.foreground,
+                      fontFamily: "PlusJakartaSans_500Medium",
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {!setDetailQuery.isLoading &&
+            !errorMessage &&
+            visibleQuestionCount === 0 ? (
+              <Card style={{ borderWidth: 1, borderColor: theme.border }}>
+                <CardContent className="gap-1.5 px-4 py-4">
+                  <Text className="text-[14px] font-black text-card-foreground">
+                    No visible questions in this set
+                  </Text>
+                  <Text className="text-[12px] leading-5 text-muted-foreground">
+                    Publish board exam questions and choices in Appwrite or
+                    check premium access to view locked content.
+                  </Text>
+                </CardContent>
+              </Card>
+            ) : null}
+          </View>
+        ) : null}
+
+        <View className="pt-2">
+          <Button
+            className="h-12"
+            disabled={!canStartQuiz}
+            onPress={handleStartQuiz}
+          >
+            <Play size={16} color={theme.primaryForeground} />
+            <Text className="font-bold text-primary-foreground">
+              Start Board Exam
+            </Text>
+          </Button>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  )
+}

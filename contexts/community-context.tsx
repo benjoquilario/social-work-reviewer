@@ -273,6 +273,7 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
         title,
         content,
         category: selectedCategory,
+        author,
         ...(selectedSubjectId ? { subjectId: selectedSubjectId } : {}),
         ...(photoUrlDraft.trim() ? { photoUrl: photoUrlDraft.trim() } : {}),
       }
@@ -332,7 +333,12 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
     }
 
     try {
-      await createCommunityComment({ userId, postId: activePostId, content })
+      await createCommunityComment({
+        userId,
+        postId: activePostId,
+        content,
+        author,
+      })
       set({ isCreatingComment: false })
     } catch {
       set({ isCreatingComment: false })
@@ -382,7 +388,12 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
     }
 
     try {
-      await createCommunityReply({ userId, commentId, content: trimmed })
+      await createCommunityReply({
+        userId,
+        commentId,
+        content: trimmed,
+        author,
+      })
       set({ isCreatingReply: false })
     } catch {
       set({ isCreatingReply: false })

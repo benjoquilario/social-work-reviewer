@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
+import { Image } from "expo-image"
 import { useRouter } from "expo-router"
 import {
   BookOpenText,
@@ -81,20 +82,65 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Logo + branding */}
-          <View className="items-center gap-3">
-            <View
-              className="h-16 w-16 items-center justify-center rounded-3xl"
-              style={{ backgroundColor: theme.primary }}
-            >
-              <BookOpenText size={32} color={theme.primaryForeground} />
-            </View>
-            <View className="items-center gap-1">
-              <Text className="text-2xl font-black text-foreground">
-                Create account
-              </Text>
-              <Text className="text-sm text-muted-foreground">
-                Start your board exam preparation
-              </Text>
+          <View
+            className="overflow-hidden rounded-[30px] border px-5 py-5"
+            style={{
+              borderColor: borderColor,
+              backgroundColor: isDark ? theme.card : "hsl(190 55% 97%)",
+            }}
+          >
+            <View className="items-center gap-4">
+              <View className="h-[170px] w-full items-center justify-center rounded-[26px]">
+                <Image
+                  source={require("@/assets/images/happy-graduation.png")}
+                  style={{ width: 180, height: 180 }}
+                  contentFit="contain"
+                />
+              </View>
+              <View className="items-center gap-1.5">
+                <View
+                  className="rounded-full px-3 py-1"
+                  style={{ backgroundColor: theme.primary }}
+                >
+                  <Text
+                    className="text-[10px] font-black uppercase tracking-[1.2px]"
+                    style={{ color: theme.primaryForeground }}
+                  >
+                    Start Exploring
+                  </Text>
+                </View>
+                <Text className="text-center text-2xl font-black text-foreground">
+                  Build your board exam momentum
+                </Text>
+                <Text className="text-center text-sm leading-6 text-muted-foreground">
+                  Create your account, explore categories, and jump into guided
+                  review sessions with a brighter first experience.
+                </Text>
+              </View>
+
+              <View
+                className="w-full flex-row items-center gap-2 rounded-2xl px-3.5 py-3"
+                style={{
+                  backgroundColor: isDark
+                    ? theme.muted
+                    : "hsl(0 0% 100% / 0.88)",
+                }}
+              >
+                <View
+                  className="h-10 w-10 items-center justify-center rounded-2xl"
+                  style={{ backgroundColor: theme.primary }}
+                >
+                  <BookOpenText size={18} color={theme.primaryForeground} />
+                </View>
+                <View className="flex-1 gap-0.5">
+                  <Text className="text-[13px] font-black text-foreground">
+                    Personalized study start
+                  </Text>
+                  <Text className="text-[12px] leading-5 text-muted-foreground">
+                    Sign up to unlock your review path, drills, and progress.
+                  </Text>
+                </View>
+              </View>
             </View>
           </View>
 
@@ -213,7 +259,7 @@ export default function RegisterScreen() {
                   className="text-sm font-black uppercase tracking-wider"
                   style={{ color: theme.primaryForeground }}
                 >
-                  Create Account
+                  Start Exploring
                 </Text>
               )}
             </Pressable>

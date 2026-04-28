@@ -1,0 +1,379 @@
+Appwrite Performance Audit
+I analyzed the current data layer and there are a few high-impact bottlenecks and concurrency risks that will matter as your user count grows.
+
+Executive summary
+Your main long-run risks are:
+
+broad reads + client-side filtering
+read-modify-write race conditions
+missing or unclear index strategy
+hot-path aggregation done on the client
+large fixed Query.limit(500) patterns without pagination
+The most important files I inspected were:
+
+lib/community.ts
+lib/quiz-content.ts
+lib/board-exams.ts
+lib/progress/quiz.ts
+lib/progress/activity.ts
+lib/progress/learning.ts
+lib/learning-content.ts
+lib/schema.ts
+Highest-priority findings
+1. Community feed is doing multi-table broad scans
+In lib/community.ts, listCommunityFeedRows() loads all of these at once:
+
+posts
+comments
+replies
+post_likes
+user_profiles
+subjects
+flagged_content
+Then it filters/maps them client-side.
+
+Why this is a problem
+every feed refresh reads far more than the user sees
+scales poorly with concurrent users
+increases latency and bandwidth
+user_profiles access is already permission-sensitive
+limits like COMMUNITY_LIMIT = 200 mean data can silently become incomplete
+Best-practice fix
+page posts first
+fetch comments/replies/likes only for the visible postIds
+stop listing whole user_profiles for feed rendering
+rely on authorName, authorSubtitle, authorAvatarUrl snapshots for feed cards
+move toward cursor pagination with Query.cursorAfter(...)
+Impact
+Very high
+2. Quiz and board exam loading still fetch too much data
+In lib/quiz-content.ts and lib/board-exams.ts:
+
+listChoiceDocuments() fetches all choices up to limit, then filters locally
+listBoardExamChoiceDocuments() does the same
+getQuizExamDetail() fetches all questions for a subject, then maps to exam assignments
+buildAppwriteQuizQuestions() for exam mode fetches all subject questions, then filters by assignment IDs
+board exam detail fetches category question sets, then filters per set
+Why this is a problem
+For large content libraries:
+
+subject-level question reads get expensive
+choice tables will become very heavy
+repeated exam opens multiply the cost
+Best-practice fix
+For exam mode:
+
+fetch exam_questions by examId
+extract questionIds
+fetch only matching questions via chunked Query.equal("$id", ids)
+fetch only matching choices via chunked Query.equal("questionId", ids)
+For board exams:
+
+query board_exam_questions by setId directly where possible
+query board_exam_choices by questionId IN [...]
+Impact
+Very high
+3. toggleCommunityPostLike() is race-prone
+In lib/community.ts, liking a post does this:
+
+read existing like
+create/delete like row
+read post
+compute nextLikesCount
+update post count
+Why this is a problem
+With concurrent users:
+
+likesCount can drift
+duplicate likes are possible unless prevented at the DB level
+fast toggles from multiple devices can corrupt denormalized counts
+Best-practice fix
+Use one of these:
+
+Best: move like toggle into an Appwrite Function / server-side action
+Also important: enforce uniqueness for (postId, userId)
+treat post_likes as source of truth
+either:
+derive counts from like rows for feed pages, or
+update counts server-side in one controlled place
+Impact
+Very high
+4. upsertUserProgress() is a classic read-then-write race
+In lib/progress/activity.ts:
+
+findUserProgressRow(userId, subjectId, topicId)
+if missing -> createRow
+else -> updateRow
+Why this is a problem
+Concurrent writes can create duplicate progress rows for the same logical key.
+
+Best-practice fix
+Use one of these:
+
+Best: deterministic row ID like:
+progress_${userId}_${subjectId}_${topicId}
+or enforce a unique composite index on:
+userId
+subjectId
+topicId
+ideally perform this through a server function if many writes can happen close together
+Impact
+Very high
+5. createAchievementIfMissing() can create duplicates under concurrency
+In lib/progress/milestones.ts:
+
+read matching achievements
+check in JS
+create if not found
+Why this is a problem
+Two concurrent requests can both pass the read check and create duplicates.
+
+Best-practice fix
+Use deterministic IDs or a unique composite key, for example on:
+
+userId
+achievementType
+title
+examId
+learningMaterialId
+Or encode the uniqueness into rowId.
+
+Impact
+High
+Medium-priority findings
+6. Resume sanitization adds extra hot-path reads
+In lib/progress/quiz.ts, resumable reads now call sanitizeAttemptResumeState() which:
+
+fetches answer rows
+may issue update calls while reading
+Why this is a problem
+It improves correctness, but it adds work to:
+
+getLatestResumableAttempt()
+listResumableAttemptsByExam()
+listUserResumableAttempts()
+That is okay for now, but not ideal as usage grows.
+
+Best-practice fix
+Long run:
+
+keep correctness at write-time
+use a one-time backfill / migration / scheduled cleanup for stale rows
+avoid read-time repair on hot user flows
+Impact
+Medium
+7. Counting by fetching rows will stop scaling
+In lib/progress/activity.ts:
+
+countCompletedMaterials()
+countCompletedQuizzes()
+both fetch rows up to 500 and count client-side.
+
+Why this is a problem
+incorrect once user data exceeds 500
+unnecessary row transfer
+poor dashboard scalability
+Best-practice fix
+Prefer:
+
+maintained counters in a user stats row
+or server-side count strategies
+if Appwrite response exposes total, use that instead of transferring full rows
+Impact
+Medium
+8. Material detail path may over-fetch
+In lib/learning-content.ts, getLearningMaterialDetail() does:
+
+getRow(material)
+getRow(topic)
+getRow(subject)
+list topic materials
+resolve access via function
+Why this is a problem
+That’s multiple round trips for a single screen.
+
+Best-practice fix
+cache subject/topic/material metadata aggressively with React Query
+only call premium access resolution when needed
+avoid loading whole topic material lists if only current material metadata is needed
+Impact
+Medium
+9. Large fixed limits without pagination
+Across the codebase there are many:
+
+Query.limit(500)
+Query.limit(200)
+Why this is a problem
+hidden truncation bugs
+higher latency
+poor mobile performance
+future scaling ceiling
+Best-practice fix
+Use:
+
+cursor pagination for feeds and history
+smaller page sizes:
+20-50 for community
+20-100 for activity/history
+explicit infinite-query flows in React Query
+Impact
+Medium
+Index recommendations for Appwrite
+I do not see explicit index definitions in lib/schema.ts, so if indexes are managed outside the repo, align them with this query matrix.
+
+exam_attempts
+Needed for:
+
+resume lookups
+user history
+activity feed
+Recommended indexes:
+
+userId + status + isResumable + $updatedAt
+userId + examId + status + isResumable + $updatedAt
+userId + $createdAt
+userId + status
+user_answers
+Needed for:
+
+resume hydration
+answer restoration
+attempt validation
+Recommended indexes:
+
+attemptId + $updatedAt
+attemptId + questionId
+unique logical key for answer row if supported
+user_progress
+Needed for:
+
+per-user progress lookup
+upsert target row
+dashboard activity
+Recommended indexes:
+
+userId + subjectId + topicId with uniqueness if possible
+userId + $updatedAt
+learning_history
+Recommended indexes:
+
+userId + lastAccessedAt
+userId + status
+userId + topicId
+learning_achievements
+Recommended indexes:
+
+userId + earnedAt
+userId + achievementType + title
+plus uniqueness strategy for milestone creation
+posts
+Recommended indexes:
+
+createdAt
+subjectId + createdAt
+userId + createdAt
+comments
+Recommended indexes:
+
+postId + createdAt
+replies
+Recommended indexes:
+
+commentId + createdAt
+post_likes
+Recommended indexes:
+
+postId + userId with uniqueness if possible
+postId
+questions
+Recommended indexes:
+
+subjectId + createdAt
+possibly subjectId + isPremium
+choices
+Recommended indexes:
+
+questionId
+exam_questions
+Recommended indexes:
+
+examId + order
+examId + questionId
+board_exam_sets
+Recommended indexes:
+
+categoryId + order
+board_exam_questions
+Recommended indexes:
+
+setId + order
+categoryId + order
+board_exam_choices
+Recommended indexes:
+
+questionId + order
+user_profiles
+Recommended indexes:
+
+userId with uniqueness if possible
+Specific code-level issues that will slow you down
+lib/community.ts
+[problem] listCommunityFeedRows() reads too many tables every refresh
+[problem] toggleCommunityPostLike() is not concurrency-safe
+[problem] listing all user_profiles is both expensive and permission-fragile
+lib/quiz-content.ts
+[problem] listChoiceDocuments() fetches too much, filters locally
+[problem] exam detail/question building reads whole subject question sets
+lib/board-exams.ts
+[problem] listBoardExamChoiceDocuments() fetches too much
+[problem] category-wide question reads are later narrowed in JS
+lib/progress/activity.ts
+[problem] row counting via row fetches
+[problem] upsertUserProgress() can duplicate under concurrent writes
+lib/progress/milestones.ts
+[problem] non-atomic duplicate prevention
+lib/progress/quiz.ts
+[problem] resume correctness is good now, but read-time sanitization adds extra load on hot flows
+Best-practice Appwrite architecture direction
+Short-term
+[1] Fix client-side filtering of choices/questions
+[2] Add missing indexes for current query patterns
+[3] Replace raw community feed broad scan with post-first pagination
+[4] add uniqueness/deterministic IDs for:
+progress rows
+like rows
+achievements
+Mid-term
+[1] Move business-critical mutations to Appwrite Functions:
+like toggle
+progress upsert
+achievement creation
+[2] keep counters in server-owned rows, not client recomputation
+[3] use cursor pagination everywhere user data can grow
+Long-term
+[1] build denormalized read models for:
+community feed
+dashboard summary
+resumable attempts
+[2] add background cleanup/backfill jobs instead of repair-on-read
+[3] separate static CMS content from high-write user activity patterns
+My prioritized recommendation list
+[highest ROI] Refactor quiz/board choice loading to query only needed IDs
+[highest ROI] Rebuild community feed fetching around paginated posts, not whole-table scans
+[highest ROI] Make user_progress and achievements concurrency-safe with deterministic IDs or unique indexes
+[highest ROI] Move likes to a server-side/Appwrite Function flow
+[important] replace count-by-fetch patterns with maintained counters or server totals
+[important] introduce cursor pagination and stop relying on limit(500) as a ceiling
+[important] verify Appwrite indexes exist for every filter + sort combination listed above
+If you want the best next step
+I’d tackle these in this order:
+
+Step 1: optimize lib/quiz-content.ts and lib/board-exams.ts
+Step 2: fix lib/community.ts feed/query structure
+Step 3: harden user_progress, post_likes, and achievements against concurrent writes
+Step 4: add an explicit Appwrite index checklist/migration doc in the repo
+Status
+Audit complete
+Main Appwrite performance and scalability risks identified
+Concrete indexing and concurrency recommendations prepared
+If you want, I can next implement the highest-impact code fix first: the quiz/board-exam overfetching in lib/quiz-content.ts and lib/board-exams.ts.

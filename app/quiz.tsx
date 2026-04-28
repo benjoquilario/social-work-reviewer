@@ -25,7 +25,10 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import { useQuizSession, type UserAnswers } from "@/hooks/use-quiz-session"
+import {
+  getBoardExamSetDetail,
+  type BoardExamQuestion,
+} from "@/lib/board-exams"
 import {
   buildAppwriteQuizQuestions,
   getQuizCategoryDetail,
@@ -34,6 +37,7 @@ import {
 } from "@/lib/quiz-content"
 import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
+import { useQuizSession, type UserAnswers } from "@/hooks/use-quiz-session"
 import { AnswerOption } from "@/components/ui/answer-option"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -66,6 +70,95 @@ const QUIZ_QUESTION_SCROLL_CONTENT_STYLE = {
 }
 const QUIZ_DOT_CONTENT_STYLE = { paddingRight: 2 }
 const QUIZ_CARD_CLASS = "rounded-3xl border border-border bg-card p-5"
+const QUIZ_DRAWER_GRID_STYLE = {
+  flexDirection: "row" as const,
+  flexWrap: "wrap" as const,
+  gap: 10,
+}
+
+const QuizQuestionDrawerTile = memo(function QuizQuestionDrawerTile({
+  isActive,
+  isAnswered,
+  isLocked,
+  onPress,
+  questionIndex,
+  theme,
+}: {
+  isActive: boolean
+  isAnswered: boolean
+  isLocked: boolean
+  onPress: (index: number) => void
+  questionIndex: number
+  theme: ThemePalette
+}) {
+  return (
+    <Pressable
+      onPress={() => onPress(questionIndex)}
+      disabled={isLocked}
+      className="relative h-12 w-12 items-center justify-center rounded-2xl border"
+      style={{
+        borderColor: isActive
+          ? theme.primary
+          : isAnswered
+            ? withOpacity(theme.primary, 0.35)
+            : theme.border,
+        backgroundColor: isActive
+          ? theme.primary
+          : isAnswered
+            ? withOpacity(theme.primary, 0.12)
+            : theme.card,
+        opacity: isLocked ? 0.45 : 1,
+      }}
+    >
+      <Text
+        className="text-sm font-black"
+        style={{
+          color: isActive ? theme.primaryForeground : theme.foreground,
+        }}
+      >
+        {questionIndex + 1}
+      </Text>
+      {isAnswered ? (
+        <View
+          className="absolute -right-1.5 -top-1.5 h-5 w-5 items-center justify-center rounded-full"
+          style={{
+            backgroundColor: isActive ? theme.primaryForeground : theme.primary,
+            borderWidth: 1,
+            borderColor: isActive ? theme.primary : theme.card,
+          }}
+        >
+          <Check
+            size={11}
+            color={isActive ? theme.primary : theme.primaryForeground}
+          />
+        </View>
+      ) : null}
+    </Pressable>
+  )
+})
+
+function toBoardExamQuizQuestion(
+  question: BoardExamQuestion,
+  index: number
+): QuizQuestion | null {
+  const answerIndex = question.choices.findIndex((choice) => choice.isCorrect)
+
+  if (answerIndex === -1 || question.choices.length < 2) {
+    return null
+  }
+
+  return {
+    id: `${question.id}-board-quiz-${index + 1}`,
+    questionId: question.id,
+    categoryId: question.categoryId,
+    prompt: question.prompt,
+    choices: question.choices.map((choice) => choice.text),
+    choiceIds: question.choices.map((choice) => choice.id),
+    answerIndex,
+    explanation:
+      question.explanation || "No explanation provided for this question yet.",
+  }
+}
 
 function QuizVerticalSeparator() {
   return <View className="h-4" />
@@ -548,19 +641,26 @@ export default function QuizScreen() {
 
   const flatListRef = useRef<FlatList<QuizQuestion>>(null)
   const { width: screenWidth } = useWindowDimensions()
+  const [isQuestionDrawerOpen, setIsQuestionDrawerOpen] = useState(false)
 
   const params = useLocalSearchParams<{
+    source?: string
     categoryId?: string
     totalQuestions?: string
     minutes?: string
     examId?: string
+    setId?: string
   }>()
 
+  const isBoardExamSession = params.source === "board-exam"
   const categoryId = params.categoryId ?? ""
   const totalQuestions = Number(params.totalQuestions ?? "0")
   const minutes = Number(params.minutes ?? "0")
   const examId = params.examId ?? ""
-  const activeExamId = examId || categoryId
+  const setId = params.setId ?? ""
+  const activeExamId = isBoardExamSession
+    ? `board-exam:${setId}:${totalQuestions}:${minutes}`
+    : examId || categoryId
   const totalSeconds = Math.max(minutes, 0) * 60
   const isPremiumUser = profile?.isPremium === true
 
@@ -576,16 +676,28 @@ export default function QuizScreen() {
 
   const categoryQuery = useQuery({
     queryKey: ["quiz-screen-category", categoryId, isPremiumUser],
-    enabled: Boolean(categoryId) && categoryId !== "all-categories",
+    enabled:
+      !isBoardExamSession &&
+      Boolean(categoryId) &&
+      categoryId !== "all-categories",
     queryFn: () =>
       getQuizCategoryDetail(categoryId, { viewerIsPremium: isPremiumUser }),
   })
 
   const examQuery = useQuery({
     queryKey: ["quiz-screen-exam", examId, isPremiumUser],
-    enabled: isAppwriteExamSession,
+    enabled: !isBoardExamSession && isAppwriteExamSession,
     queryFn: () =>
       getQuizExamDetail(examId, { viewerIsPremium: isPremiumUser }),
+  })
+
+  const boardExamSetQuery = useQuery({
+    queryKey: ["board-exam-quiz-set", categoryId, setId, isPremiumUser],
+    enabled: isBoardExamSession && Boolean(categoryId) && Boolean(setId),
+    queryFn: () =>
+      getBoardExamSetDetail(categoryId, setId, {
+        viewerIsPremium: isPremiumUser,
+      }),
   })
 
   const questionsQuery = useQuery({
@@ -596,7 +708,7 @@ export default function QuizScreen() {
       totalQuestions,
       isPremiumUser,
     ],
-    enabled: Boolean(categoryId) && totalQuestions > 0,
+    enabled: !isBoardExamSession && Boolean(categoryId) && totalQuestions > 0,
     queryFn: () =>
       buildAppwriteQuizQuestions({
         subjectId: categoryId,
@@ -606,16 +718,29 @@ export default function QuizScreen() {
       }),
   })
 
-  const rawQuestions = useMemo(
-    () => questionsQuery.data ?? [],
-    [questionsQuery.data]
-  )
-  const quizTitle =
-    examQuery.data?.title ??
-    (categoryId === "all-categories"
-      ? fullExam?.title
-      : (categoryQuery.data?.name ?? fullExam?.title)) ??
-    "Mixed Review"
+  const rawQuestions = useMemo(() => {
+    if (isBoardExamSession) {
+      return (boardExamSetQuery.data?.questions ?? [])
+        .map((question, index) => toBoardExamQuizQuestion(question, index))
+        .filter((question): question is QuizQuestion => question !== null)
+        .slice(0, totalQuestions)
+    }
+
+    return questionsQuery.data ?? []
+  }, [
+    boardExamSetQuery.data?.questions,
+    isBoardExamSession,
+    questionsQuery.data,
+    totalQuestions,
+  ])
+
+  const quizTitle = isBoardExamSession
+    ? (boardExamSetQuery.data?.set?.title ?? "Board Exam")
+    : (examQuery.data?.title ??
+      (categoryId === "all-categories"
+        ? fullExam?.title
+        : (categoryQuery.data?.name ?? fullExam?.title)) ??
+      "Mixed Review")
 
   const {
     questions,
@@ -648,6 +773,45 @@ export default function QuizScreen() {
   const scrollToIndex = useCallback((index: number) => {
     flatListRef.current?.scrollToIndex({ index, animated: true })
   }, [])
+
+  const highestUnlockedIndex = useMemo(() => {
+    if (questions.length === 0) {
+      return 0
+    }
+
+    const nextReachable =
+      typeof answers[activeIndex] === "number" ? activeIndex + 1 : activeIndex
+
+    return Math.min(
+      Math.max(answeredCount, nextReachable),
+      questions.length - 1
+    )
+  }, [activeIndex, answeredCount, answers, questions.length])
+
+  const handleNavigatorDotPress = useCallback(
+    (index: number) => {
+      if (index > highestUnlockedIndex) {
+        return
+      }
+
+      setActiveIndex(index)
+      scrollToIndex(index)
+    },
+    [highestUnlockedIndex, scrollToIndex, setActiveIndex]
+  )
+
+  const handleQuestionDrawerPress = useCallback(
+    (index: number) => {
+      if (index > highestUnlockedIndex) {
+        return
+      }
+
+      setIsQuestionDrawerOpen(false)
+      setActiveIndex(index)
+      scrollToIndex(index)
+    },
+    [highestUnlockedIndex, scrollToIndex, setActiveIndex]
+  )
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -686,12 +850,12 @@ export default function QuizScreen() {
       <QuizNavigatorDot
         isActive={questionIndex === activeIndex}
         isAnswered={typeof answers[questionIndex] === "number"}
-        onPressDot={scrollToIndex}
+        onPressDot={handleNavigatorDotPress}
         questionIndex={questionIndex}
         theme={theme}
       />
     ),
-    [activeIndex, answers, scrollToIndex, theme]
+    [activeIndex, answers, handleNavigatorDotPress, theme]
   )
 
   const renderQuestionPage = useCallback(
@@ -708,29 +872,41 @@ export default function QuizScreen() {
   )
 
   // 5. DECOMPOSITION OF COMPLEX CONDITIONALS
-  const isInvalidSetup = totalSeconds <= 0
+  const isInvalidSetup =
+    totalSeconds <= 0 ||
+    totalQuestions <= 0 ||
+    (isBoardExamSession && (!categoryId || !setId))
   const isLoadingQuizData =
-    questionsQuery.isLoading ||
-    (categoryId !== "all-categories" && categoryQuery.isLoading) ||
-    examQuery.isLoading ||
+    (isBoardExamSession
+      ? boardExamSetQuery.isLoading
+      : questionsQuery.isLoading ||
+        (categoryId !== "all-categories" && categoryQuery.isLoading) ||
+        examQuery.isLoading) ||
     (isAttemptHydrating && !attemptId)
+  const isQuestionStateHydrating =
+    rawQuestions.length > 0 && questions.length === 0
 
-  const hasDataError =
-    questionsQuery.error || categoryQuery.error || examQuery.error
-  const isEmptyState = questions.length === 0
+  const hasDataError = isBoardExamSession
+    ? boardExamSetQuery.error
+    : questionsQuery.error || categoryQuery.error || examQuery.error
+  const isEmptyState = rawQuestions.length === 0
+  const isCurrentQuestionAnswered = typeof answers[activeIndex] === "number"
 
   if (isInvalidSetup) return <QuizInvalidSetupState theme={theme} />
   if (isLoadingQuizData) return <QuizLoadingState theme={theme} />
+  if (isQuestionStateHydrating) return <QuizLoadingState theme={theme} />
 
   if (hasDataError) {
     const errorMsg =
-      examQuery.error instanceof Error
-        ? examQuery.error.message
-        : questionsQuery.error instanceof Error
-          ? questionsQuery.error.message
-          : categoryQuery.error instanceof Error
-            ? categoryQuery.error.message
-            : "Unable to load quiz questions from Appwrite."
+      boardExamSetQuery.error instanceof Error
+        ? boardExamSetQuery.error.message
+        : examQuery.error instanceof Error
+          ? examQuery.error.message
+          : questionsQuery.error instanceof Error
+            ? questionsQuery.error.message
+            : categoryQuery.error instanceof Error
+              ? categoryQuery.error.message
+              : "Unable to load quiz questions from Appwrite."
     return <QuizErrorState theme={theme} errorMsg={errorMsg} />
   }
 
@@ -797,6 +973,38 @@ export default function QuizScreen() {
         <Text className="text-xs font-semibold text-muted-foreground">
           {answeredCount}/{questions.length} answered
         </Text>
+        <Pressable
+          onPress={() => setIsQuestionDrawerOpen(true)}
+          className="rounded-2xl border px-3.5 py-3"
+          style={{
+            borderColor: theme.border,
+            backgroundColor: theme.card,
+          }}
+        >
+          <View className="flex-row items-center justify-between">
+            <View>
+              <Text className="text-sm font-black text-card-foreground">
+                Question Map
+              </Text>
+              <Text className="text-xs text-muted-foreground">
+                Jump between answered questions and your next unlocked item.
+              </Text>
+            </View>
+            <View
+              className="rounded-full px-2.5 py-1"
+              style={{ backgroundColor: withOpacity(theme.primary, 0.12) }}
+            >
+              <Text className="text-xs font-black text-primary">
+                {activeIndex + 1}/{questions.length}
+              </Text>
+            </View>
+          </View>
+        </Pressable>
+        {!isCurrentQuestionAnswered ? (
+          <Text className="text-[11px] font-semibold text-primary">
+            Select an answer first before moving to the next question.
+          </Text>
+        ) : null}
         {didResumeAttempt ? (
           <Text className="text-[11px] font-semibold text-primary">
             Resumed from your last ongoing attempt.
@@ -816,6 +1024,7 @@ export default function QuizScreen() {
         getItemLayout={getQuestionItemLayout}
         renderItem={renderQuestionPage}
         extraData={answers}
+        scrollEnabled={false}
         style={QUIZ_PAGER_STYLE}
         contentContainerStyle={QUIZ_PAGER_CONTENT_STYLE}
       />
@@ -838,7 +1047,12 @@ export default function QuizScreen() {
         {activeIndex < questions.length - 1 ? (
           <Button
             className="h-12 flex-1"
+            disabled={!isCurrentQuestionAnswered}
             onPress={() => {
+              if (!isCurrentQuestionAnswered) {
+                return
+              }
+
               const next = Math.min(activeIndex + 1, questions.length - 1)
               setActiveIndex(next)
               scrollToIndex(next)
@@ -850,6 +1064,7 @@ export default function QuizScreen() {
         ) : (
           <Button
             className="h-12 flex-1"
+            disabled={!isCurrentQuestionAnswered}
             onPress={() => setShowSubmitModal(true)}
           >
             <Send size={16} color={theme.primaryForeground} />
@@ -857,6 +1072,82 @@ export default function QuizScreen() {
           </Button>
         )}
       </View>
+
+      <Modal
+        visible={isQuestionDrawerOpen}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => setIsQuestionDrawerOpen(false)}
+      >
+        <TouchableWithoutFeedback
+          onPress={() => setIsQuestionDrawerOpen(false)}
+        >
+          <View
+            className="flex-1"
+            style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+          />
+        </TouchableWithoutFeedback>
+        <View
+          style={{
+            maxHeight: "72%",
+            backgroundColor: theme.card,
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            padding: 20,
+            gap: 14,
+          }}
+        >
+          <View className="items-center gap-2">
+            <View
+              className="h-1.5 w-14 rounded-full"
+              style={{
+                backgroundColor: withOpacity(theme.mutedForeground, 0.35),
+              }}
+            />
+            <Text className="text-lg font-black text-card-foreground">
+              Exam Progress
+            </Text>
+            <Text className="text-sm text-muted-foreground">{quizTitle}</Text>
+          </View>
+          <View
+            className="rounded-[24px] border p-4"
+            style={{
+              borderColor: theme.border,
+              backgroundColor: withOpacity(theme.primary, 0.08),
+            }}
+          >
+            <View className="flex-row items-center justify-between">
+              <Text className="text-sm font-black text-card-foreground">
+                {answeredCount}/{questions.length} answered
+              </Text>
+              <Text className="text-xs font-semibold text-muted-foreground">
+                Current #{activeIndex + 1}
+              </Text>
+            </View>
+            <View className="mt-4" style={QUIZ_DRAWER_GRID_STYLE}>
+              {questions.map((question, index) => (
+                <QuizQuestionDrawerTile
+                  key={question.id}
+                  isActive={index === activeIndex}
+                  isAnswered={typeof answers[index] === "number"}
+                  isLocked={index > highestUnlockedIndex}
+                  onPress={handleQuestionDrawerPress}
+                  questionIndex={index}
+                  theme={theme}
+                />
+              ))}
+            </View>
+          </View>
+          <Button
+            className="h-12"
+            variant="outline"
+            onPress={() => setIsQuestionDrawerOpen(false)}
+          >
+            <Text className="font-bold">Close</Text>
+          </Button>
+        </View>
+      </Modal>
 
       <Modal
         visible={showSubmitModal}

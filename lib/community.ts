@@ -33,6 +33,7 @@ export type CommunityAuthor = {
   name: string
   subtitle: string
   avatarSeed: string
+  avatarUrl: string | null
 }
 
 export type CommunityReplyItem = {
@@ -89,6 +90,7 @@ export type CreateCommunityPostInput = {
   category: "question" | "discussion" | "tip"
   subjectId?: string
   photoUrl?: string
+  author?: CommunityAuthor
 }
 
 export type UploadCommunityPostPhotoInput = {
@@ -272,16 +274,24 @@ function formatRelativeTime(value: string) {
 
 function mapAuthor(
   userId: string,
-  profileMap: Map<string, UserProfileDocument>
+  profileMap: Map<string, UserProfileDocument>,
+  snapshot?: CommunityAuthorSnapshot | null
 ): CommunityAuthor {
   const profile = profileMap.get(userId)
-  const name = profile?.fullName ?? `User ${userId.slice(0, 6)}`
+  const name =
+    snapshot?.name ?? profile?.fullName ?? `User ${userId.slice(0, 6)}`
+  const avatarUrl = snapshot?.avatarUrl ?? profile?.avatarUrl?.trim() ?? null
 
   return {
     id: userId,
     name,
-    subtitle: profile?.reviewType ?? profile?.email ?? "Community member",
+    subtitle:
+      snapshot?.subtitle ??
+      profile?.reviewType ??
+      profile?.email ??
+      "Community member",
     avatarSeed: toAvatarSeed(name),
+    avatarUrl,
   }
 }
 
@@ -431,7 +441,7 @@ function toCommunityReplyItem(
     content: reply.content,
     createdAt: reply.createdAt,
     createdAtLabel: formatRelativeTime(reply.createdAt),
-    author: mapAuthor(reply.userId, profileMap),
+    author: mapAuthor(reply.userId, profileMap, readAuthorSnapshot(reply)),
   }
 }
 
@@ -476,7 +486,7 @@ function toCommunityCommentItem(
     content: comment.content,
     createdAt: comment.createdAt,
     createdAtLabel: formatRelativeTime(comment.createdAt),
-    author: mapAuthor(comment.userId, profileMap),
+    author: mapAuthor(comment.userId, profileMap, readAuthorSnapshot(comment)),
     replies: repliesByCommentId.get(comment.$id) ?? [],
   }
 }
@@ -535,7 +545,11 @@ function mapCommunityPost(
     isLiked: context.currentUserId
       ? likedUsers.has(context.currentUserId)
       : false,
-    author: mapAuthor(post.userId, context.profileMap),
+    author: mapAuthor(
+      post.userId,
+      context.profileMap,
+      readAuthorSnapshot(post)
+    ),
     comments: threadComments,
   }
 }
@@ -615,9 +629,49 @@ type CommunityPostPayload = {
   createdAt: string
   subjectId?: string
   photoUrl?: string
+  authorName?: string
+  authorSubtitle?: string
+  authorAvatarUrl?: string
 }
 
-type CreateCommunityPostRetryPayload = Omit<CommunityPostPayload, "photoUrl">
+type CreateCommunityPostRetryPayload = Omit<
+  CommunityPostPayload,
+  "photoUrl" | "authorName" | "authorSubtitle" | "authorAvatarUrl"
+>
+
+type CommunityAuthorSnapshot = {
+  name: string
+  subtitle: string
+  avatarUrl: string | null
+}
+
+function readAuthorSnapshot(row: unknown): CommunityAuthorSnapshot | null {
+  if (!row || typeof row !== "object") {
+    return null
+  }
+
+  const record = row as Record<string, unknown>
+  const name =
+    typeof record.authorName === "string" ? record.authorName.trim() : ""
+  const subtitle =
+    typeof record.authorSubtitle === "string"
+      ? record.authorSubtitle.trim()
+      : ""
+  const avatarUrl =
+    typeof record.authorAvatarUrl === "string"
+      ? record.authorAvatarUrl.trim() || null
+      : null
+
+  if (!name) {
+    return null
+  }
+
+  return {
+    name,
+    subtitle: subtitle || "Community member",
+    avatarUrl,
+  }
+}
 
 async function createCommunityPostRow(
   payload: CommunityPostPayload | CreateCommunityPostRetryPayload,
@@ -638,11 +692,19 @@ function isUnknownPostAttributeError(error: unknown) {
   )
 }
 
-function shouldRetryCreatePostWithoutPhoto(
-  photoUrl: string | null,
+function shouldRetryCreatePostWithoutOptionalFields(
+  payload: CommunityPostPayload,
   error: unknown
 ) {
-  return Boolean(photoUrl) && isUnknownPostAttributeError(error)
+  return (
+    isUnknownPostAttributeError(error) &&
+    Boolean(
+      payload.photoUrl ||
+      payload.authorName ||
+      payload.authorSubtitle ||
+      payload.authorAvatarUrl
+    )
+  )
 }
 
 export async function createCommunityPost(input: CreateCommunityPostInput) {
@@ -657,6 +719,15 @@ export async function createCommunityPost(input: CreateCommunityPostInput) {
     category: input.category,
     ...(input.subjectId ? { subjectId: input.subjectId } : {}),
     ...(photoUrl ? { photoUrl } : {}),
+    ...(input.author
+      ? {
+          authorName: input.author.name,
+          authorSubtitle: input.author.subtitle,
+          ...(input.author.avatarUrl
+            ? { authorAvatarUrl: input.author.avatarUrl }
+            : {}),
+        }
+      : {}),
     likesCount: 0,
     createdAt: new Date().toISOString(),
   }
@@ -664,11 +735,17 @@ export async function createCommunityPost(input: CreateCommunityPostInput) {
   try {
     await createCommunityPostRow(payload, input.userId)
   } catch (error) {
-    // If Appwrite posts schema has not yet been updated with photoUrl,
-    // retry once without it so posting still works.
-    if (shouldRetryCreatePostWithoutPhoto(photoUrl, error)) {
+    // If Appwrite posts schema has not yet been updated with optional fields,
+    // retry once without them so posting still works.
+    if (shouldRetryCreatePostWithoutOptionalFields(payload, error)) {
       try {
-        const { photoUrl: _photoUrl, ...payloadWithoutPhoto } = payload
+        const {
+          photoUrl: _photoUrl,
+          authorName: _authorName,
+          authorSubtitle: _authorSubtitle,
+          authorAvatarUrl: _authorAvatarUrl,
+          ...payloadWithoutPhoto
+        } = payload
         await createCommunityPostRow(payloadWithoutPhoto, input.userId)
         return
       } catch {
@@ -687,6 +764,7 @@ type CreateCommunityThreadEntryInput = {
   parentField: "postId" | "commentId"
   parentId: string
   fallbackMessage: string
+  author?: CommunityAuthor
 }
 
 async function createCommunityThreadEntry(
@@ -701,12 +779,44 @@ async function createCommunityThreadEntry(
         [input.parentField]: input.parentId,
         userId: input.userId,
         content: input.content,
+        ...(input.author
+          ? {
+              authorName: input.author.name,
+              authorSubtitle: input.author.subtitle,
+              ...(input.author.avatarUrl
+                ? { authorAvatarUrl: input.author.avatarUrl }
+                : {}),
+            }
+          : {}),
         likesCount: 0,
         createdAt: new Date().toISOString(),
       },
       permissions: getOwnerPermissions(input.userId),
     })
   } catch (error) {
+    if (
+      error instanceof Error &&
+      UNKNOWN_POST_ATTRIBUTE_PATTERN.test(error.message)
+    ) {
+      try {
+        await tablesDB.createRow({
+          databaseId: DB_ID,
+          tableId: input.tableId,
+          rowId: ID.unique(),
+          data: {
+            [input.parentField]: input.parentId,
+            userId: input.userId,
+            content: input.content,
+            likesCount: 0,
+            createdAt: new Date().toISOString(),
+          },
+          permissions: getOwnerPermissions(input.userId),
+        })
+        return
+      } catch (retryError) {
+        throw toCommunityError(retryError, input.fallbackMessage)
+      }
+    }
     throw toCommunityError(error, input.fallbackMessage)
   }
 }
@@ -715,6 +825,7 @@ export async function createCommunityComment(input: {
   userId: string
   postId: string
   content: string
+  author?: CommunityAuthor
 }) {
   ensureCommunityConfigured()
 
@@ -725,6 +836,7 @@ export async function createCommunityComment(input: {
     parentField: "postId",
     parentId: input.postId,
     fallbackMessage: "Unable to add the comment.",
+    author: input.author,
   })
 }
 
@@ -732,6 +844,7 @@ export async function createCommunityReply(input: {
   userId: string
   commentId: string
   content: string
+  author?: CommunityAuthor
 }) {
   ensureCommunityConfigured()
 
@@ -742,6 +855,7 @@ export async function createCommunityReply(input: {
     parentField: "commentId",
     parentId: input.commentId,
     fallbackMessage: "Unable to add the reply.",
+    author: input.author,
   })
 }
 

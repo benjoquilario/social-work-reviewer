@@ -47,6 +47,8 @@ export default function CommunityScreen() {
   const router = useRouter()
   const user = useAuth((s) => s.user)
   const profile = useAuth((s) => s.profile)
+  const isAuthenticated = useAuth((s) => s.isAuthenticated)
+  const refreshProfile = useAuth((s) => s.refreshProfile)
   const colorScheme = useColorScheme()
   const theme = colorScheme === "dark" ? THEME.dark : THEME.light
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
@@ -82,6 +84,12 @@ export default function CommunityScreen() {
     void loadFeed(user?.$id)
   }, [loadFeed, user?.$id])
 
+  useEffect(() => {
+    if (isAuthenticated && !profile) {
+      void refreshProfile()
+    }
+  }, [isAuthenticated, profile, refreshProfile])
+
   const subjectsQuery = useQuery({
     queryKey: ["community-subjects"],
     queryFn: () => listLearningSubjects({ viewerIsPremium: true }),
@@ -91,6 +99,7 @@ export default function CommunityScreen() {
     const name = profile?.fullName ?? user?.name ?? "Reviewer"
     return toCommunityAvatarSeed(name)
   }, [profile?.fullName, user?.name])
+  const currentAvatarUrl = profile?.avatarUrl?.trim() || null
 
   const totalPosts = feed?.posts.length ?? 0
 
@@ -142,6 +151,7 @@ export default function CommunityScreen() {
         user.email ??
         "Community member",
       avatarSeed: toCommunityAvatarSeed(name),
+      avatarUrl: profile?.avatarUrl?.trim() || null,
     }
     const subjectName = selectedSubjectId
       ? ((subjectsQuery.data ?? []).find((s) => s.id === selectedSubjectId)
@@ -226,12 +236,14 @@ export default function CommunityScreen() {
         totalPosts={totalPosts}
         stats={feed?.stats}
         theme={theme}
-        currentUserAvatar={currentAvatarSeed}
+        currentUserAvatarLabel={currentAvatarSeed}
+        currentUserAvatarUrl={currentAvatarUrl}
       />
     ),
     [
       activeFeedFilter,
       currentAvatarSeed,
+      currentAvatarUrl,
       featuredSubjects,
       feed?.stats,
       handleRefreshFeed,

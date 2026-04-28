@@ -568,6 +568,233 @@ export const reviewerCmsSchema = {
       },
     ],
   }),
+  board_exam_categories: defineTable({
+    tableId: "board_exam_categories",
+    name: "Board Exam Categories",
+    description:
+      "Board exam categories such as Human Behavior and Social Environment.",
+    group: "assessment",
+    fields: [
+      {
+        key: "title",
+        label: "Title",
+        kind: "string",
+        required: true,
+        size: 255,
+      },
+      {
+        key: "description",
+        label: "Description",
+        kind: "text",
+        required: false,
+        size: 3000,
+      },
+      {
+        key: "code",
+        label: "Code",
+        kind: "string",
+        required: false,
+        size: 64,
+      },
+      {
+        key: "order",
+        label: "Display Order",
+        kind: "integer",
+        required: true,
+        defaultValue: 1,
+        min: 1,
+        max: 9999,
+      },
+    ],
+  }),
+  board_exam_sets: defineTable({
+    tableId: "board_exam_sets",
+    name: "Board Exam Sets",
+    description:
+      "Question groupings under a board exam category such as Set A or Set B.",
+    group: "assessment",
+    fields: [
+      {
+        key: "categoryId",
+        label: "Category ID",
+        kind: "string",
+        required: true,
+        size: 64,
+      },
+      {
+        key: "title",
+        label: "Title",
+        kind: "string",
+        required: true,
+        size: 255,
+      },
+      {
+        key: "setCode",
+        label: "Set Code",
+        kind: "string",
+        required: true,
+        size: 32,
+      },
+      {
+        key: "questionType",
+        label: "Question Type",
+        kind: "enum",
+        required: true,
+        options: ["MCQ", "true-false"],
+        defaultValue: "MCQ",
+      },
+      {
+        key: "totalItems",
+        label: "Total Items",
+        kind: "integer",
+        required: true,
+        defaultValue: 0,
+        min: 0,
+        max: 9999,
+      },
+      {
+        key: "description",
+        label: "Description",
+        kind: "text",
+        required: false,
+        size: 3000,
+      },
+      {
+        key: "order",
+        label: "Display Order",
+        kind: "integer",
+        required: true,
+        defaultValue: 1,
+        min: 1,
+        max: 9999,
+      },
+      {
+        key: "createdAt",
+        label: "Created At",
+        kind: "datetime",
+        required: true,
+      },
+    ],
+  }),
+  board_exam_questions: defineTable({
+    tableId: "board_exam_questions",
+    name: "Board Exam Questions",
+    description:
+      "Questions under a board exam category and set, including rationale.",
+    group: "assessment",
+    fields: [
+      {
+        key: "categoryId",
+        label: "Category ID",
+        kind: "string",
+        required: true,
+        size: 64,
+      },
+      {
+        key: "setId",
+        label: "Set ID",
+        kind: "string",
+        required: true,
+        size: 64,
+      },
+      {
+        key: "questionText",
+        label: "Question Text",
+        kind: "richtext",
+        required: true,
+        size: 7000,
+      },
+      {
+        key: "questionType",
+        label: "Question Type",
+        kind: "enum",
+        required: true,
+        options: ["MCQ", "true-false"],
+        defaultValue: "MCQ",
+      },
+      {
+        key: "explanation",
+        label: "Explanation",
+        kind: "richtext",
+        required: false,
+        size: 7000,
+      },
+      {
+        key: "order",
+        label: "Order",
+        kind: "integer",
+        required: true,
+        defaultValue: 1,
+        min: 1,
+        max: 9999,
+      },
+      {
+        key: "createdBy",
+        label: "Created By",
+        kind: "string",
+        required: false,
+        size: 64,
+      },
+      {
+        key: "isPremium",
+        label: "Premium Question",
+        kind: "boolean",
+        required: true,
+        defaultValue: false,
+      },
+      {
+        key: "createdAt",
+        label: "Created At",
+        kind: "datetime",
+        required: true,
+      },
+    ],
+  }),
+  board_exam_choices: defineTable({
+    tableId: "board_exam_choices",
+    name: "Board Exam Choices",
+    description: "Answer options attached to a board exam question.",
+    group: "assessment",
+    fields: [
+      {
+        key: "questionId",
+        label: "Question ID",
+        kind: "string",
+        required: true,
+        size: 64,
+      },
+      {
+        key: "choiceKey",
+        label: "Choice Key",
+        kind: "string",
+        required: true,
+        size: 16,
+      },
+      {
+        key: "choiceText",
+        label: "Choice Text",
+        kind: "text",
+        required: true,
+        size: 4000,
+      },
+      {
+        key: "isCorrect",
+        label: "Correct Answer",
+        kind: "boolean",
+        required: true,
+        defaultValue: false,
+      },
+      {
+        key: "order",
+        label: "Order",
+        kind: "integer",
+        required: true,
+        defaultValue: 1,
+        min: 1,
+        max: 99,
+      },
+    ],
+  }),
   exam_attempts: defineTable({
     tableId: "exam_attempts",
     name: "Exam Attempts",
@@ -961,6 +1188,27 @@ export const reviewerCmsSchema = {
         size: 2048,
       },
       {
+        key: "authorName",
+        label: "Author Name Snapshot",
+        kind: "string",
+        required: false,
+        size: 255,
+      },
+      {
+        key: "authorSubtitle",
+        label: "Author Subtitle Snapshot",
+        kind: "string",
+        required: false,
+        size: 255,
+      },
+      {
+        key: "authorAvatarUrl",
+        label: "Author Avatar URL Snapshot",
+        kind: "string",
+        required: false,
+        size: 2048,
+      },
+      {
         key: "likesCount",
         label: "Likes Count",
         kind: "integer",
@@ -1005,6 +1253,27 @@ export const reviewerCmsSchema = {
         size: 4000,
       },
       {
+        key: "authorName",
+        label: "Author Name Snapshot",
+        kind: "string",
+        required: false,
+        size: 255,
+      },
+      {
+        key: "authorSubtitle",
+        label: "Author Subtitle Snapshot",
+        kind: "string",
+        required: false,
+        size: 255,
+      },
+      {
+        key: "authorAvatarUrl",
+        label: "Author Avatar URL Snapshot",
+        kind: "string",
+        required: false,
+        size: 2048,
+      },
+      {
         key: "likesCount",
         label: "Likes Count",
         kind: "integer",
@@ -1047,6 +1316,27 @@ export const reviewerCmsSchema = {
         kind: "text",
         required: true,
         size: 4000,
+      },
+      {
+        key: "authorName",
+        label: "Author Name Snapshot",
+        kind: "string",
+        required: false,
+        size: 255,
+      },
+      {
+        key: "authorSubtitle",
+        label: "Author Subtitle Snapshot",
+        kind: "string",
+        required: false,
+        size: 255,
+      },
+      {
+        key: "authorAvatarUrl",
+        label: "Author Avatar URL Snapshot",
+        kind: "string",
+        required: false,
+        size: 2048,
       },
       {
         key: "likesCount",
@@ -1292,6 +1582,13 @@ export type ChoiceDocument = ReviewerTableDocument<"choices">
 export type QuestionTagDocument = ReviewerTableDocument<"question_tags">
 export type ExamDocument = ReviewerTableDocument<"exams">
 export type ExamQuestionDocument = ReviewerTableDocument<"exam_questions">
+export type BoardExamCategoryDocument =
+  ReviewerTableDocument<"board_exam_categories">
+export type BoardExamSetDocument = ReviewerTableDocument<"board_exam_sets">
+export type BoardExamQuestionDocument =
+  ReviewerTableDocument<"board_exam_questions">
+export type BoardExamChoiceDocument =
+  ReviewerTableDocument<"board_exam_choices">
 export type ExamAttemptDocument = ReviewerTableDocument<"exam_attempts">
 export type UserAnswerDocument = ReviewerTableDocument<"user_answers">
 export type UserProgressDocument = ReviewerTableDocument<"user_progress">

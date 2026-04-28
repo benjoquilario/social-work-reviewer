@@ -58,6 +58,7 @@ export type RecordQuizAnswerPayload = {
   choiceId: string
   isCorrect: boolean
   currentQuestionIndex: number
+  totalItems: number
 }
 
 export type CompleteQuizAttemptPayload = {
