@@ -303,7 +303,8 @@ async function resolveMaterialAccessViaFunction(
 
     throw createAppwriteContentError(
       "request",
-      payload?.message ?? "Unable to resolve premium material access."
+      payload?.message ??
+        "Unable to resolve premium material access. Check the premium Appwrite Function deployment, environment variables, and execute/scopes settings."
     )
   }
 

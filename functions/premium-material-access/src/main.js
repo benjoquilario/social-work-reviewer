@@ -1,15 +1,70 @@
 const sdk = require("node-appwrite")
 
-const DATABASE_ID = process.env.APPWRITE_DATABASE_ID
-const API_ENDPOINT = process.env.APPWRITE_API_ENDPOINT
-const PROJECT_ID = process.env.APPWRITE_PROJECT_ID
-const API_KEY = process.env.APPWRITE_API_KEY
+const DATABASE_ID =
+  process.env.APPWRITE_DATABASE_ID || process.env.APPWRITE_FUNCTION_DATABASE_ID
+const API_ENDPOINT =
+  process.env.APPWRITE_API_ENDPOINT ||
+  process.env.APPWRITE_FUNCTION_API_ENDPOINT
+const PROJECT_ID =
+  process.env.APPWRITE_PROJECT_ID || process.env.APPWRITE_FUNCTION_PROJECT_ID
+const API_KEY =
+  process.env.APPWRITE_API_KEY || process.env.APPWRITE_FUNCTION_API_KEY
 const PREMIUM_ACCESS_DEBUG_MODE =
   process.env.PREMIUM_ACCESS_DEBUG_MODE === "true"
 const USER_PROFILES_COLLECTION_ID =
   process.env.USER_PROFILES_COLLECTION_ID || "user_profiles"
 const LEARNING_MATERIALS_COLLECTION_ID =
   process.env.LEARNING_MATERIALS_COLLECTION_ID || "learning_materials"
+
+function createDatabaseAdapter(client) {
+  if (typeof sdk.TablesDB === "function") {
+    const tablesDB = new sdk.TablesDB(client)
+
+    return {
+      async listRows({ databaseId, tableId, queries }) {
+        return await tablesDB.listRows({
+          databaseId,
+          tableId,
+          queries,
+        })
+      },
+      async getRow({ databaseId, tableId, rowId }) {
+        return await tablesDB.getRow({
+          databaseId,
+          tableId,
+          rowId,
+        })
+      },
+    }
+  }
+
+  if (typeof sdk.Databases === "function") {
+    const databases = new sdk.Databases(client)
+
+    return {
+      async listRows({ databaseId, tableId, queries }) {
+        const response = await databases.listDocuments(
+          databaseId,
+          tableId,
+          queries
+        )
+
+        return {
+          rows: response.documents || [],
+        }
+      },
+      async getRow({ databaseId, tableId, rowId }) {
+        return await databases.getDocument(databaseId, tableId, rowId)
+      },
+    }
+  }
+
+  throw new Error(
+    `No compatible Appwrite database service found. Available SDK exports: ${Object.keys(
+      sdk
+    ).join(", ")}`
+  )
+}
 
 function withDebug(payload, debug) {
   if (!PREMIUM_ACCESS_DEBUG_MODE) {
@@ -85,14 +140,14 @@ function extractMaterialId(req, body) {
   return ""
 }
 
-module.exports = async ({ req, res, log, error }) => {
-  if (!API_ENDPOINT || !PROJECT_ID || !API_KEY || !DATABASE_ID) {
+const handler = async ({ req, res, log, error }) => {
+  if (!API_ENDPOINT || !PROJECT_ID || !DATABASE_ID) {
     error("Missing required function environment variables.")
     return res.json(
       {
         ok: false,
         message:
-          "Function is not configured. Set APPWRITE_API_ENDPOINT, APPWRITE_PROJECT_ID, APPWRITE_API_KEY, and APPWRITE_DATABASE_ID.",
+          "Function is not configured. Set APPWRITE_API_ENDPOINT (or APPWRITE_FUNCTION_API_ENDPOINT), APPWRITE_PROJECT_ID (or APPWRITE_FUNCTION_PROJECT_ID), and APPWRITE_DATABASE_ID.",
       },
       500
     )
@@ -154,15 +209,33 @@ module.exports = async ({ req, res, log, error }) => {
     )
   }
 
-  const client = new sdk.Client()
-    .setEndpoint(API_ENDPOINT)
-    .setProject(PROJECT_ID)
-    .setKey(API_KEY)
-
-  const tablesDB = new sdk.TablesDB(client)
-
   try {
-    const profileResult = await tablesDB.listRows({
+    const functionKey =
+      req.headers["x-appwrite-key"] ||
+      req.headers["X-Appwrite-Key"] ||
+      API_KEY
+
+    if (!functionKey) {
+      return res.json(
+        {
+          ok: false,
+          message:
+            "Function API key is unavailable. Add APPWRITE_API_KEY or enable Appwrite Function scopes so x-appwrite-key is available at runtime.",
+        },
+        500
+      )
+    }
+
+    const client = new sdk.Client()
+      .setEndpoint(API_ENDPOINT)
+      .setProject(PROJECT_ID)
+      .setKey(functionKey)
+
+    const database = createDatabaseAdapter(client)
+
+    log(`Resolving premium access for material ${materialId}.`)
+
+    const profileResult = await database.listRows({
       databaseId: DATABASE_ID,
       tableId: USER_PROFILES_COLLECTION_ID,
       queries: [sdk.Query.equal("userId", userId), sdk.Query.limit(1)],
@@ -171,7 +244,7 @@ module.exports = async ({ req, res, log, error }) => {
     const profile = profileResult.rows[0] || null
     const isPremiumUser = profile?.isPremium === true
 
-    const material = await tablesDB.getRow({
+    const material = await database.getRow({
       databaseId: DATABASE_ID,
       tableId: LEARNING_MATERIALS_COLLECTION_ID,
       rowId: materialId,
@@ -218,10 +291,18 @@ module.exports = async ({ req, res, log, error }) => {
       },
     })
   } catch (caughtError) {
-    error(caughtError.message || String(caughtError))
+    const message = caughtError?.message || String(caughtError)
+    error(message)
     return res.json(
-      { ok: false, message: "Unable to resolve premium material access." },
+      {
+        ok: false,
+        message: "Unable to resolve premium material access.",
+        detail: message,
+      },
       500
     )
   }
 }
+
+module.exports = handler
+module.exports.default = handler

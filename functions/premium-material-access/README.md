@@ -13,11 +13,20 @@ This Appwrite Function is scaffolded inside the same repository so premium check
 
 - `APPWRITE_API_ENDPOINT`
 - `APPWRITE_PROJECT_ID`
-- `APPWRITE_API_KEY`
 - `APPWRITE_DATABASE_ID`
 - `USER_PROFILES_COLLECTION_ID` (optional, defaults to `user_profiles`)
 - `LEARNING_MATERIALS_COLLECTION_ID` (optional, defaults to `learning_materials`)
 - `PREMIUM_ACCESS_DEBUG_MODE` (optional, set to `true` only in development)
+
+Notes:
+
+- The function now supports Appwrite's built-in function variables too:
+  - `APPWRITE_FUNCTION_API_ENDPOINT`
+  - `APPWRITE_FUNCTION_PROJECT_ID`
+  - `APPWRITE_FUNCTION_API_KEY`
+- Preferred setup: let Appwrite provide the runtime key through function scopes.
+- Fallback setup: define a manual `APPWRITE_API_KEY` if you prefer.
+- The function now also supports either Appwrite Tables (`TablesDB`) or the older Documents API (`Databases`) at runtime, so deployments on mixed SDK/runtime versions can still resolve premium content.
 
 ## Invocation Shape
 
@@ -59,6 +68,8 @@ When `PREMIUM_ACCESS_DEBUG_MODE=true`, `403` responses include:
 - Schedule: leave empty
 - Execute asynchronously: `false` for the mobile app flow, so the caller receives the material payload in the same request
 - Entrypoint: `main.js`
+- Execute access: allow authenticated users
+- Function scopes: allow database read access needed for `user_profiles` and `learning_materials`
 
 The repository includes both `main.js` (root entrypoint) and `src/main.js` (implementation) so Appwrite deployments that expect a root entrypoint work without extra changes.
 
