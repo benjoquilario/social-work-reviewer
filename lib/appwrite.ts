@@ -29,6 +29,8 @@ export const APPWRITE_CONFIG = {
     process.env.EXPO_PUBLIC_APPWRITE_PROFILE_IMAGES_BUCKET_ID ?? "",
   communityPostImagesBucketId:
     process.env.EXPO_PUBLIC_APPWRITE_COMMUNITY_POST_IMAGES_BUCKET_ID ?? "",
+  communityPostLikeFunctionId:
+    process.env.EXPO_PUBLIC_APPWRITE_COMMUNITY_POST_LIKE_FUNCTION_ID ?? "",
   premiumMaterialAccessFunctionId:
     process.env.EXPO_PUBLIC_APPWRITE_PREMIUM_MATERIAL_FUNCTION_ID ??
     "69c35f750004ff04204f",

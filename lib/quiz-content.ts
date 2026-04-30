@@ -19,6 +19,7 @@ import {
 } from "./schema"
 
 const QUIZ_QUERY_LIMIT = 500
+const QUIZ_IN_QUERY_CHUNK_SIZE = 50
 const QUIZ_RESOURCES = [
   COLLECTIONS.SUBJECTS,
   COLLECTIONS.QUESTIONS,
@@ -112,6 +113,20 @@ function shuffleArray<T>(items: T[]): T[] {
   return clone
 }
 
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)))
+}
+
+function chunkValues<T>(values: T[], size: number) {
+  const chunks: T[][] = []
+
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size))
+  }
+
+  return chunks
+}
+
 async function listQuestionDocuments(subjectId?: string) {
   ensureQuizConfigured()
 
@@ -128,6 +143,30 @@ async function listQuestionDocuments(subjectId?: string) {
   })
 
   return rows as unknown as QuestionDocument[]
+}
+
+async function listQuestionDocumentsByIds(questionIds: string[]) {
+  ensureQuizConfigured()
+
+  const uniqueQuestionIds = uniqueStrings(questionIds)
+
+  if (uniqueQuestionIds.length === 0) {
+    return [] as QuestionDocument[]
+  }
+
+  const results = await Promise.all(
+    chunkValues(uniqueQuestionIds, QUIZ_IN_QUERY_CHUNK_SIZE).map((chunk) =>
+      tablesDB.listRows({
+        databaseId: DB_ID,
+        tableId: COLLECTIONS.QUESTIONS,
+        queries: [Query.equal("$id", chunk), Query.limit(chunk.length)],
+      })
+    )
+  )
+
+  return results.flatMap(
+    (result) => result.rows as unknown as QuestionDocument[]
+  )
 }
 
 async function listExamDocuments(subjectId?: string) {
@@ -178,23 +217,58 @@ async function listExamQuestionDocuments(examId?: string) {
   return rows as unknown as ExamQuestionDocument[]
 }
 
+async function listExamQuestionDocumentsByExamIds(examIds: string[]) {
+  ensureQuizConfigured()
+
+  const uniqueExamIds = uniqueStrings(examIds)
+
+  if (uniqueExamIds.length === 0) {
+    return [] as ExamQuestionDocument[]
+  }
+
+  const results = await Promise.all(
+    uniqueExamIds.map((examId) =>
+      tablesDB.listRows({
+        databaseId: DB_ID,
+        tableId: COLLECTIONS.EXAM_QUESTIONS,
+        queries: [
+          Query.equal("examId", examId),
+          Query.orderAsc("order"),
+          Query.limit(QUIZ_QUERY_LIMIT),
+        ],
+      })
+    )
+  )
+
+  return results.flatMap(
+    (result) => result.rows as unknown as ExamQuestionDocument[]
+  )
+}
+
 async function listChoiceDocuments(questionIds?: string[]) {
   ensureQuizConfigured()
 
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.CHOICES,
-    queries: [Query.limit(QUIZ_QUERY_LIMIT)],
-  })
+  const uniqueQuestionIds = uniqueStrings(questionIds ?? [])
 
-  const choices = rows as unknown as ChoiceDocument[]
-
-  if (!questionIds || questionIds.length === 0) {
-    return choices
+  if (uniqueQuestionIds.length === 0) {
+    return [] as ChoiceDocument[]
   }
 
-  const questionIdSet = new Set(questionIds)
-  return choices.filter((choice) => questionIdSet.has(choice.questionId))
+  const results = await Promise.all(
+    chunkValues(uniqueQuestionIds, QUIZ_IN_QUERY_CHUNK_SIZE).map((chunk) =>
+      tablesDB.listRows({
+        databaseId: DB_ID,
+        tableId: COLLECTIONS.CHOICES,
+        queries: [
+          Query.equal("questionId", chunk),
+          Query.orderAsc("order"),
+          Query.limit(QUIZ_QUERY_LIMIT),
+        ],
+      })
+    )
+  )
+
+  return results.flatMap((result) => result.rows as unknown as ChoiceDocument[])
 }
 
 function getVisibleQuestions(
@@ -383,11 +457,12 @@ export async function listQuizExamsBySubjectId(
     }
 
     const examIds = new Set(exams.map((exam) => exam.$id))
-    const [assignments, questions] = await Promise.all([
-      listExamQuestionDocuments(),
-      listQuestionDocuments(subjectId),
-    ])
-    const questionsById = buildQuestionMap(questions)
+    const assignments = await listExamQuestionDocumentsByExamIds(
+      exams.map((exam) => exam.$id)
+    )
+    const questions = await listQuestionDocumentsByIds(
+      assignments.map((assignment) => assignment.questionId)
+    )
     const assignmentsByExamId = new Map<string, ExamQuestionDocument[]>()
 
     for (const assignment of assignments) {
@@ -400,6 +475,7 @@ export async function listQuizExamsBySubjectId(
       assignmentsByExamId.set(assignment.examId, current)
     }
 
+    const questionsById = buildQuestionMap(questions)
     return exams.map((exam) =>
       summarizeQuizExam({
         exam,
@@ -421,14 +497,16 @@ export async function getQuizExamDetail(
 
   try {
     const exam = await getExamDocument(examId)
-    const [subject, assignments, questions] = await Promise.all([
+    const assignments = await listExamQuestionDocuments(examId)
+    const [subject, questions] = await Promise.all([
       tablesDB.getRow({
         databaseId: DB_ID,
         tableId: COLLECTIONS.SUBJECTS,
         rowId: exam.subjectId,
       }),
-      listExamQuestionDocuments(examId),
-      listQuestionDocuments(exam.subjectId),
+      listQuestionDocumentsByIds(
+        assignments.map((assignment) => assignment.questionId)
+      ),
     ])
     const typedSubject = subject as unknown as SubjectDocument
     const summary = summarizeQuizExam({
@@ -469,10 +547,10 @@ export async function buildAppwriteQuizQuestions(options: {
         return []
       }
 
-      const [assignments, questions] = await Promise.all([
-        listExamQuestionDocuments(options.examId),
-        listQuestionDocuments(exam.subjectId),
-      ])
+      const assignments = await listExamQuestionDocuments(options.examId)
+      const questions = await listQuestionDocumentsByIds(
+        assignments.map((assignment) => assignment.questionId)
+      )
       const questionsById = buildQuestionMap(questions)
       const orderedVisibleQuestions = assignments.flatMap((assignment) => {
         const question = questionsById.get(assignment.questionId)

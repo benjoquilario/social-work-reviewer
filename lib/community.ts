@@ -4,12 +4,14 @@ import {
   createAppwriteContentError,
   createAppwritePermissionMessage,
   DB_ID,
+  ExecutionMethod,
   getAppwriteConfigurationError,
   ID,
   isAppwriteUnauthorizedError,
   Permission,
   Query,
   Role,
+  functions,
   storage,
   tablesDB,
 } from "./appwrite"
@@ -23,7 +25,9 @@ import {
   type UserProfileDocument,
 } from "./schema"
 
-const COMMUNITY_LIMIT = 200
+const COMMUNITY_POST_PAGE_SIZE = 25
+const COMMUNITY_RELATION_PAGE_SIZE = 100
+const COMMUNITY_QUERY_VALUE_CHUNK_SIZE = 100
 const MAX_THREAD_PHOTO_SIZE_BYTES = 8 * 1024 * 1024
 const UNKNOWN_POST_ATTRIBUTE_PATTERN =
   /unknown attribute|attribute not found|Invalid document structure/i
@@ -305,12 +309,87 @@ async function listRowsSafe<T>(tableId: string, queries: string[]) {
   return rows as unknown as T[]
 }
 
+function chunkValues(values: string[], size: number) {
+  const uniqueValues = Array.from(new Set(values.filter(Boolean)))
+  const chunks: string[][] = []
+
+  for (let index = 0; index < uniqueValues.length; index += size) {
+    chunks.push(uniqueValues.slice(index, index + size))
+  }
+
+  return chunks
+}
+
+async function listPaginatedRowsSafe<T extends { $id: string }>(
+  tableId: string,
+  queries: string[],
+  pageSize = COMMUNITY_RELATION_PAGE_SIZE
+) {
+  const rows: T[] = []
+  let cursorAfterId: string | null = null
+
+  while (true) {
+    const page: T[] = await listRowsSafe<T>(tableId, [
+      ...queries,
+      Query.limit(pageSize),
+      ...(cursorAfterId ? [Query.cursorAfter(cursorAfterId)] : []),
+    ])
+
+    rows.push(...page)
+
+    if (page.length < pageSize) {
+      return rows
+    }
+
+    cursorAfterId = page[page.length - 1]?.$id ?? null
+
+    if (!cursorAfterId) {
+      return rows
+    }
+  }
+}
+
+async function listRowsByFieldValues<T extends { $id: string }>(
+  tableId: string,
+  field: string,
+  values: string[],
+  queries: string[],
+  options?: {
+    pageSize?: number
+    fallbackValue?: T[]
+  }
+) {
+  const valueChunks = chunkValues(values, COMMUNITY_QUERY_VALUE_CHUNK_SIZE)
+
+  if (valueChunks.length === 0) {
+    return [] as T[]
+  }
+
+  const results = await Promise.all(
+    valueChunks.map((chunk) =>
+      listPaginatedRowsSafe<T>(
+        tableId,
+        [Query.equal(field, chunk), ...queries],
+        options?.pageSize
+      ).catch((error) => {
+        if (options?.fallbackValue) {
+          return options.fallbackValue
+        }
+
+        throw error
+      })
+    )
+  )
+
+  return results.flat()
+}
+
 type CommunityFeedRows = {
   posts: PostDocument[]
   comments: CommentDocument[]
   replies: ReplyDocument[]
-  postLikes: PostLikeDocument[]
-  profiles: UserProfileDocument[]
+  postLikesByPostId: Map<string, Set<string>>
+  likedPostIds: Set<string>
   subjects: SubjectDocument[]
   flaggedItems: FlaggedContentDocument[]
 }
@@ -324,56 +403,119 @@ type HiddenCommunityContent = {
 type CommunityPostMappingContext = {
   commentsByPostId: Map<string, CommunityCommentItem[]>
   postLikesByPostId: Map<string, Set<string>>
+  likedPostIds: Set<string>
   subjectMap: Map<string, string>
   profileMap: Map<string, UserProfileDocument>
   currentUserId?: string
 }
 
-async function listCommunityFeedRows(): Promise<CommunityFeedRows> {
-  const [
-    posts,
-    comments,
-    replies,
-    postLikes,
-    profiles,
-    subjects,
-    flaggedItems,
-  ] = await Promise.all([
-    listRowsSafe<PostDocument>(COLLECTIONS.POSTS, [
-      Query.orderDesc("createdAt"),
-      Query.limit(COMMUNITY_LIMIT),
-    ]),
-    listRowsSafe<CommentDocument>(COLLECTIONS.COMMENTS, [
-      Query.orderAsc("createdAt"),
-      Query.limit(COMMUNITY_LIMIT),
-    ]),
-    listRowsSafe<ReplyDocument>(COLLECTIONS.REPLIES, [
-      Query.orderAsc("createdAt"),
-      Query.limit(COMMUNITY_LIMIT),
-    ]),
-    listRowsSafe<PostLikeDocument>(COLLECTIONS.POST_LIKES, [
-      Query.limit(COMMUNITY_LIMIT),
-    ]),
-    listRowsSafe<UserProfileDocument>(COLLECTIONS.USER_PROFILES, [
-      Query.limit(COMMUNITY_LIMIT),
-    ]).catch(() => []),
-    listRowsSafe<SubjectDocument>(COLLECTIONS.SUBJECTS, [
-      Query.orderAsc("order"),
-      Query.limit(COMMUNITY_LIMIT),
-    ]).catch(() => []),
-    listRowsSafe<FlaggedContentDocument>(COLLECTIONS.FLAGGED_CONTENT, [
-      Query.limit(COMMUNITY_LIMIT),
-    ]).catch(() => []),
+async function listCommunityFeedRows(
+  currentUserId?: string
+): Promise<CommunityFeedRows> {
+  const posts = await listRowsSafe<PostDocument>(COLLECTIONS.POSTS, [
+    Query.orderDesc("createdAt"),
+    Query.limit(COMMUNITY_POST_PAGE_SIZE),
   ])
+
+  const postIds = posts.map((post) => post.$id)
+  const postFlags = await listRowsByFieldValues<FlaggedContentDocument>(
+    COLLECTIONS.FLAGGED_CONTENT,
+    "contentId",
+    postIds,
+    [Query.equal("contentType", "post")],
+    { fallbackValue: [] }
+  )
+  const hiddenPostIds = buildHiddenCommunityContent(postFlags).hiddenPostIds
+  const visiblePostIds = posts
+    .filter((post) => !hiddenPostIds.has(post.$id))
+    .map((post) => post.$id)
+
+  if (visiblePostIds.length === 0) {
+    return {
+      posts,
+      comments: [],
+      replies: [],
+      postLikesByPostId: new Map<string, Set<string>>(),
+      likedPostIds: new Set<string>(),
+      subjects: [],
+      flaggedItems: postFlags,
+    }
+  }
+
+  const [comments, subjects, postLikes] = await Promise.all([
+    listRowsByFieldValues<CommentDocument>(
+      COLLECTIONS.COMMENTS,
+      "postId",
+      visiblePostIds,
+      [Query.orderAsc("createdAt")]
+    ),
+    listRowsByFieldValues<SubjectDocument>(
+      COLLECTIONS.SUBJECTS,
+      "$id",
+      posts
+        .map((post) => post.subjectId)
+        .filter((subjectId): subjectId is string => Boolean(subjectId)),
+      [Query.orderAsc("order")],
+      { fallbackValue: [] }
+    ),
+    listRowsByFieldValues<PostLikeDocument>(
+      COLLECTIONS.POST_LIKES,
+      "postId",
+      visiblePostIds,
+      [],
+      {
+        fallbackValue: [],
+        pageSize: COMMUNITY_RELATION_PAGE_SIZE,
+      }
+    ),
+  ])
+
+  const commentIds = comments.map((comment) => comment.$id)
+  const [commentFlags, replies] = await Promise.all([
+    listRowsByFieldValues<FlaggedContentDocument>(
+      COLLECTIONS.FLAGGED_CONTENT,
+      "contentId",
+      commentIds,
+      [Query.equal("contentType", "comment")],
+      { fallbackValue: [] }
+    ),
+    listRowsByFieldValues<ReplyDocument>(
+      COLLECTIONS.REPLIES,
+      "commentId",
+      commentIds,
+      [Query.orderAsc("createdAt")]
+    ),
+  ])
+
+  const replyFlags = await listRowsByFieldValues<FlaggedContentDocument>(
+    COLLECTIONS.FLAGGED_CONTENT,
+    "contentId",
+    replies.map((reply) => reply.$id),
+    [Query.equal("contentType", "reply")],
+    { fallbackValue: [] }
+  )
+
+  const postLikesByPostId = new Map<string, Set<string>>()
+  for (const like of postLikes) {
+    const users = postLikesByPostId.get(like.postId) ?? new Set<string>()
+    users.add(like.userId)
+    postLikesByPostId.set(like.postId, users)
+  }
 
   return {
     posts,
     comments,
     replies,
-    postLikes,
-    profiles,
+    postLikesByPostId,
+    likedPostIds: currentUserId
+      ? new Set(
+          postLikes
+            .filter((like) => like.userId === currentUserId)
+            .map((like) => like.postId)
+        )
+      : new Set<string>(),
     subjects,
-    flaggedItems,
+    flaggedItems: [...postFlags, ...commentFlags, ...replyFlags],
   }
 }
 
@@ -401,24 +543,8 @@ function buildHiddenCommunityContent(
   }
 }
 
-function buildProfileMap(profiles: UserProfileDocument[]) {
-  return new Map(profiles.map((profile) => [profile.userId, profile]))
-}
-
 function buildSubjectMap(subjects: SubjectDocument[]) {
   return new Map(subjects.map((subject) => [subject.$id, subject.name]))
-}
-
-function buildPostLikesByPostId(postLikes: PostLikeDocument[]) {
-  const postLikesByPostId = new Map<string, Set<string>>()
-
-  for (const like of postLikes) {
-    const users = postLikesByPostId.get(like.postId) ?? new Set<string>()
-    users.add(like.userId)
-    postLikesByPostId.set(like.postId, users)
-  }
-
-  return postLikesByPostId
 }
 
 function shouldHideReply(
@@ -539,11 +665,11 @@ function mapCommunityPost(
     photoUrl: post.photoUrl?.trim() || null,
     createdAt: post.createdAt,
     createdAtLabel: formatRelativeTime(post.createdAt),
-    likesCount: likedUsers.size || post.likesCount,
+    likesCount: likedUsers.size,
     commentsCount: threadComments.length,
     repliesCount,
     isLiked: context.currentUserId
-      ? likedUsers.has(context.currentUserId)
+      ? context.likedPostIds.has(post.$id)
       : false,
     author: mapAuthor(
       post.userId,
@@ -574,16 +700,15 @@ export async function listCommunityFeed(
       posts,
       comments,
       replies,
-      postLikes,
-      profiles,
+      postLikesByPostId,
+      likedPostIds,
       subjects,
       flaggedItems,
-    } = await listCommunityFeedRows()
+    } = await listCommunityFeedRows(currentUserId)
 
     const hiddenContent = buildHiddenCommunityContent(flaggedItems)
-    const profileMap = buildProfileMap(profiles)
+    const profileMap = new Map<string, UserProfileDocument>()
     const subjectMap = buildSubjectMap(subjects)
-    const postLikesByPostId = buildPostLikesByPostId(postLikes)
     const repliesByCommentId = buildRepliesByCommentId(
       replies,
       hiddenContent,
@@ -602,6 +727,7 @@ export async function listCommunityFeed(
         mapCommunityPost(post, {
           commentsByPostId,
           postLikesByPostId,
+          likedPostIds,
           subjectMap,
           profileMap,
           currentUserId,
@@ -617,6 +743,58 @@ export async function listCommunityFeed(
       error,
       "Unable to load community posts from Appwrite."
     )
+  }
+}
+
+type ToggleCommunityPostLikeFunctionResponse = {
+  ok?: boolean
+  postId?: string
+  userId?: string
+  isLiked?: boolean
+  likesCount?: number
+  message?: string
+}
+
+export type ToggleCommunityPostLikeResult = {
+  isLiked: boolean
+  likesCount: number
+}
+
+async function executeCommunityPostLikeFunction(input: {
+  postId: string
+  currentlyLiked: boolean
+}) {
+  const functionId = APPWRITE_CONFIG.communityPostLikeFunctionId
+
+  if (!functionId) {
+    return null
+  }
+
+  try {
+    return await functions.createExecution({
+      functionId,
+      body: JSON.stringify(input),
+      async: false,
+      xpath: "/",
+      method: ExecutionMethod.POST,
+      headers: {
+        "content-type": "application/json",
+      },
+    })
+  } catch {
+    return null
+  }
+}
+
+function parseToggleCommunityPostLikePayload(responseBody: string) {
+  if (!responseBody) {
+    return null
+  }
+
+  try {
+    return JSON.parse(responseBody) as ToggleCommunityPostLikeFunctionResponse
+  } catch {
+    return null
   }
 }
 
@@ -863,10 +1041,32 @@ export async function toggleCommunityPostLike(input: {
   userId: string
   postId: string
   currentlyLiked: boolean
-}) {
+}): Promise<ToggleCommunityPostLikeResult> {
   ensureCommunityConfigured()
 
   try {
+    const functionExecution = await executeCommunityPostLikeFunction({
+      postId: input.postId,
+      currentlyLiked: input.currentlyLiked,
+    })
+
+    const functionPayload = parseToggleCommunityPostLikePayload(
+      functionExecution?.responseBody ?? ""
+    )
+
+    if (
+      functionExecution &&
+      functionExecution.responseStatusCode < 400 &&
+      functionPayload?.ok !== false &&
+      typeof functionPayload?.isLiked === "boolean" &&
+      typeof functionPayload?.likesCount === "number"
+    ) {
+      return {
+        isLiked: functionPayload.isLiked,
+        likesCount: functionPayload.likesCount,
+      }
+    }
+
     const existingLikes = await listRowsSafe<PostLikeDocument>(
       COLLECTIONS.POST_LIKES,
       [
@@ -914,6 +1114,11 @@ export async function toggleCommunityPostLike(input: {
         likesCount: nextLikesCount,
       },
     })
+
+    return {
+      isLiked: !input.currentlyLiked,
+      likesCount: nextLikesCount,
+    }
   } catch (error) {
     throw toCommunityError(error, "Unable to update the post like.")
   }

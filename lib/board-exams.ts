@@ -16,6 +16,7 @@ import {
 } from "./schema"
 
 const BOARD_EXAM_QUERY_LIMIT = 500
+const BOARD_EXAM_IN_QUERY_CHUNK_SIZE = 50
 const BOARD_EXAM_RESOURCES = [
   COLLECTIONS.BOARD_EXAM_CATEGORIES,
   COLLECTIONS.BOARD_EXAM_SETS,
@@ -117,6 +118,20 @@ function sortByOrder<T extends { order: number }>(items: T[]): T[] {
   return [...items].sort((left, right) => left.order - right.order)
 }
 
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)))
+}
+
+function chunkValues<T>(values: T[], size: number) {
+  const chunks: T[][] = []
+
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size))
+  }
+
+  return chunks
+}
+
 async function listBoardExamCategoryDocuments() {
   ensureBoardExamConfigured()
 
@@ -127,6 +142,18 @@ async function listBoardExamCategoryDocuments() {
   })
 
   return rows as unknown as BoardExamCategoryDocument[]
+}
+
+async function getBoardExamCategoryDocument(categoryId: string) {
+  ensureBoardExamConfigured()
+
+  const row = await tablesDB.getRow({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.BOARD_EXAM_CATEGORIES,
+    rowId: categoryId,
+  })
+
+  return row as unknown as BoardExamCategoryDocument
 }
 
 async function listBoardExamSetDocuments(categoryId?: string) {
@@ -147,6 +174,18 @@ async function listBoardExamSetDocuments(categoryId?: string) {
   return rows as unknown as BoardExamSetDocument[]
 }
 
+async function getBoardExamSetDocument(setId: string) {
+  ensureBoardExamConfigured()
+
+  const row = await tablesDB.getRow({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.BOARD_EXAM_SETS,
+    rowId: setId,
+  })
+
+  return row as unknown as BoardExamSetDocument
+}
+
 async function listBoardExamQuestionDocuments(categoryId?: string) {
   ensureBoardExamConfigured()
 
@@ -165,23 +204,49 @@ async function listBoardExamQuestionDocuments(categoryId?: string) {
   return rows as unknown as BoardExamQuestionDocument[]
 }
 
-async function listBoardExamChoiceDocuments(questionIds?: string[]) {
+async function listBoardExamQuestionDocumentsBySetId(setId: string) {
   ensureBoardExamConfigured()
 
   const { rows } = await tablesDB.listRows({
     databaseId: DB_ID,
-    tableId: COLLECTIONS.BOARD_EXAM_CHOICES,
-    queries: [Query.limit(BOARD_EXAM_QUERY_LIMIT)],
+    tableId: COLLECTIONS.BOARD_EXAM_QUESTIONS,
+    queries: [
+      Query.equal("setId", setId),
+      Query.orderAsc("order"),
+      Query.limit(BOARD_EXAM_QUERY_LIMIT),
+    ],
   })
 
-  const choices = rows as unknown as BoardExamChoiceDocument[]
+  return rows as unknown as BoardExamQuestionDocument[]
+}
 
-  if (!questionIds || questionIds.length === 0) {
-    return choices
+async function listBoardExamChoiceDocuments(questionIds?: string[]) {
+  ensureBoardExamConfigured()
+
+  const uniqueQuestionIds = uniqueStrings(questionIds ?? [])
+
+  if (uniqueQuestionIds.length === 0) {
+    return [] as BoardExamChoiceDocument[]
   }
 
-  const questionIdSet = new Set(questionIds)
-  return choices.filter((choice) => questionIdSet.has(choice.questionId))
+  const results = await Promise.all(
+    chunkValues(uniqueQuestionIds, BOARD_EXAM_IN_QUERY_CHUNK_SIZE).map(
+      (chunk) =>
+        tablesDB.listRows({
+          databaseId: DB_ID,
+          tableId: COLLECTIONS.BOARD_EXAM_CHOICES,
+          queries: [
+            Query.equal("questionId", chunk),
+            Query.orderAsc("order"),
+            Query.limit(BOARD_EXAM_QUERY_LIMIT),
+          ],
+        })
+    )
+  )
+
+  return results.flatMap(
+    (result) => result.rows as unknown as BoardExamChoiceDocument[]
+  )
 }
 
 function summarizeCategory(options: {
@@ -355,13 +420,11 @@ export async function listBoardExamSetsByCategoryId(
   const viewerIsPremium = options.viewerIsPremium === true
 
   try {
-    const [categories, sets, questions] = await Promise.all([
-      listBoardExamCategoryDocuments(),
+    const [category, sets, questions] = await Promise.all([
+      getBoardExamCategoryDocument(categoryId),
       listBoardExamSetDocuments(categoryId),
       listBoardExamQuestionDocuments(categoryId),
     ])
-
-    const category = categories.find((row) => row.$id === categoryId) ?? null
 
     if (!category) {
       return {
@@ -401,16 +464,15 @@ export async function getBoardExamSetDetail(
   const viewerIsPremium = options.viewerIsPremium === true
 
   try {
-    const [categories, sets, questions] = await Promise.all([
-      listBoardExamCategoryDocuments(),
+    const [category, sets, set, questions, setQuestions] = await Promise.all([
+      getBoardExamCategoryDocument(categoryId),
       listBoardExamSetDocuments(categoryId),
+      getBoardExamSetDocument(setId),
       listBoardExamQuestionDocuments(categoryId),
+      listBoardExamQuestionDocumentsBySetId(setId),
     ])
 
-    const category = categories.find((row) => row.$id === categoryId) ?? null
-    const set = sets.find((row) => row.$id === setId) ?? null
-
-    if (!category || !set) {
+    if (!category || !set || set.categoryId !== categoryId) {
       return {
         category: null,
         set: null,
@@ -421,15 +483,13 @@ export async function getBoardExamSetDetail(
 
     const categorySets = sortByOrder(sets)
     const categoryQuestions = sortByOrder(questions)
-    const setQuestions = categoryQuestions.filter(
-      (question) => question.setId === setId
-    )
+    const sortedSetQuestions = sortByOrder(setQuestions)
     const visibleQuestions = viewerIsPremium
-      ? setQuestions
-      : setQuestions.filter((question) => !question.isPremium)
+      ? sortedSetQuestions
+      : sortedSetQuestions.filter((question) => !question.isPremium)
     const hiddenPremiumQuestionCount = viewerIsPremium
       ? 0
-      : setQuestions.length - visibleQuestions.length
+      : sortedSetQuestions.length - visibleQuestions.length
 
     const choicesByQuestionId = buildChoicesByQuestionId(
       await listBoardExamChoiceDocuments(
@@ -446,7 +506,7 @@ export async function getBoardExamSetDetail(
       }),
       set: summarizeSet({
         set,
-        questions: setQuestions,
+        questions: sortedSetQuestions,
         viewerIsPremium,
       }),
       questions: visibleQuestions.map((question) =>
@@ -469,19 +529,16 @@ export async function getBoardExamSetById(
   const viewerIsPremium = options.viewerIsPremium === true
 
   try {
-    const [sets, questions] = await Promise.all([
-      listBoardExamSetDocuments(),
-      listBoardExamQuestionDocuments(),
+    const [set, questions] = await Promise.all([
+      getBoardExamSetDocument(setId),
+      listBoardExamQuestionDocumentsBySetId(setId),
     ])
 
-    const set = sets.find((row) => row.$id === setId) ?? null
     if (!set) {
       return null
     }
 
-    const setQuestions = sortByOrder(questions).filter(
-      (question) => question.setId === setId
-    )
+    const setQuestions = sortByOrder(questions)
 
     return summarizeSet({
       set,

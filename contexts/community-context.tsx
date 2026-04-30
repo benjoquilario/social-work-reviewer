@@ -417,12 +417,23 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
     })
 
     try {
-      await toggleCommunityPostLike({
+      const result = await toggleCommunityPostLike({
         userId,
         postId: post.id,
         currentlyLiked: post.isLiked,
       })
-      set({ isTogglingLike: false, togglingLikePostId: null })
+
+      const reconciledFeed = updateFeedPostById(get().feed, post.id, (currentPost) => ({
+        ...currentPost,
+        isLiked: result.isLiked,
+        likesCount: result.likesCount,
+      }))
+
+      set({
+        isTogglingLike: false,
+        togglingLikePostId: null,
+        feed: reconciledFeed,
+      })
     } catch {
       // Revert
       set({ isTogglingLike: false, togglingLikePostId: null, feed })
