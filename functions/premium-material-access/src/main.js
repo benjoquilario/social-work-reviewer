@@ -18,23 +18,29 @@ const LEARNING_MATERIALS_COLLECTION_ID =
 
 function createDatabaseAdapter(client) {
   if (typeof sdk.TablesDB === "function") {
-    const tablesDB = new sdk.TablesDB(client)
+    try {
+      const tablesDB = new sdk.TablesDB(client)
 
-    return {
-      async listRows({ databaseId, tableId, queries }) {
-        return await tablesDB.listRows({
-          databaseId,
-          tableId,
-          queries,
-        })
-      },
-      async getRow({ databaseId, tableId, rowId }) {
-        return await tablesDB.getRow({
-          databaseId,
-          tableId,
-          rowId,
-        })
-      },
+      return {
+        async listRows({ databaseId, tableId, queries }) {
+          return await tablesDB.listRows({
+            databaseId,
+            tableId,
+            queries,
+          })
+        },
+        async getRow({ databaseId, tableId, rowId }) {
+          return await tablesDB.getRow({
+            databaseId,
+            tableId,
+            rowId,
+          })
+        },
+      }
+    } catch (error) {
+      if (!(error instanceof TypeError)) {
+        throw error
+      }
     }
   }
 
@@ -211,9 +217,7 @@ const handler = async ({ req, res, log, error }) => {
 
   try {
     const functionKey =
-      req.headers["x-appwrite-key"] ||
-      req.headers["X-Appwrite-Key"] ||
-      API_KEY
+      req.headers["x-appwrite-key"] || req.headers["X-Appwrite-Key"] || API_KEY
 
     if (!functionKey) {
       return res.json(
