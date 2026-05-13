@@ -101,6 +101,7 @@ export default function NewsScreen() {
     <SafeAreaView className="flex-1 bg-background">
       <FlashList
         data={NEWS_ITEMS}
+        extraData={theme}
         keyExtractor={(item) => item.id}
         renderItem={renderNewsItem}
         ListHeaderComponent={

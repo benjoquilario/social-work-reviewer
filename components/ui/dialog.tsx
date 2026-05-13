@@ -1,7 +1,16 @@
 import * as React from "react"
-import { Modal, Pressable, View, type ViewProps } from "react-native"
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  View,
+  type ViewProps,
+} from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { cn } from "@/lib/utils"
+import { useKeyboardInset } from "@/hooks/use-keyboard-inset"
 import { Text, TextClassContext } from "@/components/ui/text"
 
 function Dialog({
@@ -13,6 +22,9 @@ function Dialog({
   onOpenChange: (open: boolean) => void
   children: React.ReactNode
 }) {
+  const insets = useSafeAreaInsets()
+  const keyboardInset = useKeyboardInset()
+
   return (
     <Modal
       animationType="fade"
@@ -20,13 +32,26 @@ function Dialog({
       visible={open}
       onRequestClose={() => onOpenChange(false)}
     >
-      <View className="flex-1 items-center justify-center bg-black/30 px-5">
-        <Pressable
-          className="absolute inset-0"
-          onPress={() => onOpenChange(false)}
-        />
-        {children}
-      </View>
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Math.max(insets.top, 12)}
+      >
+        <View
+          className="flex-1 items-center justify-center bg-black/30 px-5"
+          style={{
+            justifyContent: keyboardInset > 0 ? "flex-end" : "center",
+            paddingTop: insets.top + 12,
+            paddingBottom: Math.max(insets.bottom, 12) + keyboardInset,
+          }}
+        >
+          <Pressable
+            className="absolute inset-0"
+            onPress={() => onOpenChange(false)}
+          />
+          {children}
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }

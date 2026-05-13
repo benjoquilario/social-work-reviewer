@@ -1,49 +1,178 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { formatTime, getFullExamById } from "@/data/reviewer-data"
+import { formatTime } from "@/data/reviewer-data"
 import { FlashList } from "@shopify/flash-list"
 import { useQuery } from "@tanstack/react-query"
-import { useLocalSearchParams, useRouter } from "expo-router"
+import { Stack, useLocalSearchParams, useRouter } from "expo-router"
 import {
   ArrowLeft,
   ArrowRight,
   Check,
   Home,
-  RefreshCcw,
-  Send,
   Timer,
+  Trophy,
+  X,
 } from "lucide-react-native"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
+  Animated,
+  Easing,
   FlatList,
-  Modal,
   Pressable,
   ScrollView,
-  TouchableWithoutFeedback,
-  useWindowDimensions,
   View,
-  type ViewToken,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import {
-  getBoardExamSetDetail,
-  type BoardExamQuestion,
-} from "@/lib/board-exams"
-import {
-  buildAppwriteQuizQuestions,
-  getQuizCategoryDetail,
-  getQuizExamDetail,
-  type QuizQuestion,
-} from "@/lib/quiz-content"
-import { THEME, withOpacity } from "@/lib/theme"
-import { useColorScheme } from "@/hooks/use-color-scheme"
-import { useQuizSession, type UserAnswers } from "@/hooks/use-quiz-session"
 import { AnswerOption } from "@/components/ui/answer-option"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
+import { useColorScheme } from "@/hooks/use-color-scheme"
+import { useQuizSession, type UserAnswers } from "@/hooks/use-quiz-session"
+import {
+  getBoardExamSetDetail,
+  type BoardExamQuestion,
+} from "@/lib/board-exams"
+import type { QuizQuestion } from "@/lib/quiz-types"
+import { THEME, withOpacity } from "@/lib/theme"
 
 type ThemePalette = (typeof THEME)["light"] | (typeof THEME)["dark"]
+
+function getQuizColors(theme: ThemePalette) {
+  return {
+    background: theme.background,
+    panel: theme.card,
+    panelBorder: withOpacity(theme.foreground, 0.1),
+    subtleBorder: withOpacity(theme.foreground, 0.08),
+    text: theme.foreground,
+    mutedText: theme.mutedForeground,
+    faintText: withOpacity(theme.mutedForeground, 0.72),
+    track: withOpacity(theme.mutedForeground, 0.22),
+    primary: theme.primary,
+    primarySoft: withOpacity(theme.primary, 0.14),
+    primaryBorder: withOpacity(theme.primary, 0.55),
+    green: theme.success,
+    greenSoft: withOpacity(theme.success, 0.14),
+    red: theme.destructive,
+    redSoft: withOpacity(theme.destructive, 0.14),
+    confetti: [
+      theme.primary,
+      theme.chart2,
+      theme.chart3,
+      theme.chart4,
+      theme.chart5,
+      theme.accent,
+    ],
+  }
+}
+
+function QuizAnimatedPanel({
+  children,
+  animationKey,
+}: {
+  children: any
+  animationKey: string | number
+}) {
+  const opacity = useRef(new Animated.Value(0)).current
+  const translateY = useRef(new Animated.Value(16)).current
+  const scale = useRef(new Animated.Value(0.985)).current
+
+  useEffect(() => {
+    opacity.setValue(0)
+    translateY.setValue(16)
+    scale.setValue(0.985)
+
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(scale, {
+        toValue: 1,
+        duration: 240,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start()
+  }, [animationKey, opacity, scale, translateY])
+
+  return (
+    <Animated.View
+      style={{
+        flex: 1,
+        opacity,
+        transform: [{ translateY }, { scale }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  )
+}
+
+function QuizProgressBar({
+  progress,
+  bufferProgress,
+  colors,
+}: {
+  progress: number
+  bufferProgress: number
+  colors: ReturnType<typeof getQuizColors>
+}) {
+  const pulse = useRef(new Animated.Value(0.45)).current
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 0.9,
+          duration: 850,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0.45,
+          duration: 850,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    )
+
+    loop.start()
+    return () => loop.stop()
+  }, [pulse])
+
+  return (
+    <View
+      className="mt-4 h-2.5 overflow-hidden rounded-full"
+      style={{ backgroundColor: colors.track }}
+    >
+      <View
+        className="absolute left-0 top-0 h-full rounded-full"
+        style={{
+          width: `${Math.max(0, Math.min(bufferProgress, 1)) * 100}%`,
+          backgroundColor: withOpacity(colors.primary, 0.24),
+        }}
+      />
+      <Animated.View
+        className="absolute left-0 top-0 h-full rounded-full"
+        style={{
+          width: `${Math.max(0, Math.min(progress, 1)) * 100}%`,
+          backgroundColor: colors.primary,
+          opacity: pulse,
+        }}
+      />
+    </View>
+  )
+}
 
 const LOADING_SKELETON_CLASSES = [
   "h-24 rounded-3xl",
@@ -70,6 +199,10 @@ const QUIZ_QUESTION_SCROLL_CONTENT_STYLE = {
 }
 const QUIZ_DOT_CONTENT_STYLE = { paddingRight: 2 }
 const QUIZ_CARD_CLASS = "rounded-3xl border border-border bg-card p-5"
+const QUIZ_RESULT_STATS_ROW_STYLE = {
+  flexDirection: "row" as const,
+  gap: 12,
+}
 const QUIZ_DRAWER_GRID_STYLE = {
   flexDirection: "row" as const,
   flexWrap: "wrap" as const,
@@ -139,7 +272,8 @@ const QuizQuestionDrawerTile = memo(function QuizQuestionDrawerTile({
 
 function toBoardExamQuizQuestion(
   question: BoardExamQuestion,
-  index: number
+  index: number,
+  setName: QuizQuestion["setName"] = "Set A"
 ): QuizQuestion | null {
   const answerIndex = question.choices.findIndex((choice) => choice.isCorrect)
 
@@ -157,6 +291,9 @@ function toBoardExamQuizQuestion(
     answerIndex,
     explanation:
       question.explanation || "No explanation provided for this question yet.",
+    sourceQuestionId: Number(question.id),
+    questionnaireKey: question.categoryId,
+    setName,
   }
 }
 
@@ -166,6 +303,14 @@ function QuizVerticalSeparator() {
 
 function QuizDotSeparator() {
   return <View style={{ width: 6 }} />
+}
+
+function getQuizScore(correct: number, total: number) {
+  if (total <= 0) {
+    return 0
+  }
+
+  return Math.round((correct / total) * 100)
 }
 
 const QuizTimerBadge = memo(function QuizTimerBadge({
@@ -216,11 +361,11 @@ const QuizTimerBadge = memo(function QuizTimerBadge({
       className="flex-row items-center gap-1.5 rounded-2xl px-3.5 py-2"
       style={{
         backgroundColor: isDanger
-          ? "hsl(0 84% 60% / 0.15)"
+          ? withOpacity(theme.destructive, 0.15)
           : withOpacity(theme.primary, 0.15),
         borderWidth: 1,
         borderColor: isDanger
-          ? "hsl(0 84% 60% / 0.3)"
+          ? withOpacity(theme.destructive, 0.3)
           : withOpacity(theme.primary, 0.3),
       }}
     >
@@ -279,12 +424,14 @@ const QuizQuestionPage = memo(
     questionIndex,
     screenWidth,
     selectedChoiceIndex,
+    theme,
   }: {
     onSelectAnswer: (questionIndex: number, choiceIndex: number) => void
     question: QuizQuestion
     questionIndex: number
     screenWidth: number
     selectedChoiceIndex: number | undefined
+    theme: ThemePalette
   }) {
     return (
       <View style={{ width: screenWidth, flex: 1 }}>
@@ -294,15 +441,27 @@ const QuizQuestionPage = memo(
           contentContainerStyle={QUIZ_QUESTION_SCROLL_CONTENT_STYLE}
         >
           <View className={QUIZ_CARD_CLASS}>
+            <View
+              className="mb-4 self-start rounded-full px-3 py-1.5"
+              style={{ backgroundColor: withOpacity(theme.primary, 0.1) }}
+            >
+              <Text className="text-[11px] font-black uppercase tracking-[1.4px] text-primary">
+                Question {questionIndex + 1}
+              </Text>
+            </View>
             <Text className="text-base font-bold leading-6 text-card-foreground">
               {question.prompt}
             </Text>
-            <View className="mt-4 gap-2.5">
+            <Text className="mt-2 text-[13px] leading-5 text-muted-foreground">
+              Choose the best answer from the options below.
+            </Text>
+            <View className="mt-5 gap-3">
               {question.choices.map((choice, choiceIndex) => (
                 <AnswerOption
                   key={`${question.id}-${choiceIndex}`}
                   index={choiceIndex}
                   isSelected={selectedChoiceIndex === choiceIndex}
+                  showPrefix={false}
                   onPress={() => onSelectAnswer(questionIndex, choiceIndex)}
                 >
                   {choice}
@@ -318,7 +477,8 @@ const QuizQuestionPage = memo(
     prev.question.id === next.question.id &&
     prev.questionIndex === next.questionIndex &&
     prev.screenWidth === next.screenWidth &&
-    prev.selectedChoiceIndex === next.selectedChoiceIndex
+    prev.selectedChoiceIndex === next.selectedChoiceIndex &&
+    prev.theme === next.theme
 )
 
 const QuizResultQuestionCard = memo(
@@ -352,6 +512,7 @@ const QuizResultQuestionCard = memo(
                 isSelected={false}
                 isCorrect={isCorrectChoice}
                 isWrong={isWrongSelection}
+                showPrefix={false}
                 onPress={() => undefined}
               >
                 {choice}
@@ -392,6 +553,141 @@ const QuizResultQuestionCard = memo(
     prev.selectedChoiceIndex === next.selectedChoiceIndex &&
     prev.theme === next.theme
 )
+
+function QuizConfetti({ colors }: { colors: string[] }) {
+  const pieces = [
+    { top: 8, left: 24, color: colors[0], rotate: "18deg" },
+    { top: 38, left: 4, color: colors[1], rotate: "40deg" },
+    { top: 74, left: 18, color: colors[2], rotate: "12deg" },
+    { top: 18, right: 22, color: colors[3], rotate: "36deg" },
+    { top: 52, right: 0, color: colors[4], rotate: "24deg" },
+    { top: 86, right: 28, color: colors[5], rotate: "44deg" },
+  ] as const
+
+  return (
+    <View className="pointer-events-none absolute left-1/2 top-1/2 h-44 w-44 -translate-x-[88px] -translate-y-[88px]">
+      {pieces.map((piece, index) => (
+        <View
+          key={index}
+          className="absolute h-3 w-2 rounded-full"
+          style={{
+            ...piece,
+            backgroundColor: piece.color,
+            transform: [{ rotate: piece.rotate }],
+          }}
+        />
+      ))}
+    </View>
+  )
+}
+
+const QuizFeedbackView = memo(function QuizFeedbackView({
+  question,
+  questionIndex,
+  totalQuestions,
+  selectedChoiceIndex,
+  onContinue,
+  colors,
+}: {
+  question: QuizQuestion
+  questionIndex: number
+  totalQuestions: number
+  selectedChoiceIndex: number
+  onContinue: () => void
+  colors: ReturnType<typeof getQuizColors>
+}) {
+  const isCorrect = selectedChoiceIndex === question.answerIndex
+  const heading = isCorrect ? "Correct! 🎉" : "Incorrect"
+  const message = isCorrect
+    ? question.explanation
+    : `The correct answer is ${String.fromCharCode(
+        65 + question.answerIndex
+      )}. ${question.choices[question.answerIndex]}${
+        question.explanation ? ` ${question.explanation}` : ""
+      }`
+
+  return (
+    <SafeAreaView
+      edges={["left", "right", "bottom"]}
+      className="flex-1"
+      style={{ backgroundColor: colors.background }}
+    >
+      <QuizAnimatedPanel animationKey={`feedback-${question.id}`}>
+        <View className="flex-1 px-5 pb-5 pt-1">
+          <Text
+            className="text-[12px] font-medium"
+            style={{ color: colors.mutedText }}
+          >
+            Question {questionIndex + 1} of {totalQuestions}
+          </Text>
+
+          <View className="flex-1 items-center justify-center">
+            <View className="items-center">
+              <View className="mb-8">
+                <QuizConfetti colors={colors.confetti} />
+                <View
+                  className="h-32 w-32 items-center justify-center rounded-full border"
+                  style={{
+                    backgroundColor: isCorrect
+                      ? colors.greenSoft
+                      : colors.redSoft,
+                    borderColor: isCorrect
+                      ? withOpacity(colors.green, 0.45)
+                      : withOpacity(colors.red, 0.45),
+                  }}
+                >
+                  <View
+                    className="h-24 w-24 items-center justify-center rounded-full"
+                    style={{
+                      backgroundColor: isCorrect ? colors.green : colors.red,
+                    }}
+                  >
+                    {isCorrect ? (
+                      <Check size={52} color="#ffffff" strokeWidth={3.5} />
+                    ) : (
+                      <X size={52} color="#ffffff" strokeWidth={3.5} />
+                    )}
+                  </View>
+                </View>
+              </View>
+
+              <Text
+                className="text-[34px] font-black"
+                style={{ color: colors.text }}
+              >
+                {heading}
+              </Text>
+              <Text
+                className="mt-4 max-w-[300px] text-center text-[16px] leading-7"
+                style={{ color: colors.mutedText }}
+              >
+                {message}
+              </Text>
+            </View>
+          </View>
+
+          <Pressable
+            onPress={onContinue}
+            className="h-14 items-center justify-center rounded-[14px]"
+            style={{ backgroundColor: colors.primary }}
+          >
+            <View className="flex-row items-center gap-2">
+              <Text
+                className="text-[16px] font-bold"
+                style={{ color: "#ffffff" }}
+              >
+                {questionIndex < totalQuestions - 1
+                  ? "Next Question"
+                  : "View Results"}
+              </Text>
+              <ArrowRight size={18} color="#ffffff" />
+            </View>
+          </Pressable>
+        </View>
+      </QuizAnimatedPanel>
+    </SafeAreaView>
+  )
+})
 
 // 3. SPLIT UI COMPONENTS
 const QuizLoadingState = memo(function QuizLoadingState({
@@ -459,8 +755,8 @@ const QuizEmptyState = memo(function QuizEmptyState({
           No quiz questions yet
         </Text>
         <Text className="text-center text-sm text-muted-foreground">
-          This quiz mode is now Appwrite-backed, but there are not enough
-          published question and choice documents for this selection yet.
+          This set doesn&apos;t have any questions available yet. Please try
+          another set or check back later.
         </Text>
         <Button className="w-full" onPress={() => router.replace("/")}>
           <Home size={16} color={theme.primaryForeground} />
@@ -515,6 +811,9 @@ const QuizResultsView = memo(function QuizResultsView({
   theme: ThemePalette
 }) {
   const router = useRouter()
+  const score = getQuizScore(result.correct, questions.length)
+  const [isReviewingAnswers, setIsReviewingAnswers] = useState(false)
+  const colors = useMemo(() => getQuizColors(theme), [theme])
 
   const renderResultQuestion = useCallback(
     ({
@@ -534,6 +833,142 @@ const QuizResultsView = memo(function QuizResultsView({
     [answers, theme]
   )
 
+  if (!isReviewingAnswers) {
+    return (
+      <SafeAreaView
+        className="flex-1"
+        style={{ backgroundColor: colors.background }}
+      >
+        <QuizAnimatedPanel animationKey="quiz-results-summary">
+          <View className="flex-1 px-5 pb-6 pt-3">
+            <Text
+              className="text-center text-[28px] font-black"
+              style={{ color: colors.text }}
+            >
+              Quiz Completed
+            </Text>
+
+            <View className="flex-1 items-center justify-center">
+              <View className="items-center">
+                <View className="mb-7">
+                  <QuizConfetti colors={colors.confetti} />
+                  <View
+                    className="h-36 w-36 items-center justify-center rounded-[30px]"
+                    style={{ backgroundColor: colors.primarySoft }}
+                  >
+                    <Trophy
+                      size={78}
+                      color={colors.primary}
+                      strokeWidth={2.2}
+                    />
+                  </View>
+                </View>
+
+                <Text
+                  className="text-center text-[16px] leading-7"
+                  style={{ color: colors.mutedText }}
+                >
+                  Great job! You&apos;ve completed the quiz.
+                </Text>
+
+                <View
+                  className="mt-8 w-full rounded-[16px] border px-4 py-5"
+                  style={{
+                    backgroundColor: colors.panel,
+                    borderColor: colors.panelBorder,
+                  }}
+                >
+                  <View className="flex-row items-center">
+                    <View className="flex-1 items-center">
+                      <Text
+                        className="text-[34px] font-black"
+                        style={{ color: colors.green }}
+                      >
+                        {result.correct}
+                      </Text>
+                      <Text
+                        className="text-[13px] font-medium"
+                        style={{ color: colors.green }}
+                      >
+                        Correct
+                      </Text>
+                    </View>
+                    <View
+                      className="h-12 w-px"
+                      style={{ backgroundColor: colors.subtleBorder }}
+                    />
+                    <View className="flex-1 items-center">
+                      <Text
+                        className="text-[34px] font-black"
+                        style={{ color: colors.red }}
+                      >
+                        {result.wrong}
+                      </Text>
+                      <Text
+                        className="text-[13px] font-medium"
+                        style={{ color: colors.red }}
+                      >
+                        Incorrect
+                      </Text>
+                    </View>
+                    <View
+                      className="h-12 w-px"
+                      style={{ backgroundColor: colors.subtleBorder }}
+                    />
+                    <View className="flex-1 items-center">
+                      <Text
+                        className="text-[34px] font-black"
+                        style={{ color: colors.primary }}
+                      >
+                        {score}%
+                      </Text>
+                      <Text
+                        className="text-[13px] font-medium"
+                        style={{ color: colors.mutedText }}
+                      >
+                        Score
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            <View className="gap-4">
+              <Pressable
+                onPress={() => setIsReviewingAnswers(true)}
+                className="h-14 items-center justify-center rounded-[14px]"
+                style={{ backgroundColor: colors.primary }}
+              >
+                <Text
+                  className="text-[16px] font-bold"
+                  style={{ color: "#ffffff" }}
+                >
+                  Review Answers
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => router.replace("/")}
+                className="h-14 items-center justify-center rounded-[14px] border"
+                style={{
+                  backgroundColor: colors.panel,
+                  borderColor: colors.panelBorder,
+                }}
+              >
+                <Text
+                  className="text-[16px] font-bold"
+                  style={{ color: colors.text }}
+                >
+                  Back to Learning
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </QuizAnimatedPanel>
+      </SafeAreaView>
+    )
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       <FlashList
@@ -546,81 +981,30 @@ const QuizResultsView = memo(function QuizResultsView({
         ListHeaderComponent={
           <View className={QUIZ_CARD_CLASS}>
             <Text className="text-xl font-black text-card-foreground">
-              Results
+              Answer Review
             </Text>
             <Text className="mt-1 text-sm text-muted-foreground">
               {quizTitle}
             </Text>
-
-            <View className="mt-4 flex-row gap-3">
-              <View
-                className="flex-1 rounded-2xl p-3"
-                style={{
-                  backgroundColor: withOpacity(theme.primary, 0.15),
-                  borderWidth: 1,
-                  borderColor: withOpacity(theme.primary, 0.3),
-                }}
-              >
-                <View className="flex-row items-center gap-1">
-                  <Check size={13} color={theme.primary} />
-                  <Text className="text-xs font-bold uppercase tracking-wide text-primary">
-                    Correct
-                  </Text>
-                </View>
-                <Text className="mt-1 text-2xl font-black text-card-foreground">
-                  {result.correct}
-                </Text>
-              </View>
-              <View
-                className="flex-1 rounded-2xl p-3"
-                style={{
-                  backgroundColor: "hsl(0 84% 60% / 0.1)",
-                  borderWidth: 1,
-                  borderColor: "hsl(0 84% 60% / 0.25)",
-                }}
-              >
-                <Text className="text-xs font-bold uppercase tracking-wide text-destructive">
-                  Wrong
-                </Text>
-                <Text className="mt-1 text-2xl font-black text-card-foreground">
-                  {result.wrong}
-                </Text>
-              </View>
-              <View
-                className="flex-1 rounded-2xl p-3"
-                style={{
-                  backgroundColor: withOpacity(theme.accent, 0.18),
-                  borderWidth: 1,
-                  borderColor: withOpacity(theme.accent, 0.3),
-                }}
-              >
-                <Text
-                  className="text-[10px] font-bold uppercase tracking-wide"
-                  style={{ color: theme.accent }}
-                >
-                  Score
-                </Text>
-                <Text className="mt-1 text-2xl font-black text-card-foreground">
-                  {questions.length > 0
-                    ? Math.round((result.correct / questions.length) * 100)
-                    : 0}
-                  %
-                </Text>
-              </View>
-            </View>
-
-            <Text className="mt-3 text-sm text-muted-foreground">
-              Answered {answeredCount} of {questions.length}
+            <Text className="mt-2 text-sm text-muted-foreground">
+              {result.correct} correct, {result.wrong} incorrect,{" "}
+              {answeredCount} answered
             </Text>
+            <Button
+              className="mt-4 h-11"
+              variant="outline"
+              onPress={() => setIsReviewingAnswers(false)}
+            >
+              <Text className="font-bold">Back to Summary</Text>
+            </Button>
           </View>
         }
         renderItem={renderResultQuestion}
         ListFooterComponent={
           <View className="pt-4">
             <Button className="h-11" onPress={() => router.replace("/")}>
-              <RefreshCcw size={16} color={theme.primaryForeground} />
               <Text className="font-bold text-primary-foreground">
-                Start New Review
+                Back to Learning
               </Text>
             </Button>
           </View>
@@ -633,6 +1017,8 @@ const QuizResultsView = memo(function QuizResultsView({
 export default function QuizScreen() {
   const colorScheme = useColorScheme()
   const theme = colorScheme === "dark" ? THEME.dark : THEME.light
+  const router = useRouter()
+  const colors = useMemo(() => getQuizColors(theme), [theme])
 
   const user = useAuth((state) => state.user)
   const isAuthenticated = useAuth((state) => state.isAuthenticated)
@@ -640,8 +1026,9 @@ export default function QuizScreen() {
   const refreshProfile = useAuth((state) => state.refreshProfile)
 
   const flatListRef = useRef<FlatList<QuizQuestion>>(null)
-  const { width: screenWidth } = useWindowDimensions()
-  const [isQuestionDrawerOpen, setIsQuestionDrawerOpen] = useState(false)
+  const [feedbackQuestionIndex, setFeedbackQuestionIndex] = useState<
+    number | null
+  >(null)
 
   const params = useLocalSearchParams<{
     source?: string
@@ -656,40 +1043,16 @@ export default function QuizScreen() {
   const categoryId = params.categoryId ?? ""
   const totalQuestions = Number(params.totalQuestions ?? "0")
   const minutes = Number(params.minutes ?? "0")
-  const examId = params.examId ?? ""
   const setId = params.setId ?? ""
-  const activeExamId = isBoardExamSession
-    ? `board-exam:${setId}:${totalQuestions}:${minutes}`
-    : examId || categoryId
+  const activeExamId = `board-exam:${setId}:${totalQuestions}:${minutes}`
   const totalSeconds = Math.max(minutes, 0) * 60
   const isPremiumUser = profile?.isPremium === true
-
-  const fullExam = getFullExamById(examId)
-  const isAppwriteExamSession =
-    Boolean(examId) && categoryId !== "all-categories" && !fullExam
 
   useEffect(() => {
     if (isAuthenticated && !profile) {
       void refreshProfile()
     }
   }, [isAuthenticated, profile, refreshProfile])
-
-  const categoryQuery = useQuery({
-    queryKey: ["quiz-screen-category", categoryId, isPremiumUser],
-    enabled:
-      !isBoardExamSession &&
-      Boolean(categoryId) &&
-      categoryId !== "all-categories",
-    queryFn: () =>
-      getQuizCategoryDetail(categoryId, { viewerIsPremium: isPremiumUser }),
-  })
-
-  const examQuery = useQuery({
-    queryKey: ["quiz-screen-exam", examId, isPremiumUser],
-    enabled: !isBoardExamSession && isAppwriteExamSession,
-    queryFn: () =>
-      getQuizExamDetail(examId, { viewerIsPremium: isPremiumUser }),
-  })
 
   const boardExamSetQuery = useQuery({
     queryKey: ["board-exam-quiz-set", categoryId, setId, isPremiumUser],
@@ -700,47 +1063,25 @@ export default function QuizScreen() {
       }),
   })
 
-  const questionsQuery = useQuery({
-    queryKey: [
-      "quiz-questions",
-      categoryId,
-      examId,
-      totalQuestions,
-      isPremiumUser,
-    ],
-    enabled: !isBoardExamSession && Boolean(categoryId) && totalQuestions > 0,
-    queryFn: () =>
-      buildAppwriteQuizQuestions({
-        subjectId: categoryId,
-        examId: isAppwriteExamSession ? examId : undefined,
-        totalQuestions,
-        viewerIsPremium: isPremiumUser,
-      }),
-  })
-
   const rawQuestions = useMemo(() => {
-    if (isBoardExamSession) {
-      return (boardExamSetQuery.data?.questions ?? [])
-        .map((question, index) => toBoardExamQuizQuestion(question, index))
-        .filter((question): question is QuizQuestion => question !== null)
-        .slice(0, totalQuestions)
-    }
-
-    return questionsQuery.data ?? []
+    return (boardExamSetQuery.data?.questions ?? [])
+      .map((question, index) =>
+        toBoardExamQuizQuestion(
+          question,
+          index,
+          (boardExamSetQuery.data?.set?.setCode as QuizQuestion["setName"]) ??
+            "Set A"
+        )
+      )
+      .filter((question): question is QuizQuestion => question !== null)
+      .slice(0, totalQuestions)
   }, [
     boardExamSetQuery.data?.questions,
-    isBoardExamSession,
-    questionsQuery.data,
+    boardExamSetQuery.data?.set?.setCode,
     totalQuestions,
   ])
 
-  const quizTitle = isBoardExamSession
-    ? (boardExamSetQuery.data?.set?.title ?? "Board Exam")
-    : (examQuery.data?.title ??
-      (categoryId === "all-categories"
-        ? fullExam?.title
-        : (categoryQuery.data?.name ?? fullExam?.title)) ??
-      "Mixed Review")
+  const quizTitle = boardExamSetQuery.data?.set?.title ?? "Board Exam"
 
   const {
     questions,
@@ -748,11 +1089,8 @@ export default function QuizScreen() {
     setActiveIndex,
     answers,
     isSubmitted,
-    showSubmitModal,
-    setShowSubmitModal,
     attemptId,
     isAttemptHydrating,
-    didResumeAttempt,
     answeredCount,
     result,
     handleSubmit,
@@ -761,7 +1099,7 @@ export default function QuizScreen() {
     user,
     profile,
     categoryId,
-    examId,
+    examId: activeExamId,
     activeExamId,
     totalQuestions,
     totalSeconds,
@@ -769,128 +1107,53 @@ export default function QuizScreen() {
     flatListRef,
   })
 
-  // 4. NAVIGATION HANDLERS
-  const scrollToIndex = useCallback((index: number) => {
-    flatListRef.current?.scrollToIndex({ index, animated: true })
-  }, [])
+  const activeQuestion = questions[activeIndex]
+  const selectedChoiceIndex = answers[activeIndex]
+  const isCurrentQuestionAnswered = typeof selectedChoiceIndex === "number"
+  const currentProgress =
+    questions.length > 0 ? (activeIndex + 1) / questions.length : 0
+  const bufferProgress =
+    questions.length > 0
+      ? Math.max(answeredCount, activeIndex + 1) / questions.length
+      : 0
 
-  const highestUnlockedIndex = useMemo(() => {
-    if (questions.length === 0) {
-      return 0
+  const handleAdvanceToFeedback = useCallback(() => {
+    if (!isCurrentQuestionAnswered) {
+      return
     }
 
-    const nextReachable =
-      typeof answers[activeIndex] === "number" ? activeIndex + 1 : activeIndex
+    setFeedbackQuestionIndex(activeIndex)
+  }, [activeIndex, isCurrentQuestionAnswered])
 
-    return Math.min(
-      Math.max(answeredCount, nextReachable),
-      questions.length - 1
-    )
-  }, [activeIndex, answeredCount, answers, questions.length])
+  const handleContinueFromFeedback = useCallback(() => {
+    if (feedbackQuestionIndex === null) {
+      return
+    }
 
-  const handleNavigatorDotPress = useCallback(
-    (index: number) => {
-      if (index > highestUnlockedIndex) {
-        return
-      }
+    if (feedbackQuestionIndex >= questions.length - 1) {
+      void handleSubmit()
+      return
+    }
 
-      setActiveIndex(index)
-      scrollToIndex(index)
-    },
-    [highestUnlockedIndex, scrollToIndex, setActiveIndex]
-  )
-
-  const handleQuestionDrawerPress = useCallback(
-    (index: number) => {
-      if (index > highestUnlockedIndex) {
-        return
-      }
-
-      setIsQuestionDrawerOpen(false)
-      setActiveIndex(index)
-      scrollToIndex(index)
-    },
-    [highestUnlockedIndex, scrollToIndex, setActiveIndex]
-  )
-
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      const first = viewableItems[0]
-      const nextIndex = first?.index
-      if (typeof nextIndex === "number") {
-        setActiveIndex((currentIndex) =>
-          currentIndex === nextIndex ? currentIndex : nextIndex
-        )
-      }
-    },
-    [setActiveIndex]
-  )
-
-  const viewabilityConfig = useMemo(
-    () => ({ itemVisiblePercentThreshold: 60 }),
-    []
-  )
-
-  const dotNavigatorExtraData = useMemo(
-    () => ({ activeIndex, answers }),
-    [activeIndex, answers]
-  )
-
-  const getQuestionItemLayout = useCallback(
-    (_: ArrayLike<QuizQuestion> | null | undefined, index: number) => ({
-      length: screenWidth,
-      offset: screenWidth * index,
-      index,
-    }),
-    [screenWidth]
-  )
-
-  const renderNavigatorDot = useCallback(
-    ({ index: questionIndex }: { index: number }) => (
-      <QuizNavigatorDot
-        isActive={questionIndex === activeIndex}
-        isAnswered={typeof answers[questionIndex] === "number"}
-        onPressDot={handleNavigatorDotPress}
-        questionIndex={questionIndex}
-        theme={theme}
-      />
-    ),
-    [activeIndex, answers, handleNavigatorDotPress, theme]
-  )
-
-  const renderQuestionPage = useCallback(
-    ({ item: question, index }: { item: QuizQuestion; index: number }) => (
-      <QuizQuestionPage
-        onSelectAnswer={handleSelectAnswer}
-        question={question}
-        questionIndex={index}
-        screenWidth={screenWidth}
-        selectedChoiceIndex={answers[index]}
-      />
-    ),
-    [answers, handleSelectAnswer, screenWidth]
-  )
+    const nextIndex = feedbackQuestionIndex + 1
+    setFeedbackQuestionIndex(null)
+    setActiveIndex(nextIndex)
+  }, [feedbackQuestionIndex, handleSubmit, questions.length, setActiveIndex])
 
   // 5. DECOMPOSITION OF COMPLEX CONDITIONALS
   const isInvalidSetup =
     totalSeconds <= 0 ||
     totalQuestions <= 0 ||
-    (isBoardExamSession && (!categoryId || !setId))
+    !isBoardExamSession ||
+    !categoryId ||
+    !setId
   const isLoadingQuizData =
-    (isBoardExamSession
-      ? boardExamSetQuery.isLoading
-      : questionsQuery.isLoading ||
-        (categoryId !== "all-categories" && categoryQuery.isLoading) ||
-        examQuery.isLoading) ||
-    (isAttemptHydrating && !attemptId)
+    boardExamSetQuery.isLoading || (isAttemptHydrating && !attemptId)
   const isQuestionStateHydrating =
     rawQuestions.length > 0 && questions.length === 0
 
-  const hasDataError = isBoardExamSession
-    ? boardExamSetQuery.error
-    : questionsQuery.error || categoryQuery.error || examQuery.error
+  const hasDataError = boardExamSetQuery.error
   const isEmptyState = rawQuestions.length === 0
-  const isCurrentQuestionAnswered = typeof answers[activeIndex] === "number"
 
   if (isInvalidSetup) return <QuizInvalidSetupState theme={theme} />
   if (isLoadingQuizData) return <QuizLoadingState theme={theme} />
@@ -900,13 +1163,7 @@ export default function QuizScreen() {
     const errorMsg =
       boardExamSetQuery.error instanceof Error
         ? boardExamSetQuery.error.message
-        : examQuery.error instanceof Error
-          ? examQuery.error.message
-          : questionsQuery.error instanceof Error
-            ? questionsQuery.error.message
-            : categoryQuery.error instanceof Error
-              ? categoryQuery.error.message
-              : "Unable to load quiz questions from Appwrite."
+        : "Unable to load quiz questions. Please try again later."
     return <QuizErrorState theme={theme} errorMsg={errorMsg} />
   }
 
@@ -925,281 +1182,159 @@ export default function QuizScreen() {
     )
   }
 
-  // ACTIVE QUIZ UI
-  return (
-    <SafeAreaView className="flex-1 bg-background">
-      <View className="gap-3 px-4 pb-3 pt-2">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1">
-            <Text
-              className="text-base font-black text-foreground"
-              numberOfLines={1}
-            >
-              {quizTitle}
-            </Text>
-            <Text className="text-xs text-muted-foreground">
-              Question {activeIndex + 1} of {questions.length}
-            </Text>
-          </View>
-          <QuizTimerBadge
-            durationSeconds={totalSeconds}
-            isSubmitted={isSubmitted}
-            onExpire={handleSubmit}
-            theme={theme}
-          />
-        </View>
-
-        <View className="h-1.5 overflow-hidden rounded-full bg-muted">
-          <View
-            className="h-full rounded-full"
-            style={{
-              width: `${(answeredCount / questions.length) * 100}%`,
-              backgroundColor: theme.primary,
-            }}
-          />
-        </View>
-
-        <FlashList
-          horizontal
-          data={questions}
-          keyExtractor={(item) => item.id}
-          renderItem={renderNavigatorDot}
-          showsHorizontalScrollIndicator={false}
-          ItemSeparatorComponent={QuizDotSeparator}
-          contentContainerStyle={QUIZ_DOT_CONTENT_STYLE}
-          extraData={dotNavigatorExtraData}
-        />
-
-        <Text className="text-xs font-semibold text-muted-foreground">
-          {answeredCount}/{questions.length} answered
-        </Text>
-        <Pressable
-          onPress={() => setIsQuestionDrawerOpen(true)}
-          className="rounded-2xl border px-3.5 py-3"
-          style={{
-            borderColor: theme.border,
-            backgroundColor: theme.card,
-          }}
-        >
-          <View className="flex-row items-center justify-between">
-            <View>
-              <Text className="text-sm font-black text-card-foreground">
-                Question Map
-              </Text>
-              <Text className="text-xs text-muted-foreground">
-                Jump between answered questions and your next unlocked item.
-              </Text>
-            </View>
-            <View
-              className="rounded-full px-2.5 py-1"
-              style={{ backgroundColor: withOpacity(theme.primary, 0.12) }}
-            >
-              <Text className="text-xs font-black text-primary">
-                {activeIndex + 1}/{questions.length}
-              </Text>
-            </View>
-          </View>
-        </Pressable>
-        {!isCurrentQuestionAnswered ? (
-          <Text className="text-[11px] font-semibold text-primary">
-            Select an answer first before moving to the next question.
-          </Text>
-        ) : null}
-        {didResumeAttempt ? (
-          <Text className="text-[11px] font-semibold text-primary">
-            Resumed from your last ongoing attempt.
-          </Text>
-        ) : null}
-      </View>
-
-      <FlatList
-        ref={flatListRef}
-        data={questions}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item.id}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        getItemLayout={getQuestionItemLayout}
-        renderItem={renderQuestionPage}
-        extraData={answers}
-        scrollEnabled={false}
-        style={QUIZ_PAGER_STYLE}
-        contentContainerStyle={QUIZ_PAGER_CONTENT_STYLE}
+  if (
+    feedbackQuestionIndex !== null &&
+    questions[feedbackQuestionIndex] &&
+    typeof answers[feedbackQuestionIndex] === "number"
+  ) {
+    return (
+      <QuizFeedbackView
+        question={questions[feedbackQuestionIndex]}
+        questionIndex={feedbackQuestionIndex}
+        totalQuestions={questions.length}
+        selectedChoiceIndex={answers[feedbackQuestionIndex] as number}
+        onContinue={handleContinueFromFeedback}
+        colors={colors}
       />
+    )
+  }
 
-      <View className="flex-row gap-2.5 px-4 pb-4 pt-2">
-        <Button
-          className="h-12 flex-1"
-          variant="outline"
-          onPress={() => {
-            const prev = Math.max(activeIndex - 1, 0)
-            setActiveIndex(prev)
-            scrollToIndex(prev)
-          }}
-          disabled={activeIndex === 0}
-        >
-          <ArrowLeft size={16} color={theme.mutedForeground} />
-          <Text className="font-bold">Back</Text>
-        </Button>
-
-        {activeIndex < questions.length - 1 ? (
-          <Button
-            className="h-12 flex-1"
-            disabled={!isCurrentQuestionAnswered}
-            onPress={() => {
-              if (!isCurrentQuestionAnswered) {
-                return
-              }
-
-              const next = Math.min(activeIndex + 1, questions.length - 1)
-              setActiveIndex(next)
-              scrollToIndex(next)
-            }}
-          >
-            <ArrowRight size={16} color={theme.primaryForeground} />
-            <Text className="font-bold text-primary-foreground">Next</Text>
-          </Button>
-        ) : (
-          <Button
-            className="h-12 flex-1"
-            disabled={!isCurrentQuestionAnswered}
-            onPress={() => setShowSubmitModal(true)}
-          >
-            <Send size={16} color={theme.primaryForeground} />
-            <Text className="font-bold text-primary-foreground">Submit</Text>
-          </Button>
-        )}
-      </View>
-
-      <Modal
-        visible={isQuestionDrawerOpen}
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={() => setIsQuestionDrawerOpen(false)}
+  return (
+    <SafeAreaView
+      className="flex-1"
+      style={{ backgroundColor: colors.background }}
+    >
+      <QuizAnimatedPanel
+        animationKey={`question-${activeQuestion?.id ?? activeIndex}`}
       >
-        <TouchableWithoutFeedback
-          onPress={() => setIsQuestionDrawerOpen(false)}
-        >
-          <View
-            className="flex-1"
-            style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
-          />
-        </TouchableWithoutFeedback>
-        <View
-          style={{
-            maxHeight: "72%",
-            backgroundColor: theme.card,
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28,
-            padding: 20,
-            gap: 14,
-          }}
-        >
-          <View className="items-center gap-2">
-            <View
-              className="h-1.5 w-14 rounded-full"
-              style={{
-                backgroundColor: withOpacity(theme.mutedForeground, 0.35),
-              }}
-            />
-            <Text className="text-lg font-black text-card-foreground">
-              Exam Progress
-            </Text>
-            <Text className="text-sm text-muted-foreground">{quizTitle}</Text>
-          </View>
-          <View
-            className="rounded-[24px] border p-4"
-            style={{
-              borderColor: theme.border,
-              backgroundColor: withOpacity(theme.primary, 0.08),
-            }}
-          >
-            <View className="flex-row items-center justify-between">
-              <Text className="text-sm font-black text-card-foreground">
-                {answeredCount}/{questions.length} answered
-              </Text>
-              <Text className="text-xs font-semibold text-muted-foreground">
-                Current #{activeIndex + 1}
-              </Text>
-            </View>
-            <View className="mt-4" style={QUIZ_DRAWER_GRID_STYLE}>
-              {questions.map((question, index) => (
-                <QuizQuestionDrawerTile
-                  key={question.id}
-                  isActive={index === activeIndex}
-                  isAnswered={typeof answers[index] === "number"}
-                  isLocked={index > highestUnlockedIndex}
-                  onPress={handleQuestionDrawerPress}
-                  questionIndex={index}
+        <View className="flex-1 px-5 pb-5 pt-3">
+          <Stack.Screen
+            options={{
+              title: "Quiz",
+              headerRight: () => (
+                <QuizTimerBadge
+                  durationSeconds={totalSeconds}
+                  isSubmitted={isSubmitted}
+                  onExpire={handleSubmit}
                   theme={theme}
                 />
-              ))}
-            </View>
-          </View>
-          <Button
-            className="h-12"
-            variant="outline"
-            onPress={() => setIsQuestionDrawerOpen(false)}
-          >
-            <Text className="font-bold">Close</Text>
-          </Button>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={showSubmitModal}
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={() => setShowSubmitModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowSubmitModal(false)}>
-          <View
-            className="flex-1"
-            style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+              ),
+            }}
           />
-        </TouchableWithoutFeedback>
-        <View
-          style={{
-            backgroundColor: theme.card,
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28,
-            padding: 24,
-            gap: 16,
-          }}
-        >
-          <View className="mt-1 items-center gap-2">
-            <View
-              className="h-14 w-14 items-center justify-center rounded-3xl"
-              style={{ backgroundColor: withOpacity(theme.primary, 0.15) }}
-            >
-              <Send size={28} color={theme.primary} />
+          <ScrollView
+            className="flex-1"
+            contentContainerStyle={{ flexGrow: 1 }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View className="flex-1">
+              <Text
+                className="text-[12px] font-medium"
+                style={{ color: colors.mutedText }}
+              >
+                Question {activeIndex + 1} of {questions.length}
+              </Text>
+
+              <QuizProgressBar
+                progress={currentProgress}
+                bufferProgress={bufferProgress}
+                colors={colors}
+              />
+
+              <View className="mt-3 flex-row items-center justify-between">
+                <Text
+                  className="text-[12px] font-medium"
+                  style={{ color: colors.mutedText }}
+                >
+                  {answeredCount} of {questions.length} answered
+                </Text>
+                <Text
+                  className="text-[12px] font-semibold"
+                  style={{ color: colors.primary }}
+                >
+                  {Math.round(currentProgress * 100)}%
+                </Text>
+              </View>
+
+              <Text
+                className="mt-7 text-[18px] font-black leading-8"
+                style={{ color: colors.text }}
+              >
+                {activeQuestion?.prompt}
+              </Text>
+
+              <View className="mt-6 gap-3">
+                {activeQuestion?.choices.map((choice, choiceIndex) => (
+                  <AnswerOption
+                    key={`${activeQuestion.id}-${choiceIndex}`}
+                    isSelected={selectedChoiceIndex === choiceIndex}
+                    colors={{
+                      baseBorder: colors.subtleBorder,
+                      baseBackground: colors.panel,
+                      baseText: colors.text,
+                      mutedText: colors.mutedText,
+                      selectedBorder: colors.primary,
+                      selectedBackground: withOpacity(colors.primary, 0.32),
+                      correctBorder: colors.green,
+                      correctBackground: withOpacity(colors.green, 0.24),
+                      wrongBorder: colors.red,
+                      wrongBackground: withOpacity(colors.red, 0.24),
+                      ringBorder: withOpacity(colors.text, 0.28),
+                    }}
+                    onPress={() => handleSelectAnswer(activeIndex, choiceIndex)}
+                  >
+                    {`${String.fromCharCode(65 + choiceIndex)}. ${choice}`}
+                  </AnswerOption>
+                ))}
+              </View>
+
+              <View className="mt-auto flex-row gap-4 pt-8">
+                <Pressable
+                  onPress={() => {
+                    if (activeIndex === 0) {
+                      router.back()
+                      return
+                    }
+
+                    setActiveIndex(Math.max(activeIndex - 1, 0))
+                  }}
+                  className="h-14 flex-1 flex-row items-center justify-center gap-2 rounded-[14px] border"
+                  style={{
+                    backgroundColor: colors.panel,
+                    borderColor: colors.panelBorder,
+                  }}
+                >
+                  <ArrowLeft size={16} color={colors.text} />
+                  <Text
+                    className="text-[16px] font-bold"
+                    style={{ color: colors.text }}
+                  >
+                    Back
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={handleAdvanceToFeedback}
+                  disabled={!isCurrentQuestionAnswered}
+                  className="h-14 flex-1 flex-row items-center justify-center gap-2 rounded-[14px]"
+                  style={{
+                    backgroundColor: isCurrentQuestionAnswered
+                      ? colors.primary
+                      : withOpacity(colors.primary, 0.45),
+                  }}
+                >
+                  <Text
+                    className="text-[16px] font-bold"
+                    style={{ color: "#ffffff" }}
+                  >
+                    Next
+                  </Text>
+                  <ArrowRight size={16} color="#ffffff" />
+                </Pressable>
+              </View>
             </View>
-            <Text className="text-lg font-black text-card-foreground">
-              Submit Quiz?
-            </Text>
-            <Text className="text-center text-sm text-muted-foreground">
-              You&apos;ve answered {answeredCount} of {questions.length}{" "}
-              questions. This will reveal all correct answers.
-            </Text>
-          </View>
-          <View className="flex-row gap-3">
-            <Button
-              className="h-12 flex-1"
-              variant="outline"
-              onPress={() => setShowSubmitModal(false)}
-            >
-              <Text className="font-bold">Cancel</Text>
-            </Button>
-            <Button className="h-12 flex-1" onPress={handleSubmit}>
-              <Text className="font-bold text-primary-foreground">Submit</Text>
-            </Button>
-          </View>
+          </ScrollView>
         </View>
-      </Modal>
+      </QuizAnimatedPanel>
     </SafeAreaView>
   )
 }

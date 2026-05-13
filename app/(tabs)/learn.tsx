@@ -169,6 +169,7 @@ export default function LearningCenterScreen() {
     <SafeAreaView className="flex-1 bg-background">
       <FlashList
         data={subjectsQuery.isLoading || subjectsQuery.error ? [] : subjects}
+        extraData={theme}
         keyExtractor={(item) => item.id}
         renderItem={renderSubjectItem}
         ListHeaderComponent={

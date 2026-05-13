@@ -65,6 +65,12 @@ export default function PremiumSubscriptionScreen() {
   const isDark = colorScheme === "dark"
   const theme = isDark ? THEME.dark : THEME.light
   const isPremiumUser = profile?.isPremium === true
+  const monthlyPricePhp = 300
+  const yearlyBasePhp = monthlyPricePhp * 12
+  const yearlyDiscountRate = 0.2
+  const yearlyDiscountPhp = yearlyBasePhp * yearlyDiscountRate
+  const yearlyPricePhp = yearlyBasePhp - yearlyDiscountPhp
+  const effectiveMonthlyPhp = yearlyPricePhp / 12
 
   const lockedTitle = readFirstParam(params.title) || "premium content"
   const source = readFirstParam(params.source)
@@ -92,6 +98,31 @@ export default function PremiumSubscriptionScreen() {
     [theme.primary]
   )
 
+  const pricingOptions = useMemo(
+    () => [
+      {
+        id: "monthly",
+        badge: "Monthly",
+        headline: `PHP ${monthlyPricePhp}`,
+        subheadline: "per month",
+        detail: "Flexible access for one billing cycle at a time.",
+      },
+      {
+        id: "yearly",
+        badge: "Annual",
+        headline: `PHP ${yearlyPricePhp}`,
+        subheadline: "per year",
+        detail: `20% off. Save PHP ${yearlyDiscountPhp} and average PHP ${effectiveMonthlyPhp}/month.`,
+      },
+    ],
+    [
+      effectiveMonthlyPhp,
+      monthlyPricePhp,
+      yearlyDiscountPhp,
+      yearlyPricePhp,
+    ]
+  )
+
   function handleBackToContext() {
     if (topicId) {
       router.push({ pathname: "/learn/topic/[topicId]", params: { topicId } })
@@ -99,7 +130,7 @@ export default function PremiumSubscriptionScreen() {
     }
 
     if (categoryId && (source === "exam" || source === "quiz-category")) {
-      router.push({ pathname: "/mode", params: { categoryId } })
+      router.push({ pathname: "/board-exams" })
       return
     }
 
@@ -135,9 +166,9 @@ export default function PremiumSubscriptionScreen() {
           </View>
         </View>
 
-        <Card className="overflow-hidden rounded-[28px] border-0">
+        <Card className="overflow-hidden rounded-[24px] border-0">
           <CardContent
-            className="gap-3 px-4 py-5"
+            className="gap-4 px-4 py-5"
             style={{ backgroundColor: withOpacity(theme.primary, 0.13) }}
           >
             <View className="h-12 w-12 items-center justify-center rounded-2xl bg-background">
@@ -146,23 +177,23 @@ export default function PremiumSubscriptionScreen() {
 
             <View className="gap-1.5">
               <Text className="text-[11px] font-black uppercase tracking-[1.5px] text-primary">
-                Upgrade Plan
+                Premium Reviewer Access
               </Text>
               <Text className="text-[24px] font-black leading-8 text-foreground">
                 {isPremiumUser
                   ? "Premium is active"
-                  : "Become a Premium Learner"}
+                  : "Unlock the full reviewer library"}
               </Text>
               <Text className="text-[13px] leading-6 text-muted-foreground">
                 {isPremiumUser
                   ? "Your account already has premium access. Continue and open all locked content."
-                  : "You tapped a locked item. Upgrade your plan to unlock premium-only materials and full quiz coverage."}
+                  : "Free users can browse the catalog, but premium unlocks locked lessons, topic tracks, and the full exam library."}
               </Text>
             </View>
           </CardContent>
         </Card>
 
-        <Card className="rounded-[24px]">
+        <Card className="rounded-[20px]">
           <CardContent className="gap-2.5 px-4 py-4">
             <View className="flex-row items-center gap-2">
               <LockKeyhole size={16} color={theme.primary} strokeWidth={2.2} />
@@ -176,7 +207,57 @@ export default function PremiumSubscriptionScreen() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[24px]">
+        <View className="gap-3">
+          {pricingOptions.map((option) => (
+            <Card key={option.id} className="rounded-[20px]">
+              <CardContent className="gap-3 px-4 py-4">
+                <View className="flex-row items-start justify-between gap-3">
+                  <View className="gap-1">
+                    <View
+                      className="self-start rounded-full px-2.5 py-1"
+                      style={{
+                        backgroundColor: withOpacity(
+                          option.id === "yearly" ? theme.primary : theme.accent,
+                          0.12
+                        ),
+                      }}
+                    >
+                      <Text
+                        className="text-[10px] font-black uppercase tracking-[1px]"
+                        style={{
+                          color:
+                            option.id === "yearly" ? theme.primary : theme.accent,
+                        }}
+                      >
+                        {option.badge}
+                      </Text>
+                    </View>
+                    <Text className="text-[22px] font-black text-card-foreground">
+                      {option.headline}
+                    </Text>
+                    <Text className="text-[12px] font-semibold text-muted-foreground">
+                      {option.subheadline}
+                    </Text>
+                  </View>
+
+                  {option.id === "yearly" ? (
+                    <View className="rounded-full bg-primary/10 px-2.5 py-1">
+                      <Text className="text-[10px] font-black uppercase tracking-[1px] text-primary">
+                        Best value
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                <Text className="text-[13px] leading-5 text-muted-foreground">
+                  {option.detail}
+                </Text>
+              </CardContent>
+            </Card>
+          ))}
+        </View>
+
+        <Card className="rounded-[20px]">
           <CardContent className="gap-3 px-4 py-4">
             <Text className="text-sm font-black text-card-foreground">
               What Premium Includes
@@ -207,7 +288,7 @@ export default function PremiumSubscriptionScreen() {
                 strokeWidth={2.2}
               />
               <Text className="font-bold text-primary-foreground">
-                Go to Profile and Upgrade
+                Continue to Upgrade
               </Text>
             </Button>
 

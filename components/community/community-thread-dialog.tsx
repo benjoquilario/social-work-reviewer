@@ -7,6 +7,7 @@ import {
   Send,
 } from "lucide-react-native"
 import { Pressable, TextInput, View } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import {
   type CommunityCommentItem,
@@ -23,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { useKeyboardInset } from "@/hooks/use-keyboard-inset"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 import { CommunityAvatar } from "@/components/community/avatar"
@@ -181,14 +183,24 @@ export function CommunityThreadDialog({
   post,
   theme,
 }: CommunityThreadDialogProps) {
+  const insets = useSafeAreaInsets()
+  const keyboardInset = useKeyboardInset()
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="p-0">
         {post ? (
           <ScrollView
             style={{ maxHeight: 720 }}
-            contentContainerStyle={{ padding: 20, gap: 16 }}
+            contentContainerStyle={{
+              padding: 20,
+              paddingBottom: 20 + Math.max(insets.bottom, 12) + keyboardInset,
+              gap: 16,
+            }}
             contentInsetAdjustmentBehavior="automatic"
+            automaticallyAdjustKeyboardInsets
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
           >
             <DialogHeader>
               <DialogTitle>{post.title}</DialogTitle>

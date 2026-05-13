@@ -2,15 +2,8 @@ import { useMemo } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list"
 import { useQuery } from "@tanstack/react-query"
-import { useLocalSearchParams, useRouter } from "expo-router"
-import {
-  ArrowLeft,
-  ChevronRight,
-  Clock3,
-  FileQuestion,
-  ListChecks,
-  LockKeyhole,
-} from "lucide-react-native"
+import { Stack, useLocalSearchParams, useRouter } from "expo-router"
+import { FileQuestion, LockKeyhole } from "lucide-react-native"
 import { Pressable, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
@@ -23,7 +16,6 @@ import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
-import { AppShellHeader } from "@/components/app-shell-header"
 
 const LIST_CONTENT_STYLE = { paddingHorizontal: 16, paddingVertical: 16 }
 
@@ -46,113 +38,54 @@ function BoardExamSetCard({
           borderWidth: 1,
           borderColor: theme.border,
           opacity: isUnavailable ? 0.64 : 1,
-          backgroundColor:
-            set.isLocked && !isUnavailable
-              ? withOpacity(theme.accent, 0.06)
-              : theme.card,
+          backgroundColor: theme.card,
         }}
       >
-        <CardContent className="gap-2.5 px-4 py-4">
+        <CardContent className="gap-3 px-4 py-4">
           <View className="flex-row items-start justify-between gap-3">
-            <View className="flex-1 gap-1.5">
-              <View className="flex-row flex-wrap items-center gap-2">
-                <Text className="text-[16px] font-black text-card-foreground">
-                  {set.title}
-                </Text>
-                <View
-                  className="rounded-full px-2.5 py-1"
-                  style={{
-                    backgroundColor: withOpacity(
-                      set.isLocked ? theme.accent : theme.primary,
-                      0.14
-                    ),
-                  }}
-                >
-                  <Text
-                    className="text-[10px] font-black uppercase tracking-[1.1px]"
-                    style={{
-                      color: set.isLocked ? theme.accent : theme.primary,
-                    }}
-                  >
-                    {set.setCode}
-                  </Text>
-                </View>
-              </View>
-
-              <Text className="text-[12px] leading-5 text-muted-foreground">
-                {set.description ||
-                  "Structured board exam set with question and answer keys."}
+            <View className="flex-1 gap-0.5">
+              <Text className="text-[15px] font-black text-card-foreground">
+                {set.title}
               </Text>
-
-              <View className="flex-row flex-wrap items-center gap-2.5">
-                <View className="flex-row items-center gap-1.5">
-                  <Clock3 size={13} color={theme.primary} />
-                  <Text className="text-[11px] font-semibold uppercase tracking-[0.9px] text-primary">
-                    {set.questionType}
-                  </Text>
-                </View>
-                <View className="flex-row items-center gap-1.5">
-                  <FileQuestion size={13} color={theme.accent} />
-                  <Text
-                    className="text-[11px] font-semibold uppercase tracking-[0.9px]"
-                    style={{ color: theme.accent }}
-                  >
-                    {set.availableQuestionCount} visible
-                  </Text>
-                </View>
-                {set.premiumQuestionCount > 0 ? (
-                  <Text className="text-[11px] font-semibold uppercase tracking-[0.9px] text-muted-foreground">
-                    {set.premiumQuestionCount} premium
-                  </Text>
-                ) : null}
-              </View>
+              <Text className="text-[12px] text-muted-foreground">
+                {set.description || "Board exam set"}
+              </Text>
             </View>
-
-            <ChevronRight size={18} color={theme.mutedForeground} />
-          </View>
-
-          <View className="flex-row flex-wrap items-center gap-2.5">
             <View
-              className="rounded-full px-3 py-1"
+              className="rounded-full px-2 py-0.5"
               style={{ backgroundColor: withOpacity(theme.primary, 0.12) }}
             >
               <Text className="text-[10px] font-black uppercase tracking-[1px] text-primary">
-                {set.totalQuestionCount} questions
-              </Text>
-            </View>
-            <View
-              className="rounded-full px-3 py-1"
-              style={{ backgroundColor: withOpacity(theme.accent, 0.12) }}
-            >
-              <Text
-                className="text-[10px] font-black uppercase tracking-[1px]"
-                style={{ color: theme.accent }}
-              >
-                {set.totalItems} target items
+                {set.setCode}
               </Text>
             </View>
           </View>
 
-          {set.isLocked ? (
-            <View
-              className="flex-row items-center gap-1.5 self-start rounded-full px-3 py-1"
-              style={{ backgroundColor: withOpacity(theme.accent, 0.12) }}
-            >
-              <LockKeyhole size={12} color={theme.accent} />
-              <Text
-                className="text-[10px] font-black uppercase tracking-[1.1px]"
-                style={{ color: theme.accent }}
-              >
-                Premium-only visible content
+          <View className="flex-row flex-wrap items-center gap-3">
+            <View className="flex-row items-center gap-1.5">
+              <FileQuestion size={13} color={theme.primary} />
+              <Text className="text-[11px] font-semibold uppercase tracking-[0.9px] text-primary">
+                {set.totalQuestionCount} questions
               </Text>
             </View>
-          ) : null}
-
-          {isUnavailable ? (
-            <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-muted-foreground">
-              No published questions yet
-            </Text>
-          ) : null}
+            {set.hasPremiumQuestions ? (
+              <View className="flex-row items-center gap-1.5">
+                <LockKeyhole size={13} color={theme.accent} />
+                <Text
+                  className="text-[11px] font-semibold uppercase tracking-[0.9px]"
+                  style={{ color: theme.accent }}
+                >
+                  {set.freeQuestionCount} free · {set.premiumQuestionCount}{" "}
+                  locked
+                </Text>
+              </View>
+            ) : null}
+            {isUnavailable ? (
+              <Text className="text-[11px] font-semibold uppercase tracking-[0.9px] text-muted-foreground">
+                No questions yet
+              </Text>
+            ) : null}
+          </View>
         </CardContent>
       </Card>
     </Pressable>
@@ -180,28 +113,11 @@ export default function BoardExamSetsScreen() {
   const category = setsQuery.data?.category ?? null
   const sets = useMemo(() => setsQuery.data?.sets ?? [], [setsQuery.data?.sets])
 
-  const stats = useMemo(
-    () => [
-      { label: "Sets", value: String(sets.length) },
-      {
-        label: "Visible",
-        value: String(
-          sets.reduce((total, set) => total + set.availableQuestionCount, 0)
-        ),
-      },
-      {
-        label: "Locked",
-        value: String(sets.filter((set) => set.isLocked).length),
-      },
-    ],
-    [sets]
-  )
-
   const errorMessage =
     setsQuery.error instanceof Error
       ? setsQuery.error.message
       : setsQuery.error
-        ? "Unable to load board exam sets from Appwrite."
+        ? "Unable to load board exam sets. Please try again later."
         : null
 
   const renderSet = ({ item }: ListRenderItemInfo<BoardExamSetSummary>) => (
@@ -221,86 +137,37 @@ export default function BoardExamSetsScreen() {
   )
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView edges={["left", "right", "bottom"]} className="flex-1 bg-background">
+      <Stack.Screen options={{ title: category?.title ?? "Board Exams" }} />
       <FlashList
         data={sets}
+        extraData={theme}
         keyExtractor={(item) => item.id}
         renderItem={renderSet}
         contentContainerStyle={LIST_CONTENT_STYLE}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View className="h-3" />}
         ListHeaderComponent={
-          <View className="gap-3 pb-4">
-            <Pressable
-              className="h-10 flex-row items-center gap-2 rounded-2xl px-3"
-              style={{
-                borderWidth: 1,
-                borderColor: theme.border,
-                backgroundColor: theme.card,
-                alignSelf: "flex-start",
-              }}
-              onPress={() => router.push("..")}
-            >
-              <ArrowLeft size={15} color={theme.primary} />
-              <Text className="text-[12px] font-bold text-primary">
-                Categories
-              </Text>
-            </Pressable>
-
-            <AppShellHeader
-              eyebrow="Board Exams"
-              title={category?.title ?? "Choose Set"}
-              subtitle="Choose a set, then select a timed mode before starting the board exam."
-              avatarLabel="SET"
-              badgeLabel="Available"
-              badgeValue={`${sets.length} sets`}
-              stats={stats}
-              compact
-            />
-
-            {category?.description ? (
-              <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-                <CardContent className="gap-1.5 px-4 py-3.5">
-                  <Text className="text-[12px] leading-5 text-muted-foreground">
-                    {category.description}
-                  </Text>
-                </CardContent>
-              </Card>
-            ) : null}
-
+          <View className="pb-3">
             {setsQuery.isLoading ? (
-              <View className="gap-3">
-                <Skeleton className="h-32 rounded-3xl" />
-                <Skeleton className="h-32 rounded-3xl" />
+              <View className="gap-3 px-4">
+                <Skeleton className="h-24 rounded-2xl" />
+                <Skeleton className="h-24 rounded-2xl" />
               </View>
             ) : null}
 
             {errorMessage ? (
-              <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-                <CardContent className="gap-1.5 px-4 py-3.5">
-                  <Text className="text-[13px] font-black text-destructive">
-                    Board exam sets unavailable
-                  </Text>
-                  <Text className="text-[12px] leading-5 text-muted-foreground">
-                    {errorMessage}
-                  </Text>
-                </CardContent>
-              </Card>
-            ) : null}
-
-            {!setsQuery.isLoading && !errorMessage && category ? (
-              <View className="flex-row flex-wrap items-center gap-2.5">
-                <View
-                  className="rounded-full px-3 py-1"
-                  style={{ backgroundColor: withOpacity(theme.primary, 0.12) }}
-                >
-                  <View className="flex-row items-center gap-1.5">
-                    <ListChecks size={12} color={theme.primary} />
-                    <Text className="text-[10px] font-black uppercase tracking-[1px] text-primary">
-                      {sets.length} set selections
+              <View className="px-4">
+                <Card style={{ borderWidth: 1, borderColor: theme.border }}>
+                  <CardContent className="gap-1.5 px-4 py-3.5">
+                    <Text className="text-[13px] font-black text-destructive">
+                      Board exam sets unavailable
                     </Text>
-                  </View>
-                </View>
+                    <Text className="text-[12px] leading-5 text-muted-foreground">
+                      {errorMessage}
+                    </Text>
+                  </CardContent>
+                </Card>
               </View>
             ) : null}
           </View>
@@ -313,7 +180,8 @@ export default function BoardExamSetsScreen() {
                   No sets yet for this category
                 </Text>
                 <Text className="text-[12px] leading-5 text-muted-foreground">
-                  Add Set A/B/C/D entries under this category in Appwrite.
+                  No sets are available for this category yet. Check back later
+                  for updates.
                 </Text>
               </CardContent>
             </Card>

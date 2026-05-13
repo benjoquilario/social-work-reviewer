@@ -7,8 +7,10 @@ import {
   TextInput,
   View,
 } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { THEME, withOpacity } from "@/lib/theme"
+import { useKeyboardInset } from "@/hooks/use-keyboard-inset"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -64,6 +66,8 @@ export function CommunityComposerDialog({
   theme,
   titleDraft,
 }: CommunityComposerDialogProps) {
+  const insets = useSafeAreaInsets()
+  const keyboardInset = useKeyboardInset()
   const inputBackground = withOpacity(theme.background, 0.9)
   const previewUri = photoUrlDraft.trim()
 
@@ -71,6 +75,7 @@ export function CommunityComposerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Math.max(insets.top, 12)}
         style={{ width: "100%" }}
       >
         <DialogContent className="overflow-hidden p-0">
@@ -101,11 +106,13 @@ export function CommunityComposerDialog({
           </View>
 
           <ScrollView
+            automaticallyAdjustKeyboardInsets
             style={{ maxHeight: 560 }}
             contentContainerStyle={{
               paddingHorizontal: 14,
               paddingTop: 12,
-              paddingBottom: 18,
+              paddingBottom:
+                Math.max(insets.bottom, 18) + keyboardInset + 8,
               gap: 10,
             }}
             contentInsetAdjustmentBehavior="automatic"

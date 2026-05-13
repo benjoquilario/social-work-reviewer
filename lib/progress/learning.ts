@@ -1,7 +1,12 @@
-import { COLLECTIONS, DB_ID, ID, Query, tablesDB } from "../appwrite"
+import { COLLECTIONS, DB_ID, Query, tablesDB } from "../appwrite"
 import type { LearningHistoryDocument } from "../schema"
 import { HISTORY_QUERY_LIMIT } from "./constants"
-import { touchGlobalActivity, upsertUserProgress, countCompletedMaterials } from "./activity"
+import {
+  countCompletedMaterials,
+  recordDailyActivity,
+  touchGlobalActivity,
+  upsertUserProgress,
+} from "./activity"
 import { awardMilestoneIfEligible } from "./milestones"
 import type {
   LearningActivityPayload,
@@ -10,12 +15,34 @@ import type {
   LearningHistoryStatus,
   LearningMaterialStatusSnapshot,
 } from "./types"
-import { clampNumber, fallbackEntityLabel, fetchEntityTitleMap, listFirstRow, uniqueStrings, mapLearningHistoryRowsToActivityItems } from "./utils"
+import {
+  buildDeterministicRowId,
+  clampNumber,
+  fetchEntityTitleMap,
+  getRowByIdSafe,
+  isAppwriteConflictError,
+  listFirstRow,
+  uniqueStrings,
+  mapLearningHistoryRowsToActivityItems,
+} from "./utils"
 
 export async function findLearningHistoryRow(
   userId: string,
   learningMaterialId: string
 ) {
+  const rowId = buildDeterministicRowId("history", [
+    userId,
+    learningMaterialId,
+  ])
+  const directRow = await getRowByIdSafe<LearningHistoryDocument>(
+    COLLECTIONS.LEARNING_HISTORY,
+    rowId
+  )
+
+  if (directRow) {
+    return directRow
+  }
+
   return listFirstRow<LearningHistoryDocument>(COLLECTIONS.LEARNING_HISTORY, [
     Query.equal("userId", userId),
     Query.equal("learningMaterialId", learningMaterialId),
@@ -76,6 +103,10 @@ async function insertNewLearningHistory(
   params: LearningHistoryUpsertParams,
   nowIso: string
 ) {
+  const rowId = buildDeterministicRowId("history", [
+    params.userId,
+    params.learningMaterialId,
+  ])
   const newRow = {
     userId: params.userId,
     subjectId: params.subjectId,
@@ -93,12 +124,12 @@ async function insertNewLearningHistory(
   await tablesDB.createRow({
     databaseId: DB_ID,
     tableId: COLLECTIONS.LEARNING_HISTORY,
-    rowId: ID.unique(),
+    rowId,
     data: newRow,
   })
 
   return {
-    row: { ...newRow, $id: "" },
+    row: { ...newRow, $id: rowId },
     wasPreviouslyCompleted: false,
     nowIso,
   }
@@ -117,7 +148,28 @@ export async function upsertLearningHistory(params: LearningHistoryUpsertParams)
     return updateExistingLearningHistory(existing, safeParams, nowIso)
   }
 
-  return insertNewLearningHistory(safeParams, nowIso)
+  try {
+    return await insertNewLearningHistory(safeParams, nowIso)
+  } catch (error) {
+    if (!isAppwriteConflictError(error)) {
+      throw error
+    }
+
+    const createdByConcurrentRequest = await findLearningHistoryRow(
+      safeParams.userId,
+      safeParams.learningMaterialId
+    )
+
+    if (!createdByConcurrentRequest) {
+      throw error
+    }
+
+    return updateExistingLearningHistory(
+      createdByConcurrentRequest,
+      safeParams,
+      nowIso
+    )
+  }
 }
 
 export async function listRecentLearningHistory(
@@ -213,6 +265,8 @@ async function syncLearningActivityProgress(params: {
   payload: LearningActivityPayload
   nowIso: string
   completedMaterialsDelta?: number
+  studyMinutesDelta?: number
+  achievementsCountDelta?: number
 }) {
   const subjectProgress = await upsertUserProgress({
     userId: params.payload.userId,
@@ -220,12 +274,31 @@ async function syncLearningActivityProgress(params: {
     topicId: params.payload.topicId,
     nowIso: params.nowIso,
     completedMaterialsDelta: params.completedMaterialsDelta,
+    totalStudyMinutesDelta: params.studyMinutesDelta,
+    achievementsCountDelta: params.achievementsCountDelta,
   })
 
   const globalProgress = await touchGlobalActivity({
     userId: params.payload.userId,
     nowIso: params.nowIso,
     profileSnapshot: params.payload.profileSnapshot,
+  })
+
+  await recordDailyActivity({
+    userId: params.payload.userId,
+    nowIso: params.nowIso,
+    subjectId: params.payload.subjectId,
+    topicId: params.payload.topicId,
+    counters: {
+      answeredCount: 0,
+      correctCount: 0,
+      incorrectCount: 0,
+      studyMinutes: params.studyMinutesDelta ?? 0,
+      completedMaterials: params.completedMaterialsDelta ?? 0,
+      earnedAchievementsCount:
+        (params.achievementsCountDelta ?? 0) +
+        (globalProgress.earnedAchievementsCount ?? 0),
+    },
   })
 
   return {
@@ -292,6 +365,12 @@ export async function trackLearningMaterialSession(
     progressPercent: progressFromTime,
     lastPosition: payload.lastPosition ?? 0,
   })
+
+  await syncLearningActivityProgress({
+    payload,
+    nowIso: new Date().toISOString(),
+    studyMinutesDelta: Math.max(1, Math.round(payload.secondsSpent / 60)),
+  })
 }
 
 export async function trackLearningMaterialCompleted(
@@ -308,20 +387,57 @@ export async function trackLearningMaterialCompleted(
     completedAt: new Date().toISOString(),
   })
 
-  const { subjectProgress, globalProgress } = await syncLearningActivityProgress({
+  const { globalProgress } = await syncLearningActivityProgress({
     payload,
     nowIso,
     completedMaterialsDelta: wasPreviouslyCompleted ? 0 : 1,
   })
 
-  await awardMilestoneIfEligible({
+  const completedMaterials = await countCompletedMaterials({ userId: payload.userId })
+  const unlockedAchievements = await awardMilestoneIfEligible({
     configType: "material_completion",
     payload: {
       userId: payload.userId,
-      metricValue: await countCompletedMaterials({ userId: payload.userId }),
+      metricValue: completedMaterials,
       dayStreak: globalProgress.dayStreak,
       weeklyAverageScore: globalProgress.weeklyAverageScore,
+      metricKey: "materials_completed",
+      badgeKey: `materials-${completedMaterials}`,
+      periodType: "lifetime",
       profileSnapshot: payload.profileSnapshot,
     }
   })
+
+  if (unlockedAchievements > 0) {
+    await Promise.all([
+      upsertUserProgress({
+        userId: payload.userId,
+        subjectId: payload.subjectId,
+        topicId: payload.topicId,
+        nowIso,
+        achievementsCountDelta: unlockedAchievements,
+      }),
+      upsertUserProgress({
+        userId: payload.userId,
+        subjectId: "__global__",
+        topicId: "__activity__",
+        nowIso,
+        achievementsCountDelta: unlockedAchievements,
+      }),
+      recordDailyActivity({
+        userId: payload.userId,
+        nowIso,
+        subjectId: payload.subjectId,
+        topicId: payload.topicId,
+        counters: {
+          answeredCount: 0,
+          correctCount: 0,
+          incorrectCount: 0,
+          studyMinutes: 0,
+          completedMaterials: 0,
+          earnedAchievementsCount: unlockedAchievements,
+        },
+      }),
+    ])
+  }
 }

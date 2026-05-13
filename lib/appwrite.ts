@@ -29,6 +29,9 @@ export const APPWRITE_CONFIG = {
     process.env.EXPO_PUBLIC_APPWRITE_PROFILE_IMAGES_BUCKET_ID ?? "",
   communityPostImagesBucketId:
     process.env.EXPO_PUBLIC_APPWRITE_COMMUNITY_POST_IMAGES_BUCKET_ID ?? "",
+  questionnaireBucketId:
+    process.env.EXPO_PUBLIC_APPWRITE_QUESTIONNAIRE_BUCKET_ID ??
+    "69fd51db00295050fc84",
   communityPostLikeFunctionId:
     process.env.EXPO_PUBLIC_APPWRITE_COMMUNITY_POST_LIKE_FUNCTION_ID ?? "",
   premiumMaterialAccessFunctionId:
@@ -106,18 +109,10 @@ export const COLLECTIONS = {
   SUBJECTS: "subjects",
   TOPICS: "topics",
   LEARNING_MATERIALS: "learning_materials",
-  QUESTIONS: "questions",
-  CHOICES: "choices",
-  QUESTION_TAGS: "question_tags",
-  EXAMS: "exams",
-  EXAM_QUESTIONS: "exam_questions",
-  BOARD_EXAM_CATEGORIES: "board_exam_categories",
-  BOARD_EXAM_SETS: "board_exam_sets",
-  BOARD_EXAM_QUESTIONS: "board_exam_questions",
-  BOARD_EXAM_CHOICES: "board_exam_choices",
-  EXAM_ATTEMPTS: "exam_attempts",
   USER_ANSWERS: "user_answers",
   USER_PROGRESS: "user_progress",
+  USER_DAILY_ACTIVITY: "user_daily_activity",
+  USER_WEEKLY_REPORTS: "user_weekly_reports",
   LEARNING_HISTORY: "learning_history",
   LEARNING_ACHIEVEMENTS: "learning_achievements",
   POSTS: "posts",

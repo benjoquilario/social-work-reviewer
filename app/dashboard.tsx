@@ -7,6 +7,8 @@ import { Pressable, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import {
+  getDashboardInsights,
+  getDashboardReportMetrics,
   getOverallPerformanceStats,
   getQuestionsAnsweredTimeline,
   type TimelineWindow,
@@ -22,6 +24,7 @@ import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 
 import { ActivityMetricsSection } from "@/components/dashboard/activity-metrics"
 import { OverallPerformanceSection } from "@/components/dashboard/overall-performance"
+import { ProgressInsightsSection } from "@/components/dashboard/progress-insights"
 
 type ThemePalette = (typeof THEME)["light"] | (typeof THEME)["dark"]
 
@@ -106,10 +109,30 @@ export default function DashboardScreen() {
     staleTime: 1000 * 15,
   })
 
+  const reportMetricsQuery = useQuery({
+    queryKey: ["dashboard-report-metrics", user?.$id],
+    enabled: Boolean(user?.$id),
+    queryFn: () => getDashboardReportMetrics(user?.$id ?? ""),
+    staleTime: 1000 * 15,
+  })
+
+  const insightsQuery = useQuery({
+    queryKey: ["dashboard-insights", user?.$id],
+    enabled: Boolean(user?.$id),
+    queryFn: () => getDashboardInsights(user?.$id ?? ""),
+    staleTime: 1000 * 15,
+  })
+
   const timeline = timelineQuery.data ?? null
   const performanceStats = performanceQuery.data ?? null
+  const reportMetrics = reportMetricsQuery.data ?? null
+  const insights = insightsQuery.data ?? null
 
-  const isLoadingContent = timelineQuery.isLoading && performanceQuery.isLoading
+  const isLoadingContent =
+    timelineQuery.isLoading ||
+    performanceQuery.isLoading ||
+    reportMetricsQuery.isLoading ||
+    insightsQuery.isLoading
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -152,6 +175,7 @@ export default function DashboardScreen() {
             <FadeInView delay={getStaggerDelay(0)}>
               <ActivityMetricsSection
                 timeline={timeline}
+                reportMetrics={reportMetrics}
                 isLoading={timelineQuery.isLoading}
                 window={window}
                 onWindowChange={handleWindowChange}
@@ -172,6 +196,17 @@ export default function DashboardScreen() {
                 </View>
               ) : performanceStats ? (
                 <OverallPerformanceSection stats={performanceStats} theme={theme} />
+              ) : null}
+            </FadeInView>
+
+            <FadeInView delay={getStaggerDelay(2)}>
+              {insightsQuery.isLoading ? (
+                <View className="gap-3">
+                  <Skeleton className="h-32 rounded-2xl" />
+                  <Skeleton className="h-40 rounded-2xl" />
+                </View>
+              ) : insights ? (
+                <ProgressInsightsSection insights={insights} theme={theme} />
               ) : null}
             </FadeInView>
           </View>

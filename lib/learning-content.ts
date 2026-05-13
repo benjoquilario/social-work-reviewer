@@ -12,6 +12,8 @@ import {
   Query,
   tablesDB,
 } from "./appwrite"
+import { getReviewLibraryByCategoryId } from "../data/review-content-data"
+import { CATEGORIES } from "../data/reviewer-data"
 import {
   type LearningMaterialDocument,
   type LearningMaterialType,
@@ -20,6 +22,7 @@ import {
 } from "./schema"
 
 const CONTENT_QUERY_LIMIT = 500
+const CONTENT_IN_QUERY_CHUNK_SIZE = 50
 const LEARNING_RESOURCES = [
   COLLECTIONS.SUBJECTS,
   COLLECTIONS.TOPICS,
@@ -206,6 +209,53 @@ type LearningAccessOptions = {
   viewerIsPremium?: boolean
 }
 
+function buildFallbackLearningSubjects(): LearningSubject[] {
+  return CATEGORIES.map((category, index) => ({
+    id: category.id,
+    name: category.title,
+    description: category.description,
+    iconUrl: null,
+    order: index + 1,
+    topicCount: category.topicCount,
+    materialCount: category.itemCount,
+    freeMaterialCount: 0,
+    premiumMaterialCount: category.itemCount,
+    hasPremiumContent: true,
+    isLocked: true,
+  }))
+}
+
+function buildFallbackLearningTopicsBySubjectId(
+  subjectId: string
+): LearningTopicSummary[] {
+  const library = getReviewLibraryByCategoryId(subjectId)
+
+  if (!library) {
+    return []
+  }
+
+  return library.topics.map((topic, index) => ({
+    id: topic.id,
+    subjectId,
+    title: topic.title,
+    description: topic.summary,
+    order: index + 1,
+    materialCount: topic.lessonIds.length,
+    freeMaterialCount: 0,
+    premiumMaterialCount: topic.lessonIds.length,
+    hasPremiumContent: topic.lessonIds.length > 0,
+    isLocked: true,
+    firstMaterialId: null,
+  }))
+}
+
+function shouldUseFreeCatalogFallback(
+  error: unknown,
+  viewerIsPremium: boolean
+) {
+  return !viewerIsPremium && isAppwriteUnauthorizedError(error)
+}
+
 function sortTopics(topics: TopicDocument[]) {
   return [...topics].sort((left, right) => left.order - right.order)
 }
@@ -314,6 +364,22 @@ async function resolveMaterialAccessViaFunction(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Internal data-fetching helpers
+// ---------------------------------------------------------------------------
+
+async function listContentDocuments<T>(tableId: string, queries: string[]): Promise<T[]> {
+  ensureLearningContentConfigured()
+
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId,
+    queries,
+  })
+
+  return rows as unknown as T[]
+}
+
 async function getLearningSnapshot() {
   ensureLearningContentConfigured()
 
@@ -344,18 +410,6 @@ async function getLearningSnapshot() {
   }
 
   return { subjects, topicsBySubjectId, materialsByTopicId }
-}
-
-async function listContentDocuments<T>(tableId: string, queries: string[]): Promise<T[]> {
-  ensureLearningContentConfigured()
-
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId,
-    queries,
-  })
-
-  return rows as unknown as T[]
 }
 
 function listRemoteSubjects() {
@@ -390,6 +444,45 @@ function listRemoteMaterialsByTopicId(topicId: string) {
   ])
 }
 
+/**
+ * Fetches materials for multiple topic IDs using chunked parallel queries.
+ * Replaces the global listRemoteMaterials() call in topic-list screens so
+ * only relevant materials are loaded instead of the entire collection.
+ * Impact: reduces data transferred per subject screen by ~(N-1)/N where N
+ * is the total number of subjects.
+ */
+async function listRemoteMaterialsByTopicIds(
+  topicIds: string[]
+): Promise<LearningMaterialDocument[]> {
+  const uniqueTopicIds = Array.from(new Set(topicIds.filter(Boolean)))
+
+  if (uniqueTopicIds.length === 0) {
+    return []
+  }
+
+  const chunks: string[][] = []
+
+  for (let i = 0; i < uniqueTopicIds.length; i += CONTENT_IN_QUERY_CHUNK_SIZE) {
+    chunks.push(uniqueTopicIds.slice(i, i + CONTENT_IN_QUERY_CHUNK_SIZE))
+  }
+
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      listContentDocuments<LearningMaterialDocument>(
+        COLLECTIONS.LEARNING_MATERIALS,
+        [
+          Query.equal("topicId", chunk),
+          Query.orderAsc("order"),
+          Query.orderAsc("createdAt"),
+          Query.limit(CONTENT_QUERY_LIMIT),
+        ]
+      )
+    )
+  )
+
+  return results.flat()
+}
+
 function toContentError(error: unknown, fallback: string) {
   if (isAppwriteContentError(error)) {
     return error
@@ -408,6 +501,10 @@ function toContentError(error: unknown, fallback: string) {
 
   return createAppwriteContentError("request", fallback)
 }
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
 export async function listLearningSubjects(
   options: LearningAccessOptions = {}
@@ -433,6 +530,10 @@ export async function listLearningSubjects(
       )
     })
   } catch (error) {
+    if (shouldUseFreeCatalogFallback(error, viewerIsPremium)) {
+      return buildFallbackLearningSubjects()
+    }
+
     throw toContentError(error, "Unable to load subjects from Appwrite.")
   }
 }
@@ -441,9 +542,20 @@ export async function getLearningSubjectById(
   subjectId: string,
   options: LearningAccessOptions = {}
 ): Promise<LearningSubject | null> {
-  const subjects = await listLearningSubjects(options)
+  try {
+    const subjects = await listLearningSubjects(options)
 
-  return subjects.find((subject) => subject.id === subjectId) ?? null
+    return subjects.find((subject) => subject.id === subjectId) ?? null
+  } catch (error) {
+    if (shouldUseFreeCatalogFallback(error, options.viewerIsPremium === true)) {
+      return (
+        buildFallbackLearningSubjects().find((subject) => subject.id === subjectId) ??
+        null
+      )
+    }
+
+    throw error
+  }
 }
 
 export async function getLearningTopicById(
@@ -494,10 +606,19 @@ export async function listLearningTopicsBySubjectId(
 
   try {
     const topics = sortTopics(await listRemoteTopicsBySubjectId(subjectId))
-    const allMaterials = await listRemoteMaterials()
+
+    if (topics.length === 0) {
+      return []
+    }
+
+    // Fetch only materials that belong to this subject's topics —
+    // previously this called listRemoteMaterials() which loaded the
+    // entire collection regardless of subject.
+    const topicIds = topics.map((topic) => topic.$id)
+    const subjectMaterials = await listRemoteMaterialsByTopicIds(topicIds)
     const materialsByTopicId = new Map<string, LearningMaterialDocument[]>()
 
-    for (const material of allMaterials) {
+    for (const material of subjectMaterials) {
       const current = materialsByTopicId.get(material.topicId) ?? []
       current.push(material)
       materialsByTopicId.set(material.topicId, current)
@@ -518,6 +639,10 @@ export async function listLearningTopicsBySubjectId(
       )
     })
   } catch (error) {
+    if (shouldUseFreeCatalogFallback(error, viewerIsPremium)) {
+      return buildFallbackLearningTopicsBySubjectId(subjectId)
+    }
+
     throw toContentError(error, "Unable to load topics from Appwrite.")
   }
 }
@@ -569,12 +694,7 @@ export async function getLearningTopicDetail(
       : orderedMaterials.filter((material) => !material.isPremium)
 
     return {
-      subject: mapSubjectDocument(
-        subject,
-        1,
-        stats,
-        viewerIsPremium
-      ),
+      subject: mapSubjectDocument(subject, 1, stats, viewerIsPremium),
       topic: mapTopicDocument(
         topic,
         stats,
@@ -597,25 +717,32 @@ export async function getLearningMaterialDetail(
   const viewerIsPremium = options.viewerIsPremium === true
 
   try {
+    // Step 1: fetch material
     const material = (await tablesDB.getRow({
       databaseId: DB_ID,
       tableId: COLLECTIONS.LEARNING_MATERIALS,
       rowId: materialId,
     })) as unknown as LearningMaterialDocument
 
-    const topic = (await tablesDB.getRow({
-      databaseId: DB_ID,
-      tableId: COLLECTIONS.TOPICS,
-      rowId: material.topicId,
-    })) as unknown as TopicDocument
+    // Step 2: fetch topic + sibling materials in parallel (both only need material.topicId)
+    const [topic, topicMaterials] = await Promise.all([
+      tablesDB
+        .getRow({
+          databaseId: DB_ID,
+          tableId: COLLECTIONS.TOPICS,
+          rowId: material.topicId,
+        })
+        .then((row) => row as unknown as TopicDocument),
+      listRemoteMaterialsByTopicId(material.topicId),
+    ])
 
+    // Step 3: fetch subject (depends on topic.subjectId from step 2)
     const subject = (await tablesDB.getRow({
       databaseId: DB_ID,
       tableId: COLLECTIONS.SUBJECTS,
       rowId: topic.subjectId,
     })) as unknown as SubjectDocument
 
-    const topicMaterials = await listRemoteMaterialsByTopicId(topic.$id)
     const orderedTopicMaterials = sortMaterials(topicMaterials)
     const stats = getMaterialStats(orderedTopicMaterials, viewerIsPremium)
     const visibleMaterials = viewerIsPremium
@@ -623,9 +750,7 @@ export async function getLearningMaterialDetail(
       : orderedTopicMaterials.filter((item) => !item.isPremium)
 
     let resolvedMaterial = mapMaterialDocument(material, viewerIsPremium)
-    const functionMaterial = await resolveMaterialAccessViaFunction(
-      material.$id
-    )
+    const functionMaterial = await resolveMaterialAccessViaFunction(material.$id)
 
     if (functionMaterial?.kind === "success") {
       resolvedMaterial = functionMaterial.material
@@ -637,12 +762,7 @@ export async function getLearningMaterialDetail(
     }
 
     return {
-      subject: mapSubjectDocument(
-        subject,
-        1,
-        stats,
-        viewerIsPremium
-      ),
+      subject: mapSubjectDocument(subject, 1, stats, viewerIsPremium),
       topic: mapTopicDocument(
         topic,
         stats,

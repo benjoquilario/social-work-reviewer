@@ -4,10 +4,11 @@ import {
   createCommunityComment,
   createCommunityPost,
   createCommunityReply,
-  listCommunityFeed,
+  listCommunityFeedPage,
   toggleCommunityPostLike,
   type CommunityAuthor,
   type CommunityFeed,
+  type CommunityFeedPage,
   type CommunityPostItem,
   type CreateCommunityPostInput,
 } from "@/lib/community"
@@ -24,6 +25,9 @@ type CommunityStore = {
   // Data
   feed: CommunityFeed | null
   isLoading: boolean
+  isLoadingMore: boolean
+  hasMoreFeed: boolean
+  nextFeedCursor: string | null
   error: string | null
 
   // UI state
@@ -49,6 +53,7 @@ type CommunityStore = {
   // Actions
   loadFeed: (userId?: string) => Promise<void>
   refreshFeed: (userId?: string) => Promise<void>
+  loadMoreFeed: (userId?: string) => Promise<void>
   setActiveFeedFilter: (filter: CommunityFeedFilter) => void
   setActivePostId: (postId: string | null) => void
   setIsComposerOpen: (open: boolean) => void
@@ -85,6 +90,29 @@ function recalculateStats(posts: CommunityPostItem[]): CommunityFeed["stats"] {
     activeLearners: new Set(posts.map((p) => p.userId)).size,
     openTopics: posts.length,
     answeredToday: posts.filter((p) => p.commentsCount > 0).length,
+  }
+}
+
+function mergeFeedPage(
+  currentFeed: CommunityFeed | null,
+  page: CommunityFeedPage
+): CommunityFeed {
+  if (!currentFeed) {
+    return {
+      posts: page.posts,
+      stats: page.stats,
+    }
+  }
+
+  const seenPostIds = new Set(currentFeed.posts.map((post) => post.id))
+  const mergedPosts = [
+    ...currentFeed.posts,
+    ...page.posts.filter((post) => !seenPostIds.has(post.id)),
+  ]
+
+  return {
+    posts: mergedPosts,
+    stats: recalculateStats(mergedPosts),
   }
 }
 
@@ -150,6 +178,9 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
   // Data
   feed: null,
   isLoading: false,
+  isLoadingMore: false,
+  hasMoreFeed: false,
+  nextFeedCursor: null,
   error: null,
 
   // UI state
@@ -178,8 +209,16 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
     if (get().feed || get().isLoading) return
     set({ isLoading: true, error: null })
     try {
-      const feed = await listCommunityFeed(userId)
-      set({ feed, isLoading: false })
+      const page = await listCommunityFeedPage({ currentUserId: userId })
+      set({
+        feed: {
+          posts: page.posts,
+          stats: page.stats,
+        },
+        hasMoreFeed: page.hasMore,
+        nextFeedCursor: page.nextCursor,
+        isLoading: false,
+      })
     } catch (e) {
       set({
         error: e instanceof Error ? e.message : "Failed to load community",
@@ -191,12 +230,50 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
   refreshFeed: async (userId) => {
     set({ isLoading: true, error: null })
     try {
-      const feed = await listCommunityFeed(userId)
-      set({ feed, isLoading: false })
+      const page = await listCommunityFeedPage({ currentUserId: userId })
+      set({
+        feed: {
+          posts: page.posts,
+          stats: page.stats,
+        },
+        hasMoreFeed: page.hasMore,
+        nextFeedCursor: page.nextCursor,
+        isLoading: false,
+        isLoadingMore: false,
+      })
     } catch (e) {
       set({
         error: e instanceof Error ? e.message : "Failed to refresh community",
         isLoading: false,
+      })
+    }
+  },
+
+  loadMoreFeed: async (userId) => {
+    const { feed, isLoading, isLoadingMore, hasMoreFeed, nextFeedCursor } = get()
+
+    if (!feed || isLoading || isLoadingMore || !hasMoreFeed || !nextFeedCursor) {
+      return
+    }
+
+    set({ isLoadingMore: true, error: null })
+
+    try {
+      const page = await listCommunityFeedPage({
+        currentUserId: userId,
+        cursorAfter: nextFeedCursor,
+      })
+
+      set((state) => ({
+        feed: mergeFeedPage(state.feed, page),
+        hasMoreFeed: page.hasMore,
+        nextFeedCursor: page.nextCursor,
+        isLoadingMore: false,
+      }))
+    } catch (e) {
+      set({
+        error: e instanceof Error ? e.message : "Failed to load more posts",
+        isLoadingMore: false,
       })
     }
   },

@@ -97,8 +97,7 @@ function ProfileScreenContent() {
   const surfaceBorderColor = theme.border
   const nestedBorderColor = theme.border
   const elevatedSurfaceColor = theme.card
-  const nestedSurfaceColor = isDark ? "hsl(232 20% 14%)" : "hsl(210 25% 98%)"
-  // const tabRailColor = isDark ? "hsl(232 20% 14%)" : "hsl(210 25% 97%)"
+  const nestedSurfaceColor = theme.secondary
   const {
     activeTab,
     setActiveTab,

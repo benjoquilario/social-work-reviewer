@@ -56,9 +56,19 @@ export type RecordQuizAnswerPayload = {
   userId?: string
   questionId: string
   choiceId: string
+  selectedAnswerKey: string
+  selectedAnswerText: string
+  correctAnswerKey: string
+  correctAnswerText: string
   isCorrect: boolean
   currentQuestionIndex: number
   totalItems: number
+  subjectId?: string
+  topicId?: string
+  questionnaireKey?: string
+  setName?: "Set A" | "Set B" | "Set C" | "Set D"
+  sourceQuestionId?: number
+  responseTimeSeconds?: number
 }
 
 export type CompleteQuizAttemptPayload = {
@@ -173,25 +183,62 @@ export type UpsertUserProgressParams = {
   nowIso?: string
   averageScore?: number
   completedMaterialsDelta?: number
+  answeredCountDelta?: number
+  correctCountDelta?: number
+  incorrectCountDelta?: number
+  scoreDelta?: number
+  totalStudyMinutesDelta?: number
+  achievementsCountDelta?: number
+  questionnaireKey?: string
+  setName?: "Set A" | "Set B" | "Set C" | "Set D"
+  lastQuestionId?: string
+  lastQuestionIndex?: number
+  lastSourceQuestionId?: number
+  answeredQuestionIdsToAdd?: string[]
 }
 
 export type UserProgressUpsertData = {
   userId: string
   subjectId: string
   topicId: string
+  questionnaireKey: string | null
   completedMaterials: number
   averageScore: number
   lastStudied: string
+  lastQuestionId: string | null
+  lastQuestionIndex: number
+  score: number
+  answeredCount: number
+  correctCount: number
+  incorrectCount: number
+  accuracyRate: number
+  lastSourceQuestionId: number | null
+  answeredQuestionIds: string[]
+  setName: "Set A" | "Set B" | "Set C" | "Set D"
   dayStreak: number
   weeklyAverageScore: number
   lastActiveAt: string
+  totalStudyMinutes: number
+  activeDaysCount: number
+  achievementsCount: number
 }
 
 export type UserAnswerRowData = {
-  attemptId: string
+  userId: string
+  sessionId: string
   questionId: string
-  choiceId: string
+  sourceQuestionId?: number | null
+  subjectId?: string | null
+  topicId?: string | null
+  questionnaireKey?: string | null
+  setName?: "Set A" | "Set B" | "Set C" | "Set D" | null
+  selectedAnswerKey: string
+  selectedAnswerText: string
+  correctAnswerKey: string
+  correctAnswerText: string
   isCorrect: boolean
+  answeredAt: string
+  responseTimeSeconds?: number | null
 }
 
 export type AwardMilestoneParams = {
@@ -201,6 +248,66 @@ export type AwardMilestoneParams = {
   weeklyAverageScore: number
   profileSnapshot?: AchievementProfileSnapshot
   examId?: string
+  subjectId?: string
+  topicId?: string
+  metricKey?: string
+  badgeKey?: string
+  thresholdValue?: number
+  periodType?: "instant" | "daily" | "weekly" | "lifetime"
+  periodStartDate?: string
+  periodEndDate?: string
+}
+
+export type ActivityCounters = {
+  answeredCount: number
+  correctCount: number
+  incorrectCount: number
+  studyMinutes: number
+  completedMaterials: number
+  earnedAchievementsCount: number
+  averageScore?: number
+}
+
+export type RecordDailyActivityParams = {
+  userId: string
+  nowIso?: string
+  subjectId?: string
+  topicId?: string
+  questionnaireKey?: string
+  setName?: "Set A" | "Set B" | "Set C" | "Set D"
+  counters: ActivityCounters
+}
+
+export type DashboardSnapshot = {
+  label: string
+  answeredCount: number
+  correctCount: number
+  incorrectCount: number
+  accuracyRate: number
+  studyMinutes: number
+  completedMaterials: number
+  earnedAchievementsCount: number
+  activeDaysCount: number
+  averageScore: number
+}
+
+export type DashboardReportMetrics = {
+  today: DashboardSnapshot
+  week: DashboardSnapshot
+  month: DashboardSnapshot
+  year: DashboardSnapshot
+  lifetime: {
+    totalStudyMinutes: number
+    activeDaysCount: number
+    achievementsCount: number
+    weeklyAverageScore: number
+    dayStreak: number
+    accuracyRate: number
+    answeredCount: number
+    correctCount: number
+    incorrectCount: number
+    completedMaterials: number
+  }
 }
 
 export type EntityTitleMapParams = {

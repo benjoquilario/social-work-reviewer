@@ -3,20 +3,12 @@ import { View } from "react-native"
 import { Clock, Info, Target, Zap } from "lucide-react-native"
 
 import type { OverallPerformanceStats } from "@/lib/performance-stats"
-import { THEME, withOpacity } from "@/lib/theme"
+import { THEME, getThemeChartPalette, withOpacity } from "@/lib/theme"
 import { Card, CardContent } from "@/components/ui/card"
 import { CircularProgress } from "@/components/ui/circular-progress"
 import { Text } from "@/components/ui/text"
 
 type ThemePalette = (typeof THEME)["light"] | (typeof THEME)["dark"]
-
-const SUBJECT_BAR_COLORS = [
-  "hsl(199 89% 48%)",  // primary blue
-  "hsl(165 62% 43%)",  // teal
-  "hsl(18 94% 62%)",   // orange accent
-  "hsl(272 74% 66%)",  // purple
-  "hsl(338 78% 61%)",  // pink
-]
 
 const SubjectBreakdownRow = memo(function SubjectBreakdownRow({
   subjectName,
@@ -31,7 +23,8 @@ const SubjectBreakdownRow = memo(function SubjectBreakdownRow({
   colorIndex: number
   theme: ThemePalette
 }) {
-  const barColor = SUBJECT_BAR_COLORS[colorIndex % SUBJECT_BAR_COLORS.length]
+  const chartPalette = getThemeChartPalette(theme)
+  const barColor = chartPalette[colorIndex % chartPalette.length]
 
   return (
     <View

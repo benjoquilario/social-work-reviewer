@@ -1,5 +1,6 @@
 import { DB_ID, Permission, Query, Role, tablesDB } from "../appwrite"
-import type { UserProgressDocument } from "../schema"
+import type { LearningHistoryDocument, UserProgressDocument } from "../schema"
+import type { ActivityLearningHistory } from "./types"
 
 export function getUserOwnedPermissions(userId: string) {
   const userRole = Role.user(userId)
@@ -22,9 +23,85 @@ export function buildUserAnswerRowId(attemptId: string, questionIndex: number) {
   return `ans_${safeAttemptId}_${safeQuestionIndex.toString(36)}`
 }
 
+function hashStringToBase36(value: string) {
+  let hash = 0x811c9dc5
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 0x01000193)
+  }
+
+  return (hash >>> 0).toString(36).padStart(7, "0")
+}
+
+export function buildDeterministicRowId(prefix: string, parts: string[]) {
+  const safePrefix = prefix.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 12)
+  const hash = hashStringToBase36(parts.join("|"))
+
+  return `${safePrefix}_${hash}`
+}
+
+export function isAppwriteConflictError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === 409
+  )
+}
+
+export function isAppwriteNotFoundError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === 404
+  )
+}
+
 export function toDayStamp(value: string) {
   const date = new Date(value)
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+}
+
+export function toIsoDateKey(value: string | Date) {
+  const date = typeof value === "string" ? new Date(value) : value
+  const year = date.getUTCFullYear()
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0")
+  const day = String(date.getUTCDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+export function getWeekStartDateKey(value: string | Date) {
+  const date = typeof value === "string" ? new Date(value) : new Date(value)
+  const normalized = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  )
+  const day = normalized.getUTCDay()
+  const mondayOffset = day === 0 ? -6 : 1 - day
+  normalized.setUTCDate(normalized.getUTCDate() + mondayOffset)
+  return toIsoDateKey(normalized)
+}
+
+export function getWeekEndDateKey(weekStartDateKey: string) {
+  const start = new Date(`${weekStartDateKey}T00:00:00.000Z`)
+  start.setUTCDate(start.getUTCDate() + 6)
+  return toIsoDateKey(start)
+}
+
+export function isSameUtcDay(
+  leftIso: string | null | undefined,
+  rightIso: string | null | undefined
+) {
+  if (!leftIso || !rightIso) {
+    return false
+  }
+
+  return toIsoDateKey(leftIso) === toIsoDateKey(rightIso)
+}
+
+export function sumNumbers(values: number[]) {
+  return values.reduce((total, value) => total + value, 0)
 }
 
 export function computeNextDayStreak(
@@ -60,6 +137,22 @@ export async function listFirstRow<T>(tableId: string, queries: string[]) {
 
   const [row] = rows as unknown as T[]
   return row ?? null
+}
+
+export async function getRowByIdSafe<T>(tableId: string, rowId: string) {
+  try {
+    return (await tablesDB.getRow({
+      databaseId: DB_ID,
+      tableId,
+      rowId,
+    })) as unknown as T
+  } catch (error) {
+    if (isAppwriteNotFoundError(error)) {
+      return null
+    }
+
+    throw error
+  }
 }
 
 export function resolveAverageScoreValues(
@@ -134,9 +227,6 @@ export async function fetchEntityTitleMap(params: {
 
   return map
 }
-
-import type { ActivityLearningHistory } from "./types"
-import type { LearningHistoryDocument } from "../schema"
 
 export function mapLearningHistoryRowsToActivityItems(
   historyRows: LearningHistoryDocument[],

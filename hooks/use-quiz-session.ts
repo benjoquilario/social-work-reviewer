@@ -10,7 +10,7 @@ import {
   startQuizAttempt,
   syncOngoingAttemptProgress,
 } from "@/lib/progress"
-import type { QuizQuestion } from "@/lib/quiz-content"
+import type { QuizQuestion } from "@/lib/quiz-types"
 
 export type UserAnswers = Record<number, number | undefined>
 
@@ -21,8 +21,8 @@ async function fetchAndMapResumedAttempt(
   const answerRows = await listAttemptAnswers({
     attemptId: resumableAttempt.$id,
   })
-  const choiceIdByQuestionId = new Map(
-    answerRows.map((answerRow) => [answerRow.questionId, answerRow.choiceId])
+  const answerRowByQuestionId = new Map(
+    answerRows.map((answerRow) => [answerRow.questionId, answerRow])
   )
 
   const answeredIndices: number[] = []
@@ -31,14 +31,25 @@ async function fetchAndMapResumedAttempt(
 
   for (let index = 0; index < questions.length; index += 1) {
     const question = questions[index]
-    const selectedChoiceId = choiceIdByQuestionId.get(question.questionId)
+    const savedAnswer = answerRowByQuestionId.get(question.questionId)
 
-    if (!selectedChoiceId) {
+    if (!savedAnswer) {
       unansweredIndices.push(index)
       continue
     }
 
-    const selectedChoiceIndex = question.choiceIds.indexOf(selectedChoiceId)
+    const selectedChoiceIndex =
+      question.choices.findIndex(
+        (choice) => choice === savedAnswer.selectedAnswerText
+      ) >= 0
+        ? question.choices.findIndex(
+            (choice) => choice === savedAnswer.selectedAnswerText
+          )
+        : question.choices.findIndex(
+            (_choice, choiceIndex) =>
+              String.fromCharCode(65 + choiceIndex) ===
+              savedAnswer.selectedAnswerKey
+          )
     if (selectedChoiceIndex >= 0) {
       restoredAnswersByOriginalIndex[index] = selectedChoiceIndex
       answeredIndices.push(index)
@@ -372,12 +383,21 @@ export function useQuizSession({
         userId: user?.$id,
         questionId: question.questionId,
         choiceId,
+        selectedAnswerKey: String.fromCharCode(65 + choiceIndex),
+        selectedAnswerText: question.choices[choiceIndex] ?? "",
+        correctAnswerKey: String.fromCharCode(65 + question.answerIndex),
+        correctAnswerText: question.choices[question.answerIndex] ?? "",
         isCorrect: choiceIndex === question.answerIndex,
         currentQuestionIndex: questionIndex,
         totalItems: questions.length,
+        subjectId: categoryId,
+        topicId: examId || activeExamId,
+        questionnaireKey: question.questionnaireKey,
+        setName: question.setName,
+        sourceQuestionId: question.sourceQuestionId,
       })
     },
-    [answers, attemptId, questions, user?.$id]
+    [activeExamId, answers, attemptId, categoryId, examId, questions, user?.$id]
   )
 
   return {

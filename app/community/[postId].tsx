@@ -17,13 +17,14 @@ import {
   TextInput,
   View,
 } from "react-native"
-import { SafeAreaView } from "react-native-safe-area-context"
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import {
   type CommunityCommentItem,
   type CommunityReplyItem,
 } from "@/lib/community"
-import { THEME, withOpacity } from "@/lib/theme"
+import { THEME, getCommunityCategoryColor, withOpacity } from "@/lib/theme"
+import { useKeyboardInset } from "@/hooks/use-keyboard-inset"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
@@ -43,12 +44,6 @@ function toAvatarSeed(name: string) {
       .toUpperCase()
       .slice(0, 2) || "RV"
   )
-}
-
-const CATEGORY_COLORS: Record<string, string> = {
-  question: "hsl(199 89% 48%)",
-  discussion: "hsl(151 55% 41%)",
-  tip: "hsl(18 94% 62%)",
 }
 
 // ─── Reply Row ────────────────────────────────────────────────────────────────
@@ -183,6 +178,8 @@ const CommentRow = memo(function CommentRow({
 
 export default function CommunityDiscussionScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
+  const keyboardInset = useKeyboardInset()
   const colorScheme = useColorScheme()
   const isDark = colorScheme === "dark"
   const theme = isDark ? THEME.dark : THEME.light
@@ -255,7 +252,7 @@ export default function CommunityDiscussionScreen() {
     void toggleLike(user.$id, post)
   }, [post, toggleLike, user?.$id])
 
-  const categoryColor = CATEGORY_COLORS[post?.category ?? ""] ?? theme.primary
+  const categoryColor = getCommunityCategoryColor(theme, post?.category ?? "")
 
   if (!post) {
     return (
@@ -285,7 +282,7 @@ export default function CommunityDiscussionScreen() {
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 6 : 0}
+        keyboardVerticalOffset={Math.max(insets.top, 12)}
       >
         {/* Header */}
         <View className="flex-row items-center gap-3 border-b border-border/50 px-4 pb-3 pt-2">
@@ -306,7 +303,11 @@ export default function CommunityDiscussionScreen() {
         </View>
 
         <ScrollView
+          automaticallyAdjustKeyboardInsets
           contentContainerClassName="pb-20"
+          contentContainerStyle={{
+            paddingBottom: Math.max(insets.bottom, 20) + 80,
+          }}
           contentInsetAdjustmentBehavior="automatic"
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -482,7 +483,11 @@ export default function CommunityDiscussionScreen() {
         {/* Bottom comment input */}
         <View
           className="flex-row items-center gap-2 border-t border-border/40 px-4 py-2.5"
-          style={{ backgroundColor: theme.card }}
+          style={{
+            backgroundColor: theme.card,
+            paddingBottom: Math.max(insets.bottom, 10),
+            marginBottom: keyboardInset,
+          }}
         >
           <CommunityAvatar
             label={currentAvatarSeed}

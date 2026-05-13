@@ -152,16 +152,7 @@ function RootNavigator() {
             />
             <Stack.Screen
               name="quiz"
-              options={{
-                title: "Timed Quiz",
-                headerRight: () => (
-                  <Timer
-                    size={18}
-                    color={navTheme.colors.primary}
-                    strokeWidth={2.5}
-                  />
-                ),
-              }}
+              options={{}}
             />
             <Stack.Screen
               name="learn/[lessonId]"
@@ -183,27 +174,19 @@ function RootNavigator() {
             />
             <Stack.Screen
               name="review/[categoryId]"
-              options={{
-                headerShown: false,
-              }}
+              options={{}}
             />
             <Stack.Screen
               name="board-exams/index"
-              options={{
-                headerShown: false,
-              }}
+              options={{}}
             />
             <Stack.Screen
               name="board-exams/[categoryId]"
-              options={{
-                headerShown: false,
-              }}
+              options={{}}
             />
             <Stack.Screen
               name="board-exams/[categoryId]/[setId]"
-              options={{
-                headerShown: false,
-              }}
+              options={{}}
             />
             <Stack.Screen
               name="premium"

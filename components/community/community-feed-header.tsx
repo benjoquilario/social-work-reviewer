@@ -69,7 +69,7 @@ export function CommunityFeedHeader({
         />
         <Pressable className="flex-1" onPress={onOpenComposer}>
           <Text className="text-[14px] text-muted-foreground">
-            What's on your mind?
+            What&apos;s on your mind?
           </Text>
         </Pressable>
         <Pressable

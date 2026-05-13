@@ -1,14 +1,9 @@
-import {
-  COLLECTIONS,
-  DB_ID,
-  ID,
-  isAppwriteUnauthorizedError,
-  Query,
-  tablesDB,
-} from "../appwrite"
+import { ID } from "../appwrite"
 import type { UserAnswerDocument } from "../schema"
+import { GLOBAL_PROGRESS_SUBJECT_ID, GLOBAL_PROGRESS_TOPIC_ID } from "./constants"
 import {
   countCompletedQuizzes,
+  recordDailyActivity,
   touchGlobalActivity,
   upsertUserProgress,
 } from "./activity"
@@ -17,6 +12,7 @@ import {
   awardQuizScoreMilestones,
   createAchievementIfMissing,
 } from "./milestones"
+import { listUserQuizSessions } from "./quiz-sessions"
 import type {
   CompleteQuizAttemptPayload,
   ExamAttempt,
@@ -30,24 +26,17 @@ import {
   buildUserAnswerRowId,
   clampNumber,
   getUserOwnedPermissions,
-  uniqueStrings,
 } from "./utils"
+import {
+  COLLECTIONS,
+  DB_ID,
+  isAppwriteUnauthorizedError,
+  Query,
+  tablesDB,
+} from "../appwrite"
 
 let hasLoggedUserAnswersUnauthorized = false
-let hasLoggedAttemptSyncUnauthorized = false
 let isUserAnswersSyncDisabled = false
-let isAttemptProgressSyncDisabled = false
-
-function normalizeAttemptIndex(
-  currentQuestionIndex: number,
-  totalItems: number
-) {
-  return clampNumber(currentQuestionIndex, 0, Math.max(totalItems - 1, 0))
-}
-
-function hasRemainingQuestions(answeredCount: number, totalItems: number) {
-  return answeredCount < Math.max(totalItems, 1)
-}
 
 function warnUserAnswersUnauthorizedOnce() {
   if (hasLoggedUserAnswersUnauthorized) return
@@ -55,69 +44,6 @@ function warnUserAnswersUnauthorizedOnce() {
   console.warn(
     "[progress] Unauthorized access to user_answers. Quiz continues, but per-question answer sync is temporarily disabled for this session."
   )
-}
-
-function warnAttemptSyncUnauthorizedOnce() {
-  if (hasLoggedAttemptSyncUnauthorized) return
-  hasLoggedAttemptSyncUnauthorized = true
-  console.warn(
-    "[progress] Unauthorized access to exam_attempts progress sync. Quiz continues, but resume position updates are disabled for this session."
-  )
-}
-
-/**
- * Saves a completed quiz result as an exam_attempt document.
- */
-export async function saveQuizResult(
-  payload: QuizResultPayload
-): Promise<void> {
-  const attemptId = await startQuizAttempt({
-    userId: payload.userId,
-    examId: payload.examId,
-    totalItems: payload.totalItems,
-  })
-
-  if (payload.status === "done") {
-    await completeQuizAttempt({
-      attemptId,
-      userId: payload.userId,
-      examId: payload.examId,
-      score: payload.score,
-      totalItems: payload.totalItems,
-      timeTaken: payload.timeTaken,
-      subjectId: payload.subjectId,
-      topicId: payload.topicId,
-      profileSnapshot: payload.profileSnapshot,
-    })
-  }
-}
-
-export async function startQuizAttempt(
-  payload: StartQuizAttemptPayload
-): Promise<string> {
-  const now = new Date().toISOString()
-  const attemptId = ID.unique()
-
-  await tablesDB.createRow({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.EXAM_ATTEMPTS,
-    rowId: attemptId,
-    data: {
-      userId: payload.userId,
-      examId: payload.examId,
-      score: 0,
-      totalItems: payload.totalItems,
-      timeTaken: 0,
-      status: "ongoing",
-      startedAt: now,
-      finishedAt: null,
-      currentQuestionIndex: 0,
-      isResumable: true,
-      lastAnsweredAt: null,
-    },
-  })
-
-  return attemptId
 }
 
 async function createUserAnswerRow(params: {
@@ -185,181 +111,70 @@ async function syncUserAnswerRow(params: {
   }
 }
 
-async function syncAttemptQuestionProgress(params: {
-  attemptId: string
-  currentQuestionIndex: number
-  nowIso: string
-  totalItems?: number
-}) {
-  if (isAttemptProgressSyncDisabled) {
-    return
-  }
+export async function saveQuizResult(
+  payload: QuizResultPayload
+): Promise<void> {
+  const sessionId = await startQuizAttempt({
+    userId: payload.userId,
+    examId: payload.examId,
+    totalItems: payload.totalItems,
+  })
 
-  const safeTotalItems = Math.max(params.totalItems ?? 1, 1)
-  const answeredCount = Math.max(params.currentQuestionIndex + 1, 0)
-  const isResumable = hasRemainingQuestions(answeredCount, safeTotalItems)
-
-  try {
-    await tablesDB.updateRow({
-      databaseId: DB_ID,
-      tableId: COLLECTIONS.EXAM_ATTEMPTS,
-      rowId: params.attemptId,
-      data: {
-        currentQuestionIndex: normalizeAttemptIndex(
-          params.currentQuestionIndex,
-          safeTotalItems
-        ),
-        isResumable,
-        lastAnsweredAt: params.nowIso,
-      },
+  if (payload.status === "done") {
+    await completeQuizAttempt({
+      attemptId: sessionId,
+      userId: payload.userId,
+      examId: payload.examId,
+      score: payload.score,
+      totalItems: payload.totalItems,
+      timeTaken: payload.timeTaken,
+      subjectId: payload.subjectId,
+      topicId: payload.topicId,
+      profileSnapshot: payload.profileSnapshot,
     })
-  } catch (error) {
-    if (!isAppwriteUnauthorizedError(error)) {
-      return
-    }
-
-    isAttemptProgressSyncDisabled = true
-    warnAttemptSyncUnauthorizedOnce()
   }
+}
+
+export async function startQuizAttempt(
+  _payload: StartQuizAttemptPayload
+): Promise<string> {
+  return ID.unique()
 }
 
 export async function recordQuizAnswer(
   payload: RecordQuizAnswerPayload
 ): Promise<void> {
+  if (!payload.userId) {
+    return
+  }
+
   const now = new Date().toISOString()
   const answerRowId = buildUserAnswerRowId(
     payload.attemptId,
     payload.currentQuestionIndex
   )
   const answerData = {
-    attemptId: payload.attemptId,
+    userId: payload.userId,
+    sessionId: payload.attemptId,
     questionId: payload.questionId,
-    choiceId: payload.choiceId,
+    sourceQuestionId: payload.sourceQuestionId ?? null,
+    subjectId: payload.subjectId ?? null,
+    topicId: payload.topicId ?? null,
+    questionnaireKey: payload.questionnaireKey ?? null,
+    setName: payload.setName ?? "Set A",
+    selectedAnswerKey: payload.selectedAnswerKey,
+    selectedAnswerText: payload.selectedAnswerText,
+    correctAnswerKey: payload.correctAnswerKey,
+    correctAnswerText: payload.correctAnswerText,
     isCorrect: payload.isCorrect,
+    answeredAt: now,
+    responseTimeSeconds: payload.responseTimeSeconds ?? null,
   }
 
   await syncUserAnswerRow({
     answerRowId,
     answerData,
     userId: payload.userId,
-  })
-
-  await syncAttemptQuestionProgress({
-    attemptId: payload.attemptId,
-    currentQuestionIndex: payload.currentQuestionIndex,
-    nowIso: now,
-    totalItems: payload.totalItems,
-  })
-}
-
-async function listAttemptAnswerRows(attemptIds: string[]) {
-  const uniqueAttemptIds = uniqueStrings(attemptIds)
-
-  if (uniqueAttemptIds.length === 0) {
-    return [] as UserAnswerDocument[]
-  }
-
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.USER_ANSWERS,
-    queries: [Query.equal("attemptId", uniqueAttemptIds), Query.limit(500)],
-  })
-
-  return rows as unknown as UserAnswerDocument[]
-}
-
-async function sanitizeAttemptResumeState(attempts: ExamAttempt[]) {
-  if (attempts.length === 0) {
-    return attempts
-  }
-
-  try {
-    const answerRows = await listAttemptAnswerRows(
-      attempts.map((attempt) => attempt.$id)
-    )
-    const answeredQuestionIdsByAttemptId = new Map<string, Set<string>>()
-
-    for (const row of answerRows) {
-      const current =
-        answeredQuestionIdsByAttemptId.get(row.attemptId) ?? new Set<string>()
-      current.add(row.questionId)
-      answeredQuestionIdsByAttemptId.set(row.attemptId, current)
-    }
-
-    const staleAttemptUpdates = attempts.flatMap((attempt) => {
-      const answeredCount =
-        answeredQuestionIdsByAttemptId.get(attempt.$id)?.size ?? 0
-      const stillResumable = hasRemainingQuestions(
-        answeredCount,
-        attempt.totalItems
-      )
-
-      if (attempt.isResumable === stillResumable) {
-        return []
-      }
-
-      return [
-        tablesDB
-          .updateRow({
-            databaseId: DB_ID,
-            tableId: COLLECTIONS.EXAM_ATTEMPTS,
-            rowId: attempt.$id,
-            data: {
-              isResumable: stillResumable,
-              currentQuestionIndex: normalizeAttemptIndex(
-                Math.max(answeredCount - 1, 0),
-                attempt.totalItems
-              ),
-              ...(stillResumable
-                ? {}
-                : {
-                    lastAnsweredAt:
-                      attempt.lastAnsweredAt ??
-                      attempt.finishedAt ??
-                      attempt.startedAt,
-                  }),
-            },
-          })
-          .catch(() => undefined),
-      ]
-    })
-
-    if (staleAttemptUpdates.length > 0) {
-      await Promise.all(staleAttemptUpdates)
-    }
-
-    return attempts.filter((attempt) => {
-      const answeredCount =
-        answeredQuestionIdsByAttemptId.get(attempt.$id)?.size ?? 0
-      return hasRemainingQuestions(answeredCount, attempt.totalItems)
-    })
-  } catch {
-    return attempts.filter(
-      (attempt) =>
-        attempt.isResumable &&
-        attempt.currentQuestionIndex < attempt.totalItems - 1
-    )
-  }
-}
-
-async function updateAttemptAsDone(
-  payload: CompleteQuizAttemptPayload,
-  now: string
-) {
-  await tablesDB.updateRow({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.EXAM_ATTEMPTS,
-    rowId: payload.attemptId,
-    data: {
-      score: payload.score,
-      totalItems: payload.totalItems,
-      timeTaken: payload.timeTaken,
-      status: "done",
-      finishedAt: now,
-      currentQuestionIndex: Math.max(payload.totalItems - 1, 0),
-      isResumable: false,
-      lastAnsweredAt: now,
-    },
   })
 }
 
@@ -368,11 +183,20 @@ async function commitQuizProgressStats(
   averageScore: number,
   now: string
 ) {
+  const safeTotalItems = Math.max(payload.totalItems, 1)
+  const incorrectCount = Math.max(safeTotalItems - payload.score, 0)
+
   await upsertUserProgress({
     userId: payload.userId,
     subjectId: payload.subjectId ?? payload.examId,
     topicId: payload.topicId ?? payload.examId,
     averageScore,
+    answeredCountDelta: safeTotalItems,
+    correctCountDelta: payload.score,
+    incorrectCountDelta: incorrectCount,
+    scoreDelta: payload.score,
+    totalStudyMinutesDelta: Math.max(1, Math.round(payload.timeTaken / 60)),
+    lastQuestionIndex: Math.max(payload.totalItems - 1, 0),
     nowIso: now,
   })
 
@@ -386,14 +210,21 @@ async function commitQuizProgressStats(
 async function checkAndAwardQuizAchievements(
   payload: CompleteQuizAttemptPayload,
   globalProgress: { dayStreak: number; weeklyAverageScore: number },
-  averageScore: number
+  averageScore: number,
+  nowIso: string
 ) {
-  await createAchievementIfMissing({
+  let unlockedAchievements = 0
+
+  const createdQuizCompletion = await createAchievementIfMissing({
     userId: payload.userId,
     achievementType: "quiz_completion",
     title: `Quiz Completed: ${payload.examId}`,
     description: `Finished a quiz with a score of ${averageScore}%.`,
     metricValue: averageScore,
+    metricKey: "quiz_completion_result",
+    badgeKey: `quiz-finish-${payload.examId}`,
+    thresholdValue: 1,
+    periodType: "instant",
     dayStreak: globalProgress.dayStreak,
     weeklyAverageScore: globalProgress.weeklyAverageScore,
     examId: payload.examId,
@@ -401,43 +232,64 @@ async function checkAndAwardQuizAchievements(
     topicId: payload.topicId,
     profileSnapshot: payload.profileSnapshot,
   })
+  if (createdQuizCompletion) {
+    unlockedAchievements += 1
+  }
 
   if (globalProgress.weeklyAverageScore >= 80) {
-    await createAchievementIfMissing({
+    const createdWeeklyAverage = await createAchievementIfMissing({
       userId: payload.userId,
       achievementType: "weekly_average",
       title: "Strong Weekly Average",
       description:
         "Maintained a weekly average score of 80% or better across activity.",
       metricValue: globalProgress.weeklyAverageScore,
+      thresholdValue: 80,
+      metricKey: "weekly_average_score",
+      badgeKey: "weekly-average-80",
+      periodType: "weekly",
+      periodStartDate: nowIso.slice(0, 10),
       dayStreak: globalProgress.dayStreak,
       weeklyAverageScore: globalProgress.weeklyAverageScore,
       profileSnapshot: payload.profileSnapshot,
     })
+    if (createdWeeklyAverage) {
+      unlockedAchievements += 1
+    }
   }
 
-  await awardQuizScoreMilestones({
+  unlockedAchievements += await awardQuizScoreMilestones({
     userId: payload.userId,
     metricValue: averageScore,
     dayStreak: globalProgress.dayStreak,
     weeklyAverageScore: globalProgress.weeklyAverageScore,
     examId: payload.examId,
+    subjectId: payload.subjectId,
+    topicId: payload.topicId,
+    metricKey: "quiz_score",
     profileSnapshot: payload.profileSnapshot,
   })
 
   const completedQuizzes = await countCompletedQuizzes({
     userId: payload.userId,
   })
-  await awardMilestoneIfEligible({
+  unlockedAchievements += await awardMilestoneIfEligible({
     configType: "quiz_completion",
     payload: {
       userId: payload.userId,
       metricValue: completedQuizzes,
       dayStreak: globalProgress.dayStreak,
       weeklyAverageScore: globalProgress.weeklyAverageScore,
+      subjectId: payload.subjectId,
+      topicId: payload.topicId,
+      metricKey: "quizzes_completed",
+      badgeKey: `quizzes-${completedQuizzes}`,
+      periodType: "lifetime",
       profileSnapshot: payload.profileSnapshot,
     },
   })
+
+  return unlockedAchievements
 }
 
 export async function completeQuizAttempt(
@@ -451,82 +303,88 @@ export async function completeQuizAttempt(
     100
   )
 
-  await updateAttemptAsDone(payload, now)
   const globalProgress = await commitQuizProgressStats(
     payload,
     averageScore,
     now
   )
-  await checkAndAwardQuizAchievements(payload, globalProgress, averageScore)
+  const unlockedAchievements = await checkAndAwardQuizAchievements(
+    payload,
+    globalProgress,
+    averageScore,
+    now
+  )
+
+  if (unlockedAchievements > 0) {
+    await Promise.all([
+      upsertUserProgress({
+        userId: payload.userId,
+        subjectId: payload.subjectId ?? payload.examId,
+        topicId: payload.topicId ?? payload.examId,
+        nowIso: now,
+        achievementsCountDelta: unlockedAchievements,
+      }),
+      upsertUserProgress({
+        userId: payload.userId,
+        subjectId: GLOBAL_PROGRESS_SUBJECT_ID,
+        topicId: GLOBAL_PROGRESS_TOPIC_ID,
+        nowIso: now,
+        achievementsCountDelta: unlockedAchievements,
+      }),
+    ])
+  }
+
+  await recordDailyActivity({
+    userId: payload.userId,
+    nowIso: now,
+    subjectId: payload.subjectId,
+    topicId: payload.topicId,
+    counters: {
+      answeredCount: safeTotalItems,
+      correctCount: payload.score,
+      incorrectCount: Math.max(safeTotalItems - payload.score, 0),
+      studyMinutes: Math.max(1, Math.round(payload.timeTaken / 60)),
+      completedMaterials: 0,
+      earnedAchievementsCount:
+        unlockedAchievements + (globalProgress.earnedAchievementsCount ?? 0),
+      averageScore,
+    },
+  })
 }
 
 export async function getLatestResumableAttempt(payload: {
   userId: string
   examId: string
 }): Promise<ExamAttempt | null> {
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.EXAM_ATTEMPTS,
-    queries: [
-      Query.equal("userId", payload.userId),
-      Query.equal("examId", payload.examId),
-      Query.equal("status", "ongoing"),
-      Query.equal("isResumable", true),
-      Query.orderDesc("$updatedAt"),
-      Query.limit(1),
-    ],
+  const sessions = await listUserQuizSessions({
+    userId: payload.userId,
+    examIds: [payload.examId],
   })
 
-  const attempts = await sanitizeAttemptResumeState(
-    rows as unknown as ExamAttempt[]
-  )
-  const [attempt] = attempts
-  return attempt ?? null
+  return sessions.find((session) => session.isResumable) ?? null
 }
 
 export async function listResumableAttemptsByExam(payload: {
   userId: string
   examIds: string[]
 }): Promise<Record<string, ResumableAttemptSummary>> {
-  const uniqueExamIds = uniqueStrings(payload.examIds)
-
-  if (uniqueExamIds.length === 0) {
-    return {}
-  }
-
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.EXAM_ATTEMPTS,
-    queries: [
-      Query.equal("userId", payload.userId),
-      Query.equal("status", "ongoing"),
-      Query.equal("isResumable", true),
-      Query.orderDesc("$updatedAt"),
-      Query.limit(500),
-    ],
+  const sessions = await listUserQuizSessions({
+    userId: payload.userId,
+    examIds: payload.examIds,
   })
-
-  const allowedExamIds = new Set(uniqueExamIds)
-  const attempts = await sanitizeAttemptResumeState(
-    rows as unknown as ExamAttempt[]
-  )
   const summaryByExamId: Record<string, ResumableAttemptSummary> = {}
 
-  for (const attempt of attempts) {
-    if (!allowedExamIds.has(attempt.examId)) {
+  for (const session of sessions) {
+    if (!session.isResumable || summaryByExamId[session.examId]) {
       continue
     }
 
-    if (summaryByExamId[attempt.examId]) {
-      continue
-    }
-
-    summaryByExamId[attempt.examId] = {
-      attemptId: attempt.$id,
-      examId: attempt.examId,
-      currentQuestionIndex: attempt.currentQuestionIndex,
-      timeTaken: attempt.timeTaken,
-      lastAnsweredAt: attempt.lastAnsweredAt,
+    summaryByExamId[session.examId] = {
+      attemptId: session.$id,
+      examId: session.examId,
+      currentQuestionIndex: session.currentQuestionIndex,
+      timeTaken: session.timeTaken,
+      lastAnsweredAt: session.lastAnsweredAt,
     }
   }
 
@@ -537,23 +395,13 @@ export async function listUserResumableAttempts(payload: {
   userId: string
   limit?: number
 }): Promise<ExamAttempt[]> {
-  try {
-    const { rows } = await tablesDB.listRows({
-      databaseId: DB_ID,
-      tableId: COLLECTIONS.EXAM_ATTEMPTS,
-      queries: [
-        Query.equal("userId", payload.userId),
-        Query.equal("status", "ongoing"),
-        Query.equal("isResumable", true),
-        Query.orderDesc("$updatedAt"),
-        Query.limit(Math.max(payload.limit ?? 20, 1)),
-      ],
-    })
+  const sessions = await listUserQuizSessions({
+    userId: payload.userId,
+  })
 
-    return sanitizeAttemptResumeState(rows as unknown as ExamAttempt[])
-  } catch {
-    return []
-  }
+  return sessions
+    .filter((session) => session.isResumable)
+    .slice(0, Math.max(payload.limit ?? 20, 1))
 }
 
 export async function listAttemptAnswers(payload: { attemptId: string }) {
@@ -561,8 +409,8 @@ export async function listAttemptAnswers(payload: { attemptId: string }) {
     databaseId: DB_ID,
     tableId: COLLECTIONS.USER_ANSWERS,
     queries: [
-      Query.equal("attemptId", payload.attemptId),
-      Query.orderAsc("$updatedAt"),
+      Query.equal("sessionId", payload.attemptId),
+      Query.orderAsc("answeredAt"),
       Query.limit(500),
     ],
   })
@@ -570,41 +418,16 @@ export async function listAttemptAnswers(payload: { attemptId: string }) {
   return rows as unknown as UserAnswerDocument[]
 }
 
-export async function syncOngoingAttemptProgress(payload: {
+export async function syncOngoingAttemptProgress(_payload: {
   attemptId: string
   timeTaken: number
   currentQuestionIndex: number
 }) {
-  await tablesDB.updateRow({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.EXAM_ATTEMPTS,
-    rowId: payload.attemptId,
-    data: {
-      timeTaken: Math.max(payload.timeTaken, 0),
-      currentQuestionIndex: Math.max(payload.currentQuestionIndex, 0),
-      lastAnsweredAt: new Date().toISOString(),
-    },
-  })
+  return
 }
 
-/**
- * Fetches all exam attempts for a given user.
- */
 export async function getUserAttempts(payload: {
   userId: string
 }): Promise<ExamAttempt[]> {
-  try {
-    const { rows } = await tablesDB.listRows({
-      databaseId: DB_ID,
-      tableId: COLLECTIONS.EXAM_ATTEMPTS,
-      queries: [
-        Query.equal("userId", payload.userId),
-        Query.orderDesc("$createdAt"),
-        Query.limit(100),
-      ],
-    })
-    return rows as unknown as ExamAttempt[]
-  } catch {
-    return []
-  }
+  return listUserQuizSessions({ userId: payload.userId })
 }

@@ -1,28 +1,25 @@
 import {
-  COLLECTIONS,
-  createAppwriteContentError,
-  createAppwritePermissionMessage,
-  DB_ID,
-  getAppwriteConfigurationError,
-  isAppwriteUnauthorizedError,
+  APPWRITE_CONFIG,
   Query,
-  tablesDB,
+  createAppwriteContentError,
+  storage,
 } from "./appwrite"
 import {
-  type BoardExamCategoryDocument,
-  type BoardExamChoiceDocument,
-  type BoardExamQuestionDocument,
-  type BoardExamSetDocument,
-} from "./schema"
+  getBoardExamCatalogCategory,
+  getBoardExamCatalogSet,
+  listBoardExamCatalogCategories,
+  type BoardExamCatalogCategory,
+  type BoardExamCatalogSet,
+} from "./board-exam-catalog"
+import type { QuestionnaireDocument, QuestionnaireQuestion } from "./schema"
 
-const BOARD_EXAM_QUERY_LIMIT = 500
-const BOARD_EXAM_IN_QUERY_CHUNK_SIZE = 50
-const BOARD_EXAM_RESOURCES = [
-  COLLECTIONS.BOARD_EXAM_CATEGORIES,
-  COLLECTIONS.BOARD_EXAM_SETS,
-  COLLECTIONS.BOARD_EXAM_QUESTIONS,
-  COLLECTIONS.BOARD_EXAM_CHOICES,
-]
+const BOARD_EXAM_RESOURCE_LABEL = "board exam questionnaire JSON"
+
+/**
+ * Maximum number of questions visible to free-tier users per set.
+ * Questions beyond this limit require a premium subscription.
+ */
+export const FREE_QUESTION_LIMIT = 10
 
 export type BoardExamCategorySummary = {
   id: string
@@ -44,7 +41,7 @@ export type BoardExamSetSummary = {
   title: string
   setCode: string
   description: string
-  questionType: BoardExamSetDocument["questionType"]
+  questionType: "multiple_choice"
   totalItems: number
   order: number
   totalQuestionCount: number
@@ -69,7 +66,7 @@ export type BoardExamQuestion = {
   setId: string
   prompt: string
   explanation: string
-  questionType: BoardExamQuestionDocument["questionType"]
+  questionType: "multiple_choice"
   order: number
   isPremium: boolean
   choices: BoardExamChoice[]
@@ -88,25 +85,9 @@ export type BoardExamSetDetail = {
   hiddenPremiumQuestionCount: number
 }
 
-function ensureBoardExamConfigured() {
-  const configError = getAppwriteConfigurationError()
-
-  if (configError) {
-    throw createAppwriteContentError(
-      "config",
-      `${configError} Board exam resources now load only from Appwrite.`
-    )
-  }
-}
+const questionnaireCache = new Map<string, Promise<QuestionnaireDocument>>()
 
 function toBoardExamError(error: unknown, fallback: string) {
-  if (isAppwriteUnauthorizedError(error)) {
-    return createAppwriteContentError(
-      "request",
-      createAppwritePermissionMessage(BOARD_EXAM_RESOURCES)
-    )
-  }
-
   if (error instanceof Error && error.message) {
     return createAppwriteContentError("request", error.message)
   }
@@ -114,204 +95,197 @@ function toBoardExamError(error: unknown, fallback: string) {
   return createAppwriteContentError("request", fallback)
 }
 
-function sortByOrder<T extends { order: number }>(items: T[]): T[] {
-  return [...items].sort((left, right) => left.order - right.order)
+function canUseQuestionnaireStorage() {
+  return Boolean(
+    APPWRITE_CONFIG.endpoint &&
+      APPWRITE_CONFIG.projectId &&
+      APPWRITE_CONFIG.platform &&
+      APPWRITE_CONFIG.questionnaireBucketId
+  )
 }
 
-function uniqueStrings(values: string[]) {
-  return Array.from(new Set(values.filter(Boolean)))
+function decodeUtf8(arrayBuffer: ArrayBuffer) {
+  return new TextDecoder("utf-8").decode(arrayBuffer)
 }
 
-function chunkValues<T>(values: T[], size: number) {
-  const chunks: T[][] = []
-
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size))
+function isQuestionnaireDocument(value: unknown): value is QuestionnaireDocument {
+  if (!value || typeof value !== "object") {
+    return false
   }
 
-  return chunks
+  const candidate = value as Partial<QuestionnaireDocument>
+  return (
+    typeof candidate.questionnaire === "string" &&
+    typeof candidate.set === "string" &&
+    typeof candidate.questionCount === "number" &&
+    Array.isArray(candidate.questions)
+  )
 }
 
-async function listBoardExamCategoryDocuments() {
-  ensureBoardExamConfigured()
-
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.BOARD_EXAM_CATEGORIES,
-    queries: [Query.orderAsc("order"), Query.limit(BOARD_EXAM_QUERY_LIMIT)],
-  })
-
-  return rows as unknown as BoardExamCategoryDocument[]
-}
-
-async function getBoardExamCategoryDocument(categoryId: string) {
-  ensureBoardExamConfigured()
-
-  const row = await tablesDB.getRow({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.BOARD_EXAM_CATEGORIES,
-    rowId: categoryId,
-  })
-
-  return row as unknown as BoardExamCategoryDocument
-}
-
-async function listBoardExamSetDocuments(categoryId?: string) {
-  ensureBoardExamConfigured()
-
-  const queries = [Query.orderAsc("order"), Query.limit(BOARD_EXAM_QUERY_LIMIT)]
-
-  if (categoryId) {
-    queries.unshift(Query.equal("categoryId", categoryId))
-  }
-
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.BOARD_EXAM_SETS,
-    queries,
-  })
-
-  return rows as unknown as BoardExamSetDocument[]
-}
-
-async function getBoardExamSetDocument(setId: string) {
-  ensureBoardExamConfigured()
-
-  const row = await tablesDB.getRow({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.BOARD_EXAM_SETS,
-    rowId: setId,
-  })
-
-  return row as unknown as BoardExamSetDocument
-}
-
-async function listBoardExamQuestionDocuments(categoryId?: string) {
-  ensureBoardExamConfigured()
-
-  const queries = [Query.orderAsc("order"), Query.limit(BOARD_EXAM_QUERY_LIMIT)]
-
-  if (categoryId) {
-    queries.unshift(Query.equal("categoryId", categoryId))
-  }
-
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.BOARD_EXAM_QUESTIONS,
-    queries,
-  })
-
-  return rows as unknown as BoardExamQuestionDocument[]
-}
-
-async function listBoardExamQuestionDocumentsBySetId(setId: string) {
-  ensureBoardExamConfigured()
-
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.BOARD_EXAM_QUESTIONS,
-    queries: [
-      Query.equal("setId", setId),
-      Query.orderAsc("order"),
-      Query.limit(BOARD_EXAM_QUERY_LIMIT),
-    ],
-  })
-
-  return rows as unknown as BoardExamQuestionDocument[]
-}
-
-async function listBoardExamChoiceDocuments(questionIds?: string[]) {
-  ensureBoardExamConfigured()
-
-  const uniqueQuestionIds = uniqueStrings(questionIds ?? [])
-
-  if (uniqueQuestionIds.length === 0) {
-    return [] as BoardExamChoiceDocument[]
-  }
-
-  const results = await Promise.all(
-    chunkValues(uniqueQuestionIds, BOARD_EXAM_IN_QUERY_CHUNK_SIZE).map(
-      (chunk) =>
-        tablesDB.listRows({
-          databaseId: DB_ID,
-          tableId: COLLECTIONS.BOARD_EXAM_CHOICES,
-          queries: [
-            Query.equal("questionId", chunk),
-            Query.orderAsc("order"),
-            Query.limit(BOARD_EXAM_QUERY_LIMIT),
-          ],
-        })
+function normalizeQuestionnaireDocument(
+  value: unknown,
+  sourceLabel: string
+): QuestionnaireDocument {
+  if (!isQuestionnaireDocument(value)) {
+    throw createAppwriteContentError(
+      "request",
+      `Invalid ${BOARD_EXAM_RESOURCE_LABEL} payload from ${sourceLabel}.`
     )
-  )
-
-  return results.flatMap(
-    (result) => result.rows as unknown as BoardExamChoiceDocument[]
-  )
-}
-
-function summarizeCategory(options: {
-  category: BoardExamCategoryDocument
-  sets: BoardExamSetDocument[]
-  questions: BoardExamQuestionDocument[]
-  viewerIsPremium: boolean
-}): BoardExamCategorySummary {
-  const { category, sets, questions, viewerIsPremium } = options
-
-  const freeQuestionCount = questions.filter(
-    (question) => !question.isPremium
-  ).length
-  const premiumQuestionCount = questions.length - freeQuestionCount
-  const isLocked =
-    !viewerIsPremium && questions.length > 0 && freeQuestionCount === 0
+  }
 
   return {
-    id: category.$id,
-    title: category.title,
-    description: category.description ?? "",
-    code: category.code ?? null,
-    order: category.order,
-    setCount: sets.length,
-    totalQuestionCount: questions.length,
-    availableQuestionCount: isLocked
-      ? 0
-      : viewerIsPremium
-        ? questions.length
-        : freeQuestionCount,
-    freeQuestionCount,
-    premiumQuestionCount,
-    isLocked,
+    questionnaire: value.questionnaire,
+    set: value.set,
+    questionCount: value.questionCount,
+    questions: value.questions.map((question) => ({
+      id: Number(question.id),
+      type: "multiple_choice",
+      question: String(question.question ?? ""),
+      options: Array.isArray(question.options)
+        ? question.options.map((option) => ({
+            key: String(option.key ?? ""),
+            text: String(option.text ?? ""),
+          }))
+        : [],
+      answer: {
+        key: String(question.answer?.key ?? ""),
+        text: String(question.answer?.text ?? ""),
+      },
+    })),
   }
 }
 
-function summarizeSet(options: {
-  set: BoardExamSetDocument
-  questions: BoardExamQuestionDocument[]
-  viewerIsPremium: boolean
-}): BoardExamSetSummary {
-  const { set, questions, viewerIsPremium } = options
+async function resolveStorageFileId(set: BoardExamCatalogSet) {
+  if (set.storageFileId) {
+    return set.storageFileId
+  }
 
-  const freeQuestionCount = questions.filter(
-    (question) => !question.isPremium
-  ).length
-  const premiumQuestionCount = questions.length - freeQuestionCount
-  const isLocked =
-    !viewerIsPremium && questions.length > 0 && freeQuestionCount === 0
+  if (!set.storageFileName) {
+    return null
+  }
+
+  const response = await storage.listFiles({
+    bucketId: APPWRITE_CONFIG.questionnaireBucketId,
+    queries: [Query.limit(100)],
+  })
+
+  const matchedFile =
+    response.files.find((file) => file.name === set.storageFileName) ?? null
+
+  return matchedFile?.$id ?? null
+}
+
+async function loadQuestionnaireFromStorage(set: BoardExamCatalogSet) {
+  if (!canUseQuestionnaireStorage()) {
+    return null
+  }
+
+  const fileId = await resolveStorageFileId(set)
+
+  if (!fileId) {
+    return null
+  }
+
+  const fileBuffer = await storage.getFileView({
+    bucketId: APPWRITE_CONFIG.questionnaireBucketId,
+    fileId,
+  })
+
+  return normalizeQuestionnaireDocument(
+    JSON.parse(decodeUtf8(fileBuffer)),
+    `Appwrite Storage file ${fileId}`
+  )
+}
+
+function loadQuestionnaireFromLocalFile(set: BoardExamCatalogSet) {
+  return normalizeQuestionnaireDocument(
+    set.loadLocal(),
+    `local questionnaire ${set.questionnaireKey}/${set.setCode}`
+  )
+}
+
+async function loadQuestionnaireForSet(set: BoardExamCatalogSet) {
+  const cacheKey = set.id
+  const cached = questionnaireCache.get(cacheKey)
+
+  if (cached) {
+    return cached
+  }
+
+  const pending = (async () => {
+    try {
+      const storageDocument = await loadQuestionnaireFromStorage(set)
+      if (storageDocument) {
+        return storageDocument
+      }
+    } catch {}
+
+    return loadQuestionnaireFromLocalFile(set)
+  })()
+
+  questionnaireCache.set(cacheKey, pending)
+  return pending
+}
+
+function buildChoiceId(setId: string, questionId: number, key: string) {
+  return `${setId}-q${questionId}-${key.toLowerCase()}`
+}
+
+function toBoardExamQuestion(
+  set: BoardExamCatalogSet,
+  category: BoardExamCatalogCategory,
+  question: QuestionnaireQuestion,
+  index: number
+): BoardExamQuestion {
+  const choices = question.options.map((option, optionIndex) => ({
+    id: buildChoiceId(set.id, question.id, option.key),
+    key: option.key,
+    text: option.text,
+    isCorrect: option.key === question.answer.key,
+    order: optionIndex + 1,
+  }))
 
   return {
-    id: set.$id,
+    id: `${set.id}-q${question.id}`,
+    categoryId: category.id,
+    setId: set.id,
+    prompt: question.question,
+    explanation: "",
+    questionType: "multiple_choice",
+    order: index + 1,
+    isPremium: set.isPremium === true,
+    choices,
+    correctChoiceKeys: [question.answer.key],
+  }
+}
+
+async function summarizeSet(
+  set: BoardExamCatalogSet,
+  options: { viewerIsPremium: boolean }
+): Promise<BoardExamSetSummary> {
+  const document = await loadQuestionnaireForSet(set)
+  const totalQuestionCount = document.questions.length
+  const freeQuestionCount = Math.min(totalQuestionCount, FREE_QUESTION_LIMIT)
+  const availableQuestionCount = options.viewerIsPremium
+    ? totalQuestionCount
+    : freeQuestionCount
+  const premiumQuestionCount = Math.max(
+    totalQuestionCount - freeQuestionCount,
+    0
+  )
+  const isLocked = availableQuestionCount === 0
+
+  return {
+    id: set.id,
     categoryId: set.categoryId,
     title: set.title,
     setCode: set.setCode,
-    description: set.description ?? "",
+    description: set.description,
     questionType: set.questionType,
-    totalItems: set.totalItems,
+    totalItems: totalQuestionCount,
     order: set.order,
-    totalQuestionCount: questions.length,
-    availableQuestionCount: isLocked
-      ? 0
-      : viewerIsPremium
-        ? questions.length
-        : freeQuestionCount,
+    totalQuestionCount,
+    availableQuestionCount,
     freeQuestionCount,
     premiumQuestionCount,
     hasPremiumQuestions: premiumQuestionCount > 0,
@@ -319,96 +293,59 @@ function summarizeSet(options: {
   }
 }
 
-function buildQuestionsBySetId(questions: BoardExamQuestionDocument[]) {
-  const questionsBySetId = new Map<string, BoardExamQuestionDocument[]>()
-
-  for (const question of questions) {
-    const current = questionsBySetId.get(question.setId) ?? []
-    current.push(question)
-    questionsBySetId.set(question.setId, current)
-  }
-
-  return questionsBySetId
-}
-
-function buildChoicesByQuestionId(choices: BoardExamChoiceDocument[]) {
-  const choicesByQuestionId = new Map<string, BoardExamChoiceDocument[]>()
-
-  for (const choice of choices) {
-    const current = choicesByQuestionId.get(choice.questionId) ?? []
-    current.push(choice)
-    choicesByQuestionId.set(choice.questionId, sortByOrder(current))
-  }
-
-  return choicesByQuestionId
-}
-
-function toBoardExamQuestion(
-  question: BoardExamQuestionDocument,
-  questionChoices: BoardExamChoiceDocument[]
-): BoardExamQuestion {
-  const choices = sortByOrder(questionChoices).map((choice) => ({
-    id: choice.$id,
-    key: choice.choiceKey,
-    text: choice.choiceText,
-    isCorrect: choice.isCorrect,
-    order: choice.order,
-  }))
+async function summarizeCategory(
+  category: BoardExamCatalogCategory,
+  options: { viewerIsPremium: boolean }
+): Promise<BoardExamCategorySummary> {
+  const setSummaries = await Promise.all(
+    category.sets.map((set) => summarizeSet(set, options))
+  )
 
   return {
-    id: question.$id,
-    categoryId: question.categoryId,
-    setId: question.setId,
-    prompt: question.questionText,
-    explanation: question.explanation ?? "",
-    questionType: question.questionType,
-    order: question.order,
-    isPremium: question.isPremium,
-    choices,
-    correctChoiceKeys: choices
-      .filter((choice) => choice.isCorrect)
-      .map((choice) => choice.key),
+    id: category.id,
+    title: category.title,
+    description: category.description,
+    code: category.code,
+    order: category.order,
+    setCount: setSummaries.length,
+    totalQuestionCount: setSummaries.reduce(
+      (total, set) => total + set.totalQuestionCount,
+      0
+    ),
+    availableQuestionCount: setSummaries.reduce(
+      (total, set) => total + set.availableQuestionCount,
+      0
+    ),
+    freeQuestionCount: setSummaries.reduce(
+      (total, set) => total + set.freeQuestionCount,
+      0
+    ),
+    premiumQuestionCount: setSummaries.reduce(
+      (total, set) => total + set.premiumQuestionCount,
+      0
+    ),
+    isLocked:
+      setSummaries.length > 0 &&
+      setSummaries.every((setSummary) => setSummary.isLocked),
   }
 }
 
 export async function listBoardExamCategories(
   options: { viewerIsPremium?: boolean } = {}
 ): Promise<BoardExamCategorySummary[]> {
-  const viewerIsPremium = options.viewerIsPremium === true
-
   try {
-    const [categories, sets, questions] = await Promise.all([
-      listBoardExamCategoryDocuments(),
-      listBoardExamSetDocuments(),
-      listBoardExamQuestionDocuments(),
-    ])
+    const viewerIsPremium = options.viewerIsPremium === true
+    const categories = listBoardExamCatalogCategories()
 
-    const setsByCategoryId = new Map<string, BoardExamSetDocument[]>()
-    for (const set of sets) {
-      const current = setsByCategoryId.get(set.categoryId) ?? []
-      current.push(set)
-      setsByCategoryId.set(set.categoryId, sortByOrder(current))
-    }
-
-    const questionsByCategoryId = new Map<string, BoardExamQuestionDocument[]>()
-    for (const question of questions) {
-      const current = questionsByCategoryId.get(question.categoryId) ?? []
-      current.push(question)
-      questionsByCategoryId.set(question.categoryId, sortByOrder(current))
-    }
-
-    return sortByOrder(categories).map((category) =>
-      summarizeCategory({
-        category,
-        sets: setsByCategoryId.get(category.$id) ?? [],
-        questions: questionsByCategoryId.get(category.$id) ?? [],
-        viewerIsPremium,
-      })
+    return await Promise.all(
+      categories.map((category) =>
+        summarizeCategory(category, { viewerIsPremium })
+      )
     )
   } catch (error) {
     throw toBoardExamError(
       error,
-      "Unable to load board exam categories from Appwrite."
+      "Unable to load board exam categories from questionnaire JSON."
     )
   }
 }
@@ -417,14 +354,9 @@ export async function listBoardExamSetsByCategoryId(
   categoryId: string,
   options: { viewerIsPremium?: boolean } = {}
 ): Promise<BoardExamSetListResult> {
-  const viewerIsPremium = options.viewerIsPremium === true
-
   try {
-    const [category, sets, questions] = await Promise.all([
-      getBoardExamCategoryDocument(categoryId),
-      listBoardExamSetDocuments(categoryId),
-      listBoardExamQuestionDocuments(categoryId),
-    ])
+    const viewerIsPremium = options.viewerIsPremium === true
+    const category = getBoardExamCatalogCategory(categoryId)
 
     if (!category) {
       return {
@@ -433,26 +365,24 @@ export async function listBoardExamSetsByCategoryId(
       }
     }
 
-    const questionsBySetId = buildQuestionsBySetId(questions)
-    const sortedSets = sortByOrder(sets)
+    const [categorySummary, sets] = await Promise.all([
+      summarizeCategory(category, { viewerIsPremium }),
+      Promise.all(
+        [...category.sets]
+          .sort((left, right) => left.order - right.order)
+          .map((set) => summarizeSet(set, { viewerIsPremium }))
+      ),
+    ])
 
     return {
-      category: summarizeCategory({
-        category,
-        sets: sortedSets,
-        questions,
-        viewerIsPremium,
-      }),
-      sets: sortedSets.map((set) =>
-        summarizeSet({
-          set,
-          questions: sortByOrder(questionsBySetId.get(set.$id) ?? []),
-          viewerIsPremium,
-        })
-      ),
+      category: categorySummary,
+      sets,
     }
   } catch (error) {
-    throw toBoardExamError(error, "Unable to load board exam sets.")
+    throw toBoardExamError(
+      error,
+      "Unable to load board exam sets from questionnaire JSON."
+    )
   }
 }
 
@@ -461,16 +391,10 @@ export async function getBoardExamSetDetail(
   setId: string,
   options: { viewerIsPremium?: boolean } = {}
 ): Promise<BoardExamSetDetail> {
-  const viewerIsPremium = options.viewerIsPremium === true
-
   try {
-    const [category, sets, set, questions, setQuestions] = await Promise.all([
-      getBoardExamCategoryDocument(categoryId),
-      listBoardExamSetDocuments(categoryId),
-      getBoardExamSetDocument(setId),
-      listBoardExamQuestionDocuments(categoryId),
-      listBoardExamQuestionDocumentsBySetId(setId),
-    ])
+    const viewerIsPremium = options.viewerIsPremium === true
+    const category = getBoardExamCatalogCategory(categoryId)
+    const set = getBoardExamCatalogSet(setId)
 
     if (!category || !set || set.categoryId !== categoryId) {
       return {
@@ -481,44 +405,34 @@ export async function getBoardExamSetDetail(
       }
     }
 
-    const categorySets = sortByOrder(sets)
-    const categoryQuestions = sortByOrder(questions)
-    const sortedSetQuestions = sortByOrder(setQuestions)
-    const visibleQuestions = viewerIsPremium
-      ? sortedSetQuestions
-      : sortedSetQuestions.filter((question) => !question.isPremium)
-    const hiddenPremiumQuestionCount = viewerIsPremium
-      ? 0
-      : sortedSetQuestions.length - visibleQuestions.length
+    const [categorySummary, setSummary, questionnaire] = await Promise.all([
+      summarizeCategory(category, { viewerIsPremium }),
+      summarizeSet(set, { viewerIsPremium }),
+      loadQuestionnaireForSet(set),
+    ])
 
-    const choicesByQuestionId = buildChoicesByQuestionId(
-      await listBoardExamChoiceDocuments(
-        visibleQuestions.map((question) => question.$id)
-      )
+    const allQuestions = questionnaire.questions.map((question, index) =>
+      toBoardExamQuestion(set, category, question, index)
+    )
+    const visibleQuestions = viewerIsPremium
+      ? allQuestions
+      : allQuestions.slice(0, FREE_QUESTION_LIMIT)
+    const hiddenPremiumQuestionCount = Math.max(
+      allQuestions.length - visibleQuestions.length,
+      0
     )
 
     return {
-      category: summarizeCategory({
-        category,
-        sets: categorySets,
-        questions: categoryQuestions,
-        viewerIsPremium,
-      }),
-      set: summarizeSet({
-        set,
-        questions: sortedSetQuestions,
-        viewerIsPremium,
-      }),
-      questions: visibleQuestions.map((question) =>
-        toBoardExamQuestion(
-          question,
-          choicesByQuestionId.get(question.$id) ?? []
-        )
-      ),
+      category: categorySummary,
+      set: setSummary,
+      questions: visibleQuestions,
       hiddenPremiumQuestionCount,
     }
   } catch (error) {
-    throw toBoardExamError(error, "Unable to load board exam question set.")
+    throw toBoardExamError(
+      error,
+      "Unable to load board exam question set from questionnaire JSON."
+    )
   }
 }
 
@@ -526,26 +440,20 @@ export async function getBoardExamSetById(
   setId: string,
   options: { viewerIsPremium?: boolean } = {}
 ): Promise<BoardExamSetSummary | null> {
-  const viewerIsPremium = options.viewerIsPremium === true
-
   try {
-    const [set, questions] = await Promise.all([
-      getBoardExamSetDocument(setId),
-      listBoardExamQuestionDocumentsBySetId(setId),
-    ])
+    const set = getBoardExamCatalogSet(setId)
 
     if (!set) {
       return null
     }
 
-    const setQuestions = sortByOrder(questions)
-
-    return summarizeSet({
-      set,
-      questions: setQuestions,
-      viewerIsPremium,
+    return await summarizeSet(set, {
+      viewerIsPremium: options.viewerIsPremium === true,
     })
   } catch (error) {
-    throw toBoardExamError(error, "Unable to load the board exam set.")
+    throw toBoardExamError(
+      error,
+      "Unable to load the board exam set from questionnaire JSON."
+    )
   }
 }

@@ -4,7 +4,7 @@ import { Heart, MessageSquare, Share2 } from "lucide-react-native"
 import { Pressable, View } from "react-native"
 
 import { type CommunityPostItem } from "@/lib/community"
-import { THEME, withOpacity } from "@/lib/theme"
+import { THEME, getCommunityCategoryColor, withOpacity } from "@/lib/theme"
 import { Text } from "@/components/ui/text"
 import { CommunityAvatar } from "@/components/community/avatar"
 
@@ -18,12 +18,6 @@ type CommunityThreadCardProps = {
   theme: ThemePalette
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  question: "hsl(199 89% 48%)",
-  discussion: "hsl(151 55% 41%)",
-  tip: "hsl(18 94% 62%)",
-}
-
 export const CommunityThreadCard = memo(function CommunityThreadCard({
   post,
   liking,
@@ -33,7 +27,7 @@ export const CommunityThreadCard = memo(function CommunityThreadCard({
 }: CommunityThreadCardProps) {
   const [imageFailed, setImageFailed] = useState(false)
   const hasPhoto = Boolean(post.photoUrl) && !imageFailed
-  const categoryColor = CATEGORY_COLORS[post.category] ?? theme.primary
+  const categoryColor = getCommunityCategoryColor(theme, post.category)
 
   return (
     <View

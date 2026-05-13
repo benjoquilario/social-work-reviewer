@@ -56,7 +56,7 @@ export const ProfileInput = memo(function ProfileInput({
         style={{
           minHeight: multiline ? 96 : 52,
           borderColor: theme.border,
-          backgroundColor: isDark ? "hsl(240 10% 14%)" : "hsl(243 30% 97%)",
+          backgroundColor: theme.input,
           fontFamily: "PlusJakartaSans_500Medium",
           color: theme.foreground,
         }}
@@ -80,17 +80,21 @@ export const ProfileSummaryCard = memo(function ProfileSummaryCard({
 }) {
   return (
     <View
-      className="flex-1 rounded-[22px] border px-3.5 py-3.5"
+      className="flex-1 rounded-[24px] border px-3.5 py-3.5"
       style={{
         backgroundColor,
         borderColor,
       }}
     >
+      <View
+        className="mb-2 h-1.5 w-10 rounded-full"
+        style={{ backgroundColor: withOpacity(borderColor, 0.7) }}
+      />
       <Text className="text-[10px] font-black uppercase tracking-[1.15px] text-muted-foreground">
         {label}
       </Text>
       <Text
-        className="mt-1 text-[18px] font-black text-card-foreground"
+        className="mt-1 text-[20px] font-black text-card-foreground"
         numberOfLines={1}
         adjustsFontSizeToFit
         minimumFontScale={0.8}
@@ -117,18 +121,23 @@ export const TabButton = memo(function TabButton({
 }) {
   return (
     <Pressable
-      className="min-w-0 flex-1 items-center rounded-[16px] px-2.5 py-3"
+      className="min-w-0 flex-1 items-center rounded-[18px] px-2.5 py-3.5"
       onPress={onPress}
       style={{
         backgroundColor: active
-          ? withOpacity(theme.primary, 0.14)
-          : "transparent",
+          ? theme.primary
+          : withOpacity(theme.primary, 0.04),
+        borderWidth: 1,
+        borderColor: active ? theme.primary : withOpacity(theme.border, 0.7),
       }}
     >
       <Text
-        className="text-[12px] font-bold"
+        className="text-[12px] font-black uppercase"
         numberOfLines={1}
-        style={{ color: active ? theme.primary : theme.mutedForeground }}
+        style={{
+          color: active ? theme.primaryForeground : theme.mutedForeground,
+          letterSpacing: 0.5,
+        }}
       >
         {label}
       </Text>

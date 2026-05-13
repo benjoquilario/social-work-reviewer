@@ -9,7 +9,7 @@ import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list"
 import { useQuery } from "@tanstack/react-query"
 import * as ImagePicker from "expo-image-picker"
 import { useRouter } from "expo-router"
-import { Alert, View } from "react-native"
+import { ActivityIndicator, Alert, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import {
@@ -57,6 +57,8 @@ export default function CommunityScreen() {
   const feed = useCommunity((s) => s.feed)
   const isLoading = useCommunity((s) => s.isLoading)
   const error = useCommunity((s) => s.error)
+  const isLoadingMore = useCommunity((s) => s.isLoadingMore)
+  const hasMoreFeed = useCommunity((s) => s.hasMoreFeed)
   const activeFeedFilter = useCommunity((s) => s.activeFeedFilter)
   const isComposerOpen = useCommunity((s) => s.isComposerOpen)
   const selectedCategory = useCommunity((s) => s.selectedCategory)
@@ -69,6 +71,7 @@ export default function CommunityScreen() {
 
   const loadFeed = useCommunity((s) => s.loadFeed)
   const refreshFeed = useCommunity((s) => s.refreshFeed)
+  const loadMoreFeed = useCommunity((s) => s.loadMoreFeed)
   const setActiveFeedFilter = useCommunity((s) => s.setActiveFeedFilter)
   const setIsComposerOpen = useCommunity((s) => s.setIsComposerOpen)
   const setSelectedCategory = useCommunity((s) => s.setSelectedCategory)
@@ -117,6 +120,14 @@ export default function CommunityScreen() {
   const handleRefreshFeed = useCallback(() => {
     void refreshFeed(user?.$id)
   }, [refreshFeed, user?.$id])
+
+  const handleLoadMoreFeed = useCallback(() => {
+    if (activeFeedFilter !== "all") {
+      return
+    }
+
+    void loadMoreFeed(user?.$id)
+  }, [activeFeedFilter, loadMoreFeed, user?.$id])
 
   const handleOpenPost = useCallback(
     (postId: string) => {
@@ -280,6 +291,32 @@ export default function CommunityScreen() {
     [activeFeedFilter]
   )
 
+  const footer = useMemo(() => {
+    if (activeFeedFilter !== "all") {
+      return <View className="h-6" />
+    }
+
+    if (isLoadingMore) {
+      return (
+        <View className="items-center py-4">
+          <ActivityIndicator color={theme.primary} />
+        </View>
+      )
+    }
+
+    if (hasMoreFeed) {
+      return (
+        <View className="items-center py-4">
+          <Text className="text-[12px] text-muted-foreground">
+            Scroll for more discussions
+          </Text>
+        </View>
+      )
+    }
+
+    return <View className="h-6" />
+  }, [activeFeedFilter, hasMoreFeed, isLoadingMore, theme.primary])
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       {isLoading && !feed ? (
@@ -310,10 +347,12 @@ export default function CommunityScreen() {
       ) : (
         <FlashList
           data={filteredPosts}
+          extraData={theme}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           ListHeaderComponent={header}
           ListEmptyComponent={emptyState}
+          ListFooterComponent={footer}
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingTop: 16,
@@ -321,6 +360,8 @@ export default function CommunityScreen() {
           }}
           ItemSeparatorComponent={ThreadSeparator}
           keyboardShouldPersistTaps="handled"
+          onEndReached={handleLoadMoreFeed}
+          onEndReachedThreshold={0.35}
           removeClippedSubviews
           showsVerticalScrollIndicator={false}
         />

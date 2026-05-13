@@ -11,7 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native"
-import { SafeAreaView } from "react-native-safe-area-context"
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { THEME } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
@@ -21,6 +21,7 @@ import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 export default function LoginScreen() {
   const router = useRouter()
   const login = useAuth((state) => state.login)
+  const insets = useSafeAreaInsets()
   const colorScheme = useColorScheme()
   const isDark = colorScheme === "dark"
   const theme = isDark ? THEME.dark : THEME.light
@@ -52,27 +53,36 @@ export default function LoginScreen() {
     }
   }
 
-  const inputBg = isDark ? "hsl(240 10% 14%)" : "hsl(243 30% 97%)"
-  const borderColor = isDark ? "hsl(243 20% 22%)" : "hsl(243 20% 88%)"
-  const iconColor = isDark ? theme.mutedForeground : "hsl(243 30% 60%)"
+  const inputBg = theme.input
+  const borderColor = theme.border
+  const iconColor = theme.mutedForeground
 
   return (
     <SafeAreaView className="flex-1 bg-background">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Math.max(insets.top, 12)}
         className="flex-1"
       >
         <ScrollView
+          automaticallyAdjustKeyboardInsets
           contentInsetAdjustmentBehavior="automatic"
-          contentContainerClassName="flex-1 px-6 justify-center gap-6"
+          contentContainerClassName="px-6 gap-6"
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: "center",
+            paddingTop: 24,
+            paddingBottom: Math.max(insets.bottom, 24) + 24,
+          }}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
         >
           {/* Logo + branding */}
           <View
             className="overflow-hidden rounded-[30px] border px-5 py-5"
             style={{
               borderColor: borderColor,
-              backgroundColor: isDark ? theme.card : "hsl(42 55% 97%)",
+              backgroundColor: theme.card,
             }}
           >
             <View className="items-center gap-4">
@@ -93,9 +103,7 @@ export default function LoginScreen() {
               <View
                 className="w-full flex-row items-center gap-2 rounded-2xl px-3.5 py-3"
                 style={{
-                  backgroundColor: isDark
-                    ? theme.muted
-                    : "hsl(0 0% 100% / 0.9)",
+                  backgroundColor: theme.secondary,
                 }}
               >
                 <View

@@ -59,7 +59,7 @@ export default function ModalScreen() {
           </CardContent>
         </Card>
 
-        <Link href="/explore" dismissTo asChild>
+        <Link href="/learn" dismissTo asChild>
           <Button className="mt-2 h-12">
             <ArrowLeft size={16} color={primaryColor} />
             <Text className="font-bold text-primary-foreground">

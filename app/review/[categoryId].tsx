@@ -8,9 +8,8 @@ import {
 import { useAuth } from "@/contexts/auth-context"
 import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list"
 import { useQuery } from "@tanstack/react-query"
-import { useLocalSearchParams, useRouter } from "expo-router"
+import { Stack, useLocalSearchParams, useRouter } from "expo-router"
 import {
-  ArrowLeft,
   Bookmark,
   ChevronRight,
   Clock3,
@@ -306,14 +305,13 @@ export default function ReviewCategoryScreen() {
               </View>
               <Text className="text-[12px] leading-5 text-muted-foreground">
                 {isUnavailable
-                  ? "This topic exists in Appwrite, but no learning materials are attached yet."
+                  ? "No learning materials are available for this topic yet."
                   : topic.isLocked
-                    ? "This topic is premium-only for free users."
+                    ? "Upgrade to premium to unlock this topic."
                     : topic.description}
               </Text>
               <Text className="text-[11px] font-bold uppercase tracking-[1px] text-primary">
-                {topic.freeMaterialCount}/{topic.materialCount} visible
-                materials
+                {topic.materialCount} materials
               </Text>
             </View>
 
@@ -365,7 +363,7 @@ export default function ReviewCategoryScreen() {
           <Text className="text-center text-sm leading-6 text-muted-foreground">
             {subjectQuery.error instanceof Error
               ? subjectQuery.error.message
-              : "Unable to load topics from Appwrite."}
+              : "Unable to load topics. Please try again later."}
           </Text>
         </View>
       </SafeAreaView>
@@ -380,7 +378,7 @@ export default function ReviewCategoryScreen() {
             Subject not found
           </Text>
           <Text className="text-center text-sm leading-6 text-muted-foreground">
-            This subject ID does not exist in Appwrite.
+            This subject could not be found. It may have been removed.
           </Text>
         </View>
       </SafeAreaView>
@@ -388,46 +386,33 @@ export default function ReviewCategoryScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView edges={["left", "right", "bottom"]} className="flex-1 bg-background">
+      <Stack.Screen options={{ title: category.name }} />
       <FlashList
         data={visibleTopics}
+        extraData={activeTheme}
         keyExtractor={(item) => item.id}
         renderItem={renderTopicItem}
         ListHeaderComponent={
-          <View className="gap-3.5 px-4 pt-3">
-            <View className="flex-row items-center gap-3">
-              <Pressable
-                className="h-10 w-10 items-center justify-center rounded-2xl"
-                onPress={() => router.back()}
-              >
-                <ArrowLeft size={22} color={iconColor} strokeWidth={2.5} />
-              </Pressable>
-
-              <View className="flex-1 flex-row items-center gap-2.5 rounded-2xl border border-border bg-card px-3.5 py-2.5">
-                <Search size={18} color={mutedIconColor} strokeWidth={2.4} />
-                <TextInput
-                  value={query}
-                  onChangeText={setQuery}
-                  placeholder={`Search ${category.name}...`}
-                  placeholderTextColor={mutedIconColor}
-                  className="flex-1 text-sm text-foreground"
-                />
-              </View>
+          <View className="gap-3.5 pt-1">
+            <View className="mx-4 flex-row items-center gap-2.5 rounded-2xl border border-border bg-card px-3.5 py-2.5">
+              <Search size={18} color={mutedIconColor} strokeWidth={2.4} />
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder={`Search ${category.name}...`}
+                placeholderTextColor={mutedIconColor}
+                className="flex-1 text-sm text-foreground"
+              />
             </View>
 
-            <View className="gap-1 px-1">
-              <Text className="text-[12px] font-black uppercase tracking-[1.5px] text-primary">
-                Subject
-              </Text>
-              <Text className="text-[21px] font-black leading-7 text-foreground">
-                {category.name}
-              </Text>
+            <View className="gap-1 px-5">
               <Text className="text-[13px] leading-5 text-muted-foreground">
                 {category.description}
               </Text>
             </View>
 
-            <View className="gap-2.5 px-1">
+            <View className="gap-2.5 px-5">
               <View className="flex-row items-center justify-between">
                 <Text className="text-[11px] font-black uppercase tracking-[1.3px] text-primary">
                   Study Tracking
@@ -567,7 +552,7 @@ export default function ReviewCategoryScreen() {
               ) : null}
             </View>
 
-            <View className="gap-2.5 px-1">
+            <View className="gap-2.5 px-5">
               <View className="flex-row items-center justify-between">
                 <Text className="text-[11px] font-black uppercase tracking-[1.3px] text-primary">
                   Learning History
@@ -651,7 +636,7 @@ export default function ReviewCategoryScreen() {
               )}
             </View>
 
-            <View className="px-1">
+            <View className="px-5">
               <Text className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {visibleTopics.length} of {topics.length} topics
               </Text>

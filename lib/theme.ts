@@ -2,68 +2,70 @@ import { DarkTheme, DefaultTheme, type Theme } from "@react-navigation/native"
 
 export const THEME = {
   light: {
-    background: "hsl(42 45% 98%)",
-    foreground: "hsl(220 30% 14%)",
+    background: "hsl(156 30% 96%)",
+    foreground: "hsl(160 28% 12%)",
     card: "hsl(0 0% 100%)",
-    cardForeground: "hsl(220 30% 14%)",
+    cardForeground: "hsl(160 28% 12%)",
     popover: "hsl(0 0% 100%)",
-    popoverForeground: "hsl(220 30% 14%)",
-    primary: "hsl(199 89% 48%)",
+    popoverForeground: "hsl(160 28% 12%)",
+    primary: "hsl(174 72% 39%)",
     primaryForeground: "hsl(0 0% 100%)",
-    secondary: "hsl(190 46% 94%)",
-    secondaryForeground: "hsl(198 65% 24%)",
-    muted: "hsl(210 33% 95%)",
-    mutedForeground: "hsl(220 14% 44%)",
-    accent: "hsl(18 94% 62%)",
-    accentForeground: "hsl(0 0% 100%)",
+    secondary: "hsl(160 27% 90%)",
+    secondaryForeground: "hsl(164 36% 24%)",
+    muted: "hsl(162 24% 93%)",
+    mutedForeground: "hsl(164 12% 41%)",
+    accent: "hsl(46 92% 52%)",
+    accentForeground: "hsl(160 28% 12%)",
     destructive: "hsl(0 84.2% 60.2%)",
     destructiveForeground: "hsl(0 0% 98%)",
-    border: "hsl(205 32% 88%)",
-    input: "hsl(205 32% 91%)",
-    ring: "hsl(199 89% 48%)",
-    success: "hsl(151 55% 41%)",
+    border: "hsl(160 20% 84%)",
+    input: "hsl(160 22% 90%)",
+    ring: "hsl(174 72% 39%)",
+    success: "hsl(152 63% 38%)",
     successForeground: "hsl(0 0% 100%)",
-    warning: "hsl(42 94% 57%)",
-    warningForeground: "hsl(220 30% 14%)",
+    warning: "hsl(46 92% 52%)",
+    warningForeground: "hsl(160 28% 12%)",
     radius: "0.875rem",
-    chart1: "hsl(199 89% 48%)",
-    chart2: "hsl(165 62% 43%)",
-    chart3: "hsl(18 94% 62%)",
-    chart4: "hsl(272 74% 66%)",
-    chart5: "hsl(338 78% 61%)",
+    chart1: "hsl(174 72% 39%)",
+    chart2: "hsl(210 93% 63%)",
+    chart3: "hsl(46 92% 52%)",
+    chart4: "hsl(258 78% 68%)",
+    chart5: "hsl(344 80% 64%)",
   },
   dark: {
-    background: "hsl(224 29% 10%)",
-    foreground: "hsl(210 40% 98%)",
-    card: "hsl(223 27% 14%)",
-    cardForeground: "hsl(210 40% 98%)",
-    popover: "hsl(223 27% 14%)",
-    popoverForeground: "hsl(210 40% 98%)",
-    primary: "hsl(196 95% 72%)",
-    primaryForeground: "hsl(224 29% 10%)",
-    secondary: "hsl(214 20% 22%)",
-    secondaryForeground: "hsl(210 32% 94%)",
-    muted: "hsl(218 19% 20%)",
-    mutedForeground: "hsl(214 20% 70%)",
-    accent: "hsl(20 96% 68%)",
-    accentForeground: "hsl(224 29% 10%)",
+    background: "hsl(165 34% 7%)",
+    foreground: "hsl(156 22% 94%)",
+    card: "hsl(162 31% 10%)",
+    cardForeground: "hsl(156 22% 94%)",
+    popover: "hsl(162 31% 10%)",
+    popoverForeground: "hsl(156 22% 94%)",
+    primary: "hsl(174 73% 53%)",
+    primaryForeground: "hsl(165 34% 7%)",
+    secondary: "hsl(160 29% 13%)",
+    secondaryForeground: "hsl(156 22% 94%)",
+    muted: "hsl(160 21% 16%)",
+    mutedForeground: "hsl(158 12% 67%)",
+    accent: "hsl(46 95% 58%)",
+    accentForeground: "hsl(165 34% 7%)",
     destructive: "hsl(0 70.9% 59.4%)",
     destructiveForeground: "hsl(0 0% 98%)",
-    border: "hsl(216 18% 24%)",
-    input: "hsl(216 18% 20%)",
-    ring: "hsl(196 95% 72%)",
-    success: "hsl(151 61% 55%)",
-    successForeground: "hsl(224 29% 10%)",
-    warning: "hsl(42 94% 62%)",
-    warningForeground: "hsl(224 29% 10%)",
+    border: "hsl(160 18% 18%)",
+    input: "hsl(160 20% 14%)",
+    ring: "hsl(174 73% 53%)",
+    success: "hsl(151 63% 47%)",
+    successForeground: "hsl(165 34% 7%)",
+    warning: "hsl(46 95% 58%)",
+    warningForeground: "hsl(165 34% 7%)",
     radius: "0.875rem",
-    chart1: "hsl(196 95% 72%)",
-    chart2: "hsl(166 58% 55%)",
-    chart3: "hsl(20 96% 68%)",
-    chart4: "hsl(272 76% 72%)",
-    chart5: "hsl(338 82% 68%)",
+    chart1: "hsl(174 73% 53%)",
+    chart2: "hsl(210 95% 67%)",
+    chart3: "hsl(46 95% 58%)",
+    chart4: "hsl(258 80% 72%)",
+    chart5: "hsl(344 82% 69%)",
   },
 } as const
+
+export type ThemePalette = (typeof THEME)["light"] | (typeof THEME)["dark"]
 
 export const NAV_THEME: Record<"light" | "dark", Theme> = {
   light: {
@@ -125,7 +127,7 @@ const NATIVEWIND_THEME_VARIABLE_KEYS = {
 } as const
 
 type NativewindThemeToken = keyof typeof NATIVEWIND_THEME_VARIABLE_KEYS
-type ThemePalette = Record<NativewindThemeToken, string>
+type NativewindThemeRecord = Record<NativewindThemeToken, string>
 
 function toNativewindVariableValue(value: string): string {
   if (value.startsWith("hsl(") && value.endsWith(")")) {
@@ -136,7 +138,7 @@ function toNativewindVariableValue(value: string): string {
 }
 
 function createNativewindThemeVariables(
-  palette: ThemePalette
+  palette: NativewindThemeRecord
 ): Record<string, string> {
   return Object.fromEntries(
     Object.entries(NATIVEWIND_THEME_VARIABLE_KEYS).map(
@@ -155,4 +157,61 @@ export const NATIVEWIND_THEME_VARIABLES = {
 
 export function withOpacity(hslString: string, opacity: number): string {
   return hslString.replace(")", ` / ${opacity})`)
+}
+
+export function getBorderColor(theme: ThemePalette): string {
+  return theme.border
+}
+
+export function getThemeChartPalette(theme: ThemePalette): string[] {
+  return [theme.primary, theme.chart2, theme.chart3, theme.chart4, theme.chart5]
+}
+
+export function getReviewerFeaturePalette(mode: "light" | "dark") {
+  const brandTheme = mode === "dark" ? THEME.dark : THEME.light
+  const surface = mode === "dark" ? "hsl(160 31% 11%)" : "hsl(160 30% 15%)"
+  const foreground = mode === "dark" ? brandTheme.foreground : "hsl(0 0% 98%)"
+  const mutedForeground =
+    mode === "dark" ? brandTheme.mutedForeground : "hsl(156 12% 74%)"
+
+  return {
+    surface,
+    foreground,
+    mutedForeground,
+    borderColor: withOpacity(brandTheme.primary, mode === "dark" ? 0.2 : 0.3),
+    panelBorder: "hsl(0 0% 100% / 0.08)",
+    overlayStrong:
+      mode === "dark" ? "hsl(0 0% 100% / 0.08)" : "hsl(0 0% 100% / 0.08)",
+    overlaySoft:
+      mode === "dark" ? "hsl(0 0% 100% / 0.06)" : "hsl(0 0% 100% / 0.06)",
+    primaryGlow: withOpacity(brandTheme.primary, mode === "dark" ? 0.18 : 0.16),
+    accentGlow: withOpacity(brandTheme.chart3, 0.12),
+    activeSurface: withOpacity(
+      brandTheme.primary,
+      mode === "dark" ? 0.18 : 0.14
+    ),
+    activeBorder: withOpacity(brandTheme.primary, mode === "dark" ? 0.3 : 0.34),
+    inactiveSurface: "hsl(0 0% 100% / 0.04)",
+    inactiveBorder: "hsl(0 0% 100% / 0.06)",
+    inactiveDot: "hsl(0 0% 100% / 0.18)",
+    chartPalette: getThemeChartPalette(brandTheme),
+    primary: brandTheme.primary,
+    chart2: brandTheme.chart2,
+    chart3: brandTheme.chart3,
+  }
+}
+
+export function getCommunityCategoryColor(
+  theme: ThemePalette,
+  category: string
+): string {
+  switch (category) {
+    case "discussion":
+      return theme.chart2
+    case "tip":
+      return theme.chart3
+    case "question":
+    default:
+      return theme.primary
+  }
 }

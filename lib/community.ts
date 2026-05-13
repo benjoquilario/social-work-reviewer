@@ -87,6 +87,11 @@ export type CommunityFeed = {
   }
 }
 
+export type CommunityFeedPage = CommunityFeed & {
+  hasMore: boolean
+  nextCursor: string | null
+}
+
 export type CreateCommunityPostInput = {
   userId: string
   title: string
@@ -320,6 +325,43 @@ function chunkValues(values: string[], size: number) {
   return chunks
 }
 
+/**
+ * Builds a deterministic row ID for a post_like record.
+ * Encoding (postId, userId) into the ID makes the row naturally unique
+ * at the application level — concurrent like requests for the same pair
+ * will collide on insert (409) rather than creating duplicate rows.
+ */
+function buildDeterministicLikeRowId(postId: string, userId: string): string {
+  // FNV-1a 32-bit hash — same algorithm used in progress/utils.ts
+  const input = `${postId}|${userId}`
+  let hash = 0x811c9dc5
+
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+
+  return `like_${(hash >>> 0).toString(36).padStart(7, "0")}`
+}
+
+function isAppwriteNotFoundError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === 404
+  )
+}
+
+function isAppwriteConflictError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === 409
+  )
+}
+
 async function listPaginatedRowsSafe<T extends { $id: string }>(
   tableId: string,
   queries: string[],
@@ -392,6 +434,8 @@ type CommunityFeedRows = {
   likedPostIds: Set<string>
   subjects: SubjectDocument[]
   flaggedItems: FlaggedContentDocument[]
+  hasMore: boolean
+  nextCursor: string | null
 }
 
 type HiddenCommunityContent = {
@@ -410,12 +454,17 @@ type CommunityPostMappingContext = {
 }
 
 async function listCommunityFeedRows(
-  currentUserId?: string
+  currentUserId?: string,
+  cursorAfter?: string | null
 ): Promise<CommunityFeedRows> {
-  const posts = await listRowsSafe<PostDocument>(COLLECTIONS.POSTS, [
+  const rows = await listRowsSafe<PostDocument>(COLLECTIONS.POSTS, [
     Query.orderDesc("createdAt"),
-    Query.limit(COMMUNITY_POST_PAGE_SIZE),
+    Query.limit(COMMUNITY_POST_PAGE_SIZE + 1),
+    ...(cursorAfter ? [Query.cursorAfter(cursorAfter)] : []),
   ])
+  const hasMore = rows.length > COMMUNITY_POST_PAGE_SIZE
+  const posts = rows.slice(0, COMMUNITY_POST_PAGE_SIZE)
+  const nextCursor = hasMore ? posts[posts.length - 1]?.$id ?? null : null
 
   const postIds = posts.map((post) => post.$id)
   const postFlags = await listRowsByFieldValues<FlaggedContentDocument>(
@@ -439,6 +488,8 @@ async function listCommunityFeedRows(
       likedPostIds: new Set<string>(),
       subjects: [],
       flaggedItems: postFlags,
+      hasMore,
+      nextCursor,
     }
   }
 
@@ -516,6 +567,8 @@ async function listCommunityFeedRows(
       : new Set<string>(),
     subjects,
     flaggedItems: [...postFlags, ...commentFlags, ...replyFlags],
+    hasMore,
+    nextCursor,
   }
 }
 
@@ -690,9 +743,10 @@ function buildCommunityFeedStats(
   }
 }
 
-export async function listCommunityFeed(
+export async function listCommunityFeedPage(options: {
   currentUserId?: string
-): Promise<CommunityFeed> {
+  cursorAfter?: string | null
+} = {}): Promise<CommunityFeedPage> {
   ensureCommunityConfigured()
 
   try {
@@ -704,7 +758,12 @@ export async function listCommunityFeed(
       likedPostIds,
       subjects,
       flaggedItems,
-    } = await listCommunityFeedRows(currentUserId)
+      hasMore,
+      nextCursor,
+    } = await listCommunityFeedRows(
+      options.currentUserId,
+      options.cursorAfter
+    )
 
     const hiddenContent = buildHiddenCommunityContent(flaggedItems)
     const profileMap = new Map<string, UserProfileDocument>()
@@ -730,19 +789,32 @@ export async function listCommunityFeed(
           likedPostIds,
           subjectMap,
           profileMap,
-          currentUserId,
+          currentUserId: options.currentUserId,
         })
       )
 
     return {
       posts: mappedPosts,
       stats: buildCommunityFeedStats(mappedPosts),
+      hasMore,
+      nextCursor,
     }
   } catch (error) {
     throw toCommunityError(
       error,
       "Unable to load community posts from Appwrite."
     )
+  }
+}
+
+export async function listCommunityFeed(
+  currentUserId?: string
+): Promise<CommunityFeed> {
+  const page = await listCommunityFeedPage({ currentUserId })
+
+  return {
+    posts: page.posts,
+    stats: page.stats,
   }
 }
 
@@ -1067,57 +1139,68 @@ export async function toggleCommunityPostLike(input: {
       }
     }
 
-    const existingLikes = await listRowsSafe<PostLikeDocument>(
-      COLLECTIONS.POST_LIKES,
-      [
-        Query.equal("postId", input.postId),
-        Query.equal("userId", input.userId),
-        Query.limit(1),
-      ]
-    )
+    // Fallback path (when Appwrite Function is unavailable).
+    // Uses a deterministic row ID so concurrent like requests from the
+    // same user can never create duplicate post_like rows.
+    const likeRowId = buildDeterministicLikeRowId(input.postId, input.userId)
 
-    if (input.currentlyLiked && existingLikes[0]) {
-      await tablesDB.deleteRow({
-        databaseId: DB_ID,
-        tableId: COLLECTIONS.POST_LIKES,
-        rowId: existingLikes[0].$id,
-      })
-    } else if (!input.currentlyLiked) {
-      await tablesDB.createRow({
-        databaseId: DB_ID,
-        tableId: COLLECTIONS.POST_LIKES,
-        rowId: ID.unique(),
-        data: {
-          postId: input.postId,
-          userId: input.userId,
-        },
-        permissions: getOwnerPermissions(input.userId),
-      })
+    if (input.currentlyLiked) {
+      // Unlike: delete the like row; ignore 404 (already unliked)
+      try {
+        await tablesDB.deleteRow({
+          databaseId: DB_ID,
+          tableId: COLLECTIONS.POST_LIKES,
+          rowId: likeRowId,
+        })
+      } catch (error) {
+        if (!isAppwriteNotFoundError(error)) {
+          throw error
+        }
+      }
+    } else {
+      // Like: create the like row; ignore 409 (already liked)
+      try {
+        await tablesDB.createRow({
+          databaseId: DB_ID,
+          tableId: COLLECTIONS.POST_LIKES,
+          rowId: likeRowId,
+          data: {
+            postId: input.postId,
+            userId: input.userId,
+          },
+          permissions: getOwnerPermissions(input.userId),
+        })
+      } catch (error) {
+        if (!isAppwriteConflictError(error)) {
+          throw error
+        }
+      }
     }
 
-    const post = (await tablesDB.getRow({
+    // Derive likesCount from the source of truth (post_likes rows)
+    // instead of reading post.likesCount and incrementing — avoids the
+    // read-modify-write race condition under concurrent users.
+    const { total: likesCount } = await tablesDB.listRows({
       databaseId: DB_ID,
-      tableId: COLLECTIONS.POSTS,
-      rowId: input.postId,
-    })) as unknown as PostDocument
-
-    const nextLikesCount = Math.max(
-      0,
-      post.likesCount + (input.currentlyLiked ? -1 : 1)
-    )
+      tableId: COLLECTIONS.POST_LIKES,
+      queries: [
+        Query.equal("postId", input.postId),
+        Query.limit(1),
+      ],
+    })
 
     await tablesDB.updateRow({
       databaseId: DB_ID,
       tableId: COLLECTIONS.POSTS,
       rowId: input.postId,
       data: {
-        likesCount: nextLikesCount,
+        likesCount: Math.max(0, likesCount),
       },
     })
 
     return {
       isLiked: !input.currentlyLiked,
-      likesCount: nextLikesCount,
+      likesCount: Math.max(0, likesCount),
     }
   } catch (error) {
     throw toCommunityError(error, "Unable to update the post like.")

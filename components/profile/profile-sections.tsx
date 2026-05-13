@@ -206,13 +206,22 @@ export const ProfileHeroSection = memo(function ProfileHeroSection({
       <View
         className="overflow-hidden"
         style={{
-          backgroundColor: withOpacity(theme.primary, isDark ? 0.16 : 0.12),
+          backgroundColor: theme.secondary,
         }}
       >
+        <View
+          className="absolute -right-12 top-8 h-40 w-40 rounded-full"
+          style={{ backgroundColor: withOpacity(theme.primary, 0.15) }}
+        />
+        <View
+          className="absolute -left-10 bottom-0 h-32 w-32 rounded-full"
+          style={{ backgroundColor: withOpacity(theme.accent, 0.12) }}
+        />
+
         <View className="flex-row items-center justify-between px-4 pt-2">
           <View
             className="rounded-full px-3 py-1.5"
-            style={{ backgroundColor: withOpacity(theme.background, 0.65) }}
+            style={{ backgroundColor: withOpacity(theme.card, 0.82) }}
           >
             <Text className="text-[10px] font-black uppercase tracking-[1.2px] text-foreground">
               Reviewer Profile
@@ -220,27 +229,28 @@ export const ProfileHeroSection = memo(function ProfileHeroSection({
           </View>
           <Pressable
             className="h-10 w-10 items-center justify-center rounded-full"
-            style={{ backgroundColor: withOpacity(theme.background, 0.7) }}
+            style={{ backgroundColor: withOpacity(theme.card, 0.78) }}
             onPress={onOpenSettings}
           >
             <Settings size={18} color={theme.foreground} strokeWidth={2.2} />
           </Pressable>
         </View>
 
-        <View className="px-4 pb-16 pt-6">
-          <Text className="text-[28px] font-black leading-8 text-foreground">
-            Keep your reviewer identity polished and progress-ready.
+        <View className="px-4 pb-20 pt-6">
+          <Text className="text-[30px] font-black leading-8 text-foreground">
+            A polished study identity,
+            {"\n"}built for consistency.
           </Text>
           <Text className="mt-2 max-w-[320px] text-[13px] leading-5 text-muted-foreground">
-            Manage your study identity, track progress, and keep your account
-            presentation professional across the app.
+            Shape how you appear across progress, achievements, and community
+            spaces with a cleaner, calmer profile.
           </Text>
         </View>
       </View>
 
-      <View className="px-4" style={{ marginTop: -42 }}>
+      <View className="px-4" style={{ marginTop: -72 }}>
         <View
-          className="rounded-[30px] border px-4 pb-4 pt-5"
+          className="rounded-[34px] border px-4 pb-4 pt-5"
           style={{
             borderColor: surfaceBorderColor,
             backgroundColor: elevatedSurfaceColor,
@@ -276,7 +286,7 @@ export const ProfileHeroSection = memo(function ProfileHeroSection({
                 )}
               </View>
               <Pressable
-                className="absolute -bottom-1 -right-1 h-9 w-9 items-center justify-center rounded-full border-2 bg-primary"
+                className="absolute -bottom-1 -right-1 h-10 w-10 items-center justify-center rounded-full border-2 bg-primary"
                 style={{ borderColor: theme.background }}
                 onPress={onOpenEdit}
               >
@@ -290,14 +300,14 @@ export const ProfileHeroSection = memo(function ProfileHeroSection({
 
             <View className="flex-1 gap-1.5">
               <View
-                className="self-start rounded-full px-2.5 py-1"
+                className="self-start rounded-full px-3 py-1.5"
                 style={{ backgroundColor: withOpacity(theme.primary, 0.12) }}
               >
                 <Text className="text-[10px] font-black uppercase tracking-[1.1px] text-primary">
                   {profile?.isPremium ? "Premium Member" : "Active Learner"}
                 </Text>
               </View>
-              <Text className="text-[22px] font-black text-card-foreground">
+              <Text className="text-[24px] font-black text-card-foreground">
                 {displayName}
               </Text>
               <Text className="text-[13px] text-muted-foreground">
@@ -306,6 +316,53 @@ export const ProfileHeroSection = memo(function ProfileHeroSection({
               <Text className="text-[12px] text-muted-foreground">
                 Member since {memberSince}
               </Text>
+            </View>
+          </View>
+
+          <View
+            className="mt-4 rounded-[24px] border px-4 py-4"
+            style={{
+              borderColor: nestedBorderColor,
+              backgroundColor: nestedSurfaceColor,
+            }}
+          >
+            <View className="flex-row items-center justify-between gap-3">
+              <View className="flex-1">
+                <Text className="text-[11px] font-black uppercase tracking-[1.2px] text-primary">
+                  Profile Completion
+                </Text>
+                <Text className="mt-1 text-[22px] font-black text-card-foreground">
+                  {profileCompletion}%
+                </Text>
+                <Text className="text-[12px] leading-5 text-muted-foreground">
+                  Keep your account ready for achievements, leaderboards, and
+                  community recognition.
+                </Text>
+              </View>
+              <View className="items-end gap-1.5">
+                <Text className="text-[11px] font-bold uppercase tracking-[1px] text-muted-foreground">
+                  Status
+                </Text>
+                <Text
+                  className="text-[13px] font-black"
+                  style={{ color: emailVerified ? theme.success : theme.warning }}
+                >
+                  {emailVerified ? "Verified" : "Needs verification"}
+                </Text>
+              </View>
+            </View>
+
+            <View
+              className="mt-3 h-3 overflow-hidden rounded-full"
+              style={{ backgroundColor: withOpacity(theme.primary, 0.1) }}
+            >
+              <View
+                className="h-full rounded-full"
+                style={{
+                  width: `${profileCompletion}%`,
+                  backgroundColor: theme.primary,
+                }}
+              />
             </View>
           </View>
 
@@ -377,7 +434,7 @@ export const ProfileTabRail = memo(function ProfileTabRail({
   return (
     <View className="mt-4 px-4">
       <View
-        className="flex-row gap-1.5 rounded-[22px] border px-1.5 py-1.5"
+        className="flex-row gap-2 rounded-[24px] border px-2 py-2"
         style={{
           borderColor: nestedBorderColor,
           backgroundColor: tabRailColor,

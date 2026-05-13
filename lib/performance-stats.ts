@@ -1,12 +1,17 @@
 import { COLLECTIONS, DB_ID, Query, tablesDB } from "./appwrite"
+import { listBoardExamCatalogCategories } from "./board-exam-catalog"
 import type {
-  ExamAttemptDocument,
+  LearningAchievementDocument,
   SubjectDocument,
   UserAnswerDocument,
+  UserDailyActivityDocument,
   UserProgressDocument,
+  UserWeeklyReportDocument,
 } from "./schema"
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import {
+  GLOBAL_PROGRESS_SUBJECT_ID,
+  GLOBAL_PROGRESS_TOPIC_ID,
+} from "./progress/constants"
 
 export type SubjectPerformance = {
   subjectId: string
@@ -23,7 +28,7 @@ export type OverallPerformanceStats = {
   correctAnswers: number
   totalAnswered: number
   correctPercent: number
-  averageTimePerQuestion: number // seconds
+  averageTimePerQuestion: number
   bestStreak: number
   subjectBreakdown: SubjectPerformance[]
 }
@@ -44,36 +49,81 @@ export type QuestionsAnsweredTimeline = {
   questionsThisPeriod: number
   mostAnsweredInOneDay: number
   mostAnsweredDate: string
-  /** Offset from "today" window (0 = current, -1 = previous, etc.) */
   offset: number
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+export type DashboardSnapshot = {
+  label: string
+  answeredCount: number
+  correctCount: number
+  incorrectCount: number
+  accuracyRate: number
+  studyMinutes: number
+  completedMaterials: number
+  earnedAchievementsCount: number
+  activeDaysCount: number
+  averageScore: number
+}
+
+export type DashboardReportMetrics = {
+  today: DashboardSnapshot
+  week: DashboardSnapshot
+  month: DashboardSnapshot
+  year: DashboardSnapshot
+  lifetime: {
+    totalStudyMinutes: number
+    activeDaysCount: number
+    achievementsCount: number
+    weeklyAverageScore: number
+    dayStreak: number
+    accuracyRate: number
+    answeredCount: number
+    correctCount: number
+    incorrectCount: number
+    completedMaterials: number
+  }
+}
+
+export type DashboardTrendSnapshot = {
+  label: string
+  currentLabel: string
+  previousLabel: string
+  currentAnsweredCount: number
+  previousAnsweredCount: number
+  answeredDelta: number
+  accuracyDelta: number
+  studyMinutesDelta: number
+  achievementsDelta: number
+  activeDaysDelta: number
+  trend: "up" | "down" | "flat"
+}
+
+export type AchievementHighlight = {
+  id: string
+  title: string
+  description: string | null
+  earnedAt: string
+  achievementType: LearningAchievementDocument["achievementType"]
+  badgeKey: string | null
+}
+
+export type DashboardInsights = {
+  weekOverWeek: DashboardTrendSnapshot
+  monthOverMonth: DashboardTrendSnapshot
+  consistency: {
+    currentWeekActiveDays: number
+    targetActiveDays: number
+    remainingDaysToGoal: number
+    currentStreak: number
+    weeklyAverageScore: number
+  }
+  strongestSubject: SubjectPerformance | null
+  weakestSubject: SubjectPerformance | null
+  focusSubjects: SubjectPerformance[]
+  recentAchievements: AchievementHighlight[]
+}
 
 const QUERY_LIMIT = 500
-const ATTEMPT_ID_QUERY_CHUNK_SIZE = 50
-const GLOBAL_PROGRESS_SUBJECT_ID = "__global__"
-
-type SubjectProgressTotals = {
-  totalCorrect: number
-  totalAnswered: number
-}
-
-type TimelineBucket = {
-  date: Date
-  key: string
-  label: string
-}
-
-type TimelineBucketConfig = {
-  buckets: TimelineBucket[]
-  rangeLabel: string
-  startDate: Date
-  endDate: Date
-}
-
-// Hoist Intl formatters to module scope — constructing Intl objects is expensive
-// on Hermes because it allocates locale data each time.
 const DATE_FMT_SHORT = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
@@ -90,7 +140,25 @@ const MONTH_YEAR_FMT = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 })
 
-function toDayKey(date: Date) {
+type TimelineBucket = {
+  date: Date
+  key: string
+  label: string
+}
+
+type TimelineBucketConfig = {
+  buckets: TimelineBucket[]
+  rangeLabel: string
+  startDate: Date
+  endDate: Date
+}
+
+type SubjectTotals = {
+  totalAnswered: number
+  totalCorrect: number
+}
+
+function toIsoDateKey(date: Date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, "0")
   const day = String(date.getDate()).padStart(2, "0")
@@ -113,20 +181,6 @@ function getMonthShort(date: Date) {
   return MONTH_FMT.format(date)
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max)
-}
-
-function chunkValues<T>(values: T[], size: number) {
-  const chunks: T[][] = []
-
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size))
-  }
-
-  return chunks
-}
-
 function calculatePercent(value: number, total: number) {
   return total > 0 ? Math.round((value / total) * 100) : 0
 }
@@ -139,24 +193,7 @@ function incrementCount(
   counts.set(key, (counts.get(key) ?? 0) + value)
 }
 
-async function listDoneAttempts(
-  userId: string
-): Promise<ExamAttemptDocument[]> {
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.EXAM_ATTEMPTS,
-    queries: [
-      Query.equal("userId", userId),
-      Query.equal("status", "done"),
-      Query.orderDesc("$updatedAt"),
-      Query.limit(QUERY_LIMIT),
-    ],
-  })
-
-  return rows as unknown as ExamAttemptDocument[]
-}
-
-async function listSubjects(): Promise<SubjectDocument[]> {
+async function listSubjects() {
   const { rows } = await tablesDB.listRows({
     databaseId: DB_ID,
     tableId: COLLECTIONS.SUBJECTS,
@@ -166,19 +203,63 @@ async function listSubjects(): Promise<SubjectDocument[]> {
   return rows as unknown as SubjectDocument[]
 }
 
-async function listTotalQuestions(): Promise<number> {
+async function listUserAnswers(userId: string) {
   const { rows } = await tablesDB.listRows({
     databaseId: DB_ID,
-    tableId: COLLECTIONS.QUESTIONS,
-    queries: [Query.limit(QUERY_LIMIT)],
+    tableId: COLLECTIONS.USER_ANSWERS,
+    queries: [
+      Query.equal("userId", userId),
+      Query.orderAsc("answeredAt"),
+      Query.limit(QUERY_LIMIT),
+    ],
   })
 
-  return rows.length
+  return rows as unknown as UserAnswerDocument[]
 }
 
-async function listUserProgressRows(
-  userId: string
-): Promise<UserProgressDocument[]> {
+async function listUserDailyActivity(userId: string) {
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.USER_DAILY_ACTIVITY,
+    queries: [
+      Query.equal("userId", userId),
+      Query.orderAsc("activityDate"),
+      Query.limit(QUERY_LIMIT),
+    ],
+  })
+
+  return rows as unknown as UserDailyActivityDocument[]
+}
+
+async function listUserWeeklyReports(userId: string) {
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.USER_WEEKLY_REPORTS,
+    queries: [
+      Query.equal("userId", userId),
+      Query.orderAsc("weekStartDate"),
+      Query.limit(QUERY_LIMIT),
+    ],
+  })
+
+  return rows as unknown as UserWeeklyReportDocument[]
+}
+
+async function listRecentAchievements(userId: string, limit = 4) {
+  const { rows } = await tablesDB.listRows({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.LEARNING_ACHIEVEMENTS,
+    queries: [
+      Query.equal("userId", userId),
+      Query.orderDesc("earnedAt"),
+      Query.limit(Math.max(limit, 1)),
+    ],
+  })
+
+  return rows as unknown as LearningAchievementDocument[]
+}
+
+async function listUserProgressRows(userId: string) {
   const { rows } = await tablesDB.listRows({
     databaseId: DB_ID,
     tableId: COLLECTIONS.USER_PROGRESS,
@@ -192,52 +273,39 @@ async function listUserProgressRows(
   return rows as unknown as UserProgressDocument[]
 }
 
-async function listAnswersByAttemptIds(
-  attemptIds: string[]
-): Promise<UserAnswerDocument[]> {
-  if (attemptIds.length === 0) {
-    return []
-  }
-
-  const attemptIdChunks = chunkValues(attemptIds, ATTEMPT_ID_QUERY_CHUNK_SIZE)
-  const answerResults = await Promise.all(
-    attemptIdChunks.map((chunk) =>
-      tablesDB.listRows({
-        databaseId: DB_ID,
-        tableId: COLLECTIONS.USER_ANSWERS,
-        queries: [Query.equal("attemptId", chunk), Query.limit(QUERY_LIMIT)],
-      })
+function getBoardExamQuestionTotal() {
+  return listBoardExamCatalogCategories().reduce((total, category) => {
+    return (
+      total +
+      category.sets.reduce(
+        (setTotal, set) => setTotal + set.loadLocal().questions.length,
+        0
+      )
     )
-  )
-
-  return answerResults.flatMap(
-    (result) => result.rows as unknown as UserAnswerDocument[]
-  )
+  }, 0)
 }
 
-function filterAnswersByAttemptIds(
-  allAnswers: UserAnswerDocument[],
-  attemptIds: Set<string>
-) {
-  return allAnswers.filter((answer) => attemptIds.has(answer.attemptId))
-}
+function computeBestStreak(answerRows: UserAnswerDocument[]) {
+  const answersBySession = new Map<string, UserAnswerDocument[]>()
 
-function computeBestStreak(userAnswers: UserAnswerDocument[]) {
-  const answersByAttempt = new Map<string, UserAnswerDocument[]>()
-
-  for (const answer of userAnswers) {
-    const existing = answersByAttempt.get(answer.attemptId) ?? []
-    existing.push(answer)
-    answersByAttempt.set(answer.attemptId, existing)
+  for (const row of answerRows) {
+    const current = answersBySession.get(row.sessionId ?? row.$id) ?? []
+    current.push(row)
+    answersBySession.set(row.sessionId ?? row.$id, current)
   }
 
   let bestStreak = 0
 
-  for (const attemptAnswers of answersByAttempt.values()) {
+  for (const rows of answersBySession.values()) {
+    const sortedRows = [...rows].sort((left, right) =>
+      (left.answeredAt ?? left.$createdAt).localeCompare(
+        right.answeredAt ?? right.$createdAt
+      )
+    )
     let streak = 0
 
-    for (const answer of attemptAnswers) {
-      if (!answer.isCorrect) {
+    for (const row of sortedRows) {
+      if (!row.isCorrect) {
         streak = 0
         continue
       }
@@ -250,206 +318,89 @@ function computeBestStreak(userAnswers: UserAnswerDocument[]) {
   return bestStreak
 }
 
-function summarizeAnswers(userAnswers: UserAnswerDocument[]) {
-  const uniqueQuestionIds = new Set(
-    userAnswers.map((answer) => answer.questionId)
-  )
-  const correctAnswers = userAnswers.filter((answer) => answer.isCorrect).length
-  const totalAnswered = userAnswers.length
+function buildSubjectNameMap(subjects: SubjectDocument[]) {
+  const map = new Map<string, string>()
 
-  return {
-    uniqueQuestionsAnswered: uniqueQuestionIds.size,
-    correctAnswers,
-    totalAnswered,
-    correctPercent: calculatePercent(correctAnswers, totalAnswered),
-    bestStreak: computeBestStreak(userAnswers),
-  }
-}
-
-function computeAverageTimePerQuestion(attempts: ExamAttemptDocument[]) {
-  const totalTime = attempts.reduce(
-    (sum, attempt) => sum + attempt.timeTaken,
-    0
-  )
-  const totalItems = attempts.reduce(
-    (sum, attempt) => sum + attempt.totalItems,
-    0
-  )
-
-  return totalItems > 0 ? Math.round(totalTime / totalItems) : 0
-}
-
-function buildExamProgressLookup(progressRows: UserProgressDocument[]) {
-  const lookup = new Map<string, UserProgressDocument>()
-
-  for (const progress of progressRows) {
-    if (progress.subjectId === GLOBAL_PROGRESS_SUBJECT_ID) {
-      continue
-    }
-
-    if (!lookup.has(progress.topicId)) {
-      lookup.set(progress.topicId, progress)
-    }
-
-    if (!lookup.has(progress.subjectId)) {
-      lookup.set(progress.subjectId, progress)
-    }
+  for (const subject of subjects) {
+    map.set(subject.$id, subject.name)
   }
 
-  return lookup
+  for (const category of listBoardExamCatalogCategories()) {
+    map.set(category.id, category.title)
+  }
+
+  return map
 }
 
-function resolveSubjectIdForAttempt(
-  attempt: ExamAttemptDocument,
-  subjectIdSet: Set<string>,
-  examProgressLookup: Map<string, UserProgressDocument>
+function buildSubjectBreakdown(
+  subjectNameMap: Map<string, string>,
+  answerRows: UserAnswerDocument[]
 ) {
-  if (subjectIdSet.has(attempt.examId)) {
-    return attempt.examId
-  }
+  const totals = new Map<string, SubjectTotals>()
+  let strongestSubjectId: string | null = null
+  let highestPercent = -1
 
-  const matchingProgress = examProgressLookup.get(attempt.examId)
-  if (!matchingProgress) {
-    return null
-  }
-
-  return subjectIdSet.has(matchingProgress.subjectId)
-    ? matchingProgress.subjectId
-    : null
-}
-
-function buildSubjectProgressMap(
-  attempts: ExamAttemptDocument[],
-  subjectIdSet: Set<string>,
-  examProgressLookup: Map<string, UserProgressDocument>
-) {
-  const subjectProgressMap = new Map<string, SubjectProgressTotals>()
-
-  for (const attempt of attempts) {
-    const subjectId = resolveSubjectIdForAttempt(
-      attempt,
-      subjectIdSet,
-      examProgressLookup
-    )
-
+  for (const row of answerRows) {
+    const subjectId = row.subjectId?.trim()
     if (!subjectId) {
       continue
     }
 
-    const totals = subjectProgressMap.get(subjectId) ?? {
-      totalCorrect: 0,
+    const current = totals.get(subjectId) ?? {
       totalAnswered: 0,
+      totalCorrect: 0,
     }
-    totals.totalCorrect += attempt.score
-    totals.totalAnswered += attempt.totalItems
-    subjectProgressMap.set(subjectId, totals)
+    current.totalAnswered += 1
+    current.totalCorrect += row.isCorrect ? 1 : 0
+    totals.set(subjectId, current)
   }
 
-  return subjectProgressMap
-}
+  const breakdown = Array.from(totals.entries()).map(([subjectId, total]) => {
+    const correctPercent = calculatePercent(
+      total.totalCorrect,
+      total.totalAnswered
+    )
 
-function markStrongestSubject(
-  subjectBreakdown: SubjectPerformance[],
-  strongestSubjectId: string | null
-) {
-  if (!strongestSubjectId) {
-    return subjectBreakdown
-  }
-
-  const strongest = subjectBreakdown.find(
-    (subject) => subject.subjectId === strongestSubjectId
-  )
-
-  if (strongest) {
-    strongest.label = "STRONGEST"
-  }
-
-  return subjectBreakdown
-}
-
-function buildSubjectBreakdown(
-  subjects: SubjectDocument[],
-  subjectProgressMap: Map<string, SubjectProgressTotals>
-) {
-  let highestPercent = -1
-  let strongestSubjectId: string | null = null
-
-  const subjectBreakdown: SubjectPerformance[] = subjects.map((subject) => {
-    const progress = subjectProgressMap.get(subject.$id)
-    const totalCorrect = progress?.totalCorrect ?? 0
-    const totalAnswered = progress?.totalAnswered ?? 0
-    const correctPercent = calculatePercent(totalCorrect, totalAnswered)
-
-    if (totalAnswered > 0 && correctPercent > highestPercent) {
+    if (total.totalAnswered > 0 && correctPercent > highestPercent) {
       highestPercent = correctPercent
-      strongestSubjectId = subject.$id
+      strongestSubjectId = subjectId
     }
 
     return {
-      subjectId: subject.$id,
-      subjectName: subject.name,
+      subjectId,
+      subjectName:
+        subjectNameMap.get(subjectId) ?? `Subject ${subjectId.slice(0, 8)}`,
       correctPercent,
-      totalAnswered,
-      totalCorrect,
-      label: null,
+      totalAnswered: total.totalAnswered,
+      totalCorrect: total.totalCorrect,
+      label: null as "STRONGEST" | null,
     }
   })
 
-  return markStrongestSubject(subjectBreakdown, strongestSubjectId)
-}
-
-// ─── Overall Performance ──────────────────────────────────────────────────────
-
-export async function getOverallPerformanceStats(
-  userId: string
-): Promise<OverallPerformanceStats> {
-  const [attempts, subjects, totalQuestions, progressRows] = await Promise.all([
-    listDoneAttempts(userId),
-    listSubjects(),
-    listTotalQuestions(),
-    listUserProgressRows(userId),
-  ])
-
-  const attemptIds = attempts.map((attempt) => attempt.$id)
-  const allAnswers = await listAnswersByAttemptIds(attemptIds)
-  const userAnswers = filterAnswersByAttemptIds(allAnswers, new Set(attemptIds))
-  const answerSummary = summarizeAnswers(userAnswers)
-
-  const subjectIdSet = new Set(subjects.map((subject) => subject.$id))
-  const examProgressLookup = buildExamProgressLookup(progressRows)
-  const subjectProgressMap = buildSubjectProgressMap(
-    attempts,
-    subjectIdSet,
-    examProgressLookup
-  )
-
-  return {
-    ...answerSummary,
-    totalQuestions,
-    averageTimePerQuestion: computeAverageTimePerQuestion(attempts),
-    subjectBreakdown: buildSubjectBreakdown(subjects, subjectProgressMap),
+  for (const subject of breakdown) {
+    if (subject.subjectId === strongestSubjectId) {
+      subject.label = "STRONGEST"
+    }
   }
-}
 
-// ─── Questions Answered Timeline ──────────────────────────────────────────────
+  return breakdown.sort((left, right) => right.correctPercent - left.correctPercent)
+}
 
 function getWeekBuckets(offset: number): TimelineBucketConfig {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-
-  // Find Monday of current week
   const dayOfWeek = today.getDay()
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
   const monday = new Date(today)
   monday.setDate(today.getDate() + mondayOffset + offset * 7)
 
   const buckets: TimelineBucket[] = []
-  for (let i = 0; i < 7; i++) {
+  for (let index = 0; index < 7; index += 1) {
     const date = new Date(monday)
-    date.setDate(monday.getDate() + i)
+    date.setDate(monday.getDate() + index)
     buckets.push({
       date,
-      key: toDayKey(date),
+      key: toIsoDateKey(date),
       label: getWeekdayShort(date),
     })
   }
@@ -468,16 +419,17 @@ function getWeekBuckets(offset: number): TimelineBucketConfig {
 function getMonthBuckets(offset: number): TimelineBucketConfig {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-
   const monthDate = new Date(today.getFullYear(), today.getMonth() + offset, 1)
   const year = monthDate.getFullYear()
   const month = monthDate.getMonth()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
-
-  // Group into ~4 weeks (7-day spans)
   const buckets: TimelineBucket[] = []
-  for (let week = 0; week < 4; week++) {
+
+  for (let week = 0; week < 5; week += 1) {
     const startDay = week * 7 + 1
+    if (startDay > daysInMonth) {
+      break
+    }
     const endDay = Math.min(startDay + 6, daysInMonth)
     const date = new Date(year, month, startDay)
     buckets.push({
@@ -498,9 +450,9 @@ function getMonthBuckets(offset: number): TimelineBucketConfig {
 function getYearBuckets(offset: number): TimelineBucketConfig {
   const today = new Date()
   const year = today.getFullYear() + offset
-
   const buckets: TimelineBucket[] = []
-  for (let month = 0; month < 12; month++) {
+
+  for (let month = 0; month < 12; month += 1) {
     const date = new Date(year, month, 1)
     buckets.push({
       date,
@@ -517,10 +469,7 @@ function getYearBuckets(offset: number): TimelineBucketConfig {
   }
 }
 
-function getTimelineBucketConfig(
-  window: TimelineWindow,
-  offset: number
-): TimelineBucketConfig {
+function getTimelineBucketConfig(window: TimelineWindow, offset: number) {
   if (window === "week") {
     return getWeekBuckets(offset)
   }
@@ -532,94 +481,178 @@ function getTimelineBucketConfig(
   return getYearBuckets(offset)
 }
 
-function toAttemptTimestamp(attempt: ExamAttemptDocument) {
-  const refDate = attempt.finishedAt ?? attempt.startedAt
-  const timestamp = new Date(refDate)
-  return Number.isNaN(timestamp.getTime()) ? null : timestamp
-}
-
-function isWithinRange(timestamp: Date, bucketConfig: TimelineBucketConfig) {
-  return (
-    timestamp >= bucketConfig.startDate && timestamp <= bucketConfig.endDate
-  )
+function isWithinRange(dateKey: string, bucketConfig: TimelineBucketConfig) {
+  const date = new Date(`${dateKey}T00:00:00`)
+  return date >= bucketConfig.startDate && date <= bucketConfig.endDate
 }
 
 function getTimelineBucketKey(
   window: TimelineWindow,
-  timestamp: Date,
+  activityDate: string,
   bucketConfig: TimelineBucketConfig
 ) {
+  const date = new Date(`${activityDate}T00:00:00`)
+
   if (window === "week") {
-    return toDayKey(timestamp)
+    return activityDate
   }
 
   if (window === "month") {
-    const dayOfMonth = timestamp.getDate()
-    const weekIndex = clamp(Math.floor((dayOfMonth - 1) / 7), 0, 3)
+    const dayOfMonth = date.getDate()
+    const weekIndex = Math.min(Math.floor((dayOfMonth - 1) / 7), 4)
     return bucketConfig.buckets[weekIndex]?.key ?? null
   }
 
-  return `${timestamp.getFullYear()}-${String(timestamp.getMonth() + 1).padStart(2, "0")}`
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
 }
 
-function aggregateTimelineCounts(
-  attempts: ExamAttemptDocument[],
-  window: TimelineWindow,
-  bucketConfig: TimelineBucketConfig
-) {
-  const countByBucket = new Map<string, number>(
-    bucketConfig.buckets.map((bucket) => [bucket.key, 0])
+function buildDashboardSnapshot(
+  label: string,
+  rows: UserDailyActivityDocument[]
+): DashboardSnapshot {
+  const answeredCount = rows.reduce((total, row) => total + row.answeredCount, 0)
+  const correctCount = rows.reduce((total, row) => total + row.correctCount, 0)
+  const incorrectCount = rows.reduce(
+    (total, row) => total + row.incorrectCount,
+    0
   )
-  const countByDay = new Map<string, number>()
-
-  for (const attempt of attempts) {
-    const timestamp = toAttemptTimestamp(attempt)
-    if (!timestamp || !isWithinRange(timestamp, bucketConfig)) {
-      continue
-    }
-
-    const dayKey = toDayKey(timestamp)
-    incrementCount(countByDay, dayKey, attempt.totalItems)
-
-    const bucketKey = getTimelineBucketKey(window, timestamp, bucketConfig)
-    if (!bucketKey) {
-      continue
-    }
-
-    incrementCount(countByBucket, bucketKey, attempt.totalItems)
-  }
-
-  return { countByBucket, countByDay }
-}
-
-function buildTimelinePoints(
-  bucketConfig: TimelineBucketConfig,
-  countByBucket: Map<string, number>
-) {
-  return bucketConfig.buckets.map((bucket) => ({
-    key: bucket.key,
-    label: bucket.label,
-    value: countByBucket.get(bucket.key) ?? 0,
-    dateLabel: formatDateShortNoYear(bucket.date),
-  }))
-}
-
-function getMostAnsweredDay(countByDay: Map<string, number>) {
-  let mostAnsweredInOneDay = 0
-  let mostAnsweredDate = ""
-
-  for (const [dayKey, count] of countByDay) {
-    if (count <= mostAnsweredInOneDay) {
-      continue
-    }
-
-    mostAnsweredInOneDay = count
-    mostAnsweredDate = formatDateShort(new Date(dayKey))
-  }
+  const studyMinutes = rows.reduce((total, row) => total + row.studyMinutes, 0)
+  const completedMaterials = rows.reduce(
+    (total, row) => total + row.completedMaterials,
+    0
+  )
+  const earnedAchievementsCount = rows.reduce(
+    (total, row) => total + row.earnedAchievementsCount,
+    0
+  )
+  const accuracyRate =
+    answeredCount > 0 ? Math.round((correctCount / answeredCount) * 10000) / 100 : 0
 
   return {
-    mostAnsweredInOneDay,
-    mostAnsweredDate: mostAnsweredDate || "—",
+    label,
+    answeredCount,
+    correctCount,
+    incorrectCount,
+    accuracyRate,
+    studyMinutes,
+    completedMaterials,
+    earnedAchievementsCount,
+    activeDaysCount: rows.filter(
+      (row) =>
+        row.answeredCount > 0 || row.studyMinutes > 0 || row.completedMaterials > 0
+    ).length,
+    averageScore: accuracyRate,
+  }
+}
+
+function filterRowsByMonth(
+  rows: UserDailyActivityDocument[],
+  year: number,
+  monthIndex: number
+) {
+  return rows.filter((row) => {
+    const date = new Date(`${row.activityDate}T00:00:00`)
+    return date.getFullYear() === year && date.getMonth() === monthIndex
+  })
+}
+
+function filterRowsByYear(rows: UserDailyActivityDocument[], year: number) {
+  return rows.filter((row) => {
+    const date = new Date(`${row.activityDate}T00:00:00`)
+    return date.getFullYear() === year
+  })
+}
+
+function subtractDays(date: Date, days: number) {
+  const next = new Date(date)
+  next.setDate(next.getDate() - days)
+  return next
+}
+
+function getWeekStartDate(date: Date) {
+  const weekStart = new Date(date)
+  weekStart.setHours(0, 0, 0, 0)
+  const day = weekStart.getDay()
+  const mondayOffset = day === 0 ? -6 : 1 - day
+  weekStart.setDate(weekStart.getDate() + mondayOffset)
+  return weekStart
+}
+
+function buildTrendSnapshot(params: {
+  label: string
+  currentLabel: string
+  previousLabel: string
+  current: DashboardSnapshot
+  previous: DashboardSnapshot
+}): DashboardTrendSnapshot {
+  const answeredDelta = params.current.answeredCount - params.previous.answeredCount
+  const accuracyDelta =
+    Math.round((params.current.accuracyRate - params.previous.accuracyRate) * 100) /
+    100
+  const studyMinutesDelta = params.current.studyMinutes - params.previous.studyMinutes
+  const achievementsDelta =
+    params.current.earnedAchievementsCount - params.previous.earnedAchievementsCount
+  const activeDaysDelta =
+    params.current.activeDaysCount - params.previous.activeDaysCount
+
+  return {
+    label: params.label,
+    currentLabel: params.currentLabel,
+    previousLabel: params.previousLabel,
+    currentAnsweredCount: params.current.answeredCount,
+    previousAnsweredCount: params.previous.answeredCount,
+    answeredDelta,
+    accuracyDelta,
+    studyMinutesDelta,
+    achievementsDelta,
+    activeDaysDelta,
+    trend:
+      answeredDelta > 0
+        ? "up"
+        : answeredDelta < 0
+          ? "down"
+          : "flat",
+  }
+}
+
+function formatMonthLabel(date: Date) {
+  return MONTH_YEAR_FMT.format(date)
+}
+
+function filterFocusableSubjects(subjects: SubjectPerformance[]) {
+  return subjects.filter((subject) => subject.totalAnswered >= 3)
+}
+
+export async function getOverallPerformanceStats(
+  userId: string
+): Promise<OverallPerformanceStats> {
+  const [subjects, answers] = await Promise.all([
+    listSubjects(),
+    listUserAnswers(userId),
+  ])
+
+  const uniqueQuestionIds = new Set(answers.map((row) => row.questionId))
+  const correctAnswers = answers.filter((row) => row.isCorrect).length
+  const totalAnswered = answers.length
+  const averageTimePerQuestion =
+    answers.length > 0
+      ? Math.round(
+          answers.reduce(
+            (total, row) => total + (row.responseTimeSeconds ?? 0),
+            0
+          ) / answers.length
+        )
+      : 0
+
+  return {
+    uniqueQuestionsAnswered: uniqueQuestionIds.size,
+    totalQuestions: getBoardExamQuestionTotal(),
+    correctAnswers,
+    totalAnswered,
+    correctPercent: calculatePercent(correctAnswers, totalAnswered),
+    averageTimePerQuestion,
+    bestStreak: computeBestStreak(answers),
+    subjectBreakdown: buildSubjectBreakdown(buildSubjectNameMap(subjects), answers),
   }
 }
 
@@ -628,28 +661,259 @@ export async function getQuestionsAnsweredTimeline(
   window: TimelineWindow,
   offset = 0
 ): Promise<QuestionsAnsweredTimeline> {
-  const attempts = await listDoneAttempts(userId)
+  const rows = await listUserDailyActivity(userId)
   const bucketConfig = getTimelineBucketConfig(window, offset)
-  const { countByBucket, countByDay } = aggregateTimelineCounts(
-    attempts,
-    window,
-    bucketConfig
+  const countByBucket = new Map<string, number>(
+    bucketConfig.buckets.map((bucket) => [bucket.key, 0])
   )
-  const points = buildTimelinePoints(bucketConfig, countByBucket)
-  const questionsThisPeriod = points.reduce(
-    (sum, point) => sum + point.value,
-    0
-  )
-  const { mostAnsweredInOneDay, mostAnsweredDate } =
-    getMostAnsweredDay(countByDay)
+  let mostAnsweredInOneDay = 0
+  let mostAnsweredDate = "—"
+
+  for (const row of rows) {
+    if (!isWithinRange(row.activityDate, bucketConfig)) {
+      continue
+    }
+
+    if (row.answeredCount > mostAnsweredInOneDay) {
+      mostAnsweredInOneDay = row.answeredCount
+      mostAnsweredDate = formatDateShort(new Date(`${row.activityDate}T00:00:00`))
+    }
+
+    const bucketKey = getTimelineBucketKey(window, row.activityDate, bucketConfig)
+    if (!bucketKey) {
+      continue
+    }
+
+    incrementCount(countByBucket, bucketKey, row.answeredCount)
+  }
+
+  const points = bucketConfig.buckets.map((bucket) => ({
+    key: bucket.key,
+    label: bucket.label,
+    value: countByBucket.get(bucket.key) ?? 0,
+    dateLabel: formatDateShortNoYear(bucket.date),
+  }))
 
   return {
     window,
     points,
     rangeLabel: bucketConfig.rangeLabel,
-    questionsThisPeriod,
+    questionsThisPeriod: points.reduce((total, point) => total + point.value, 0),
     mostAnsweredInOneDay,
     mostAnsweredDate,
     offset,
+  }
+}
+
+export async function getDashboardReportMetrics(
+  userId: string
+): Promise<DashboardReportMetrics> {
+  const [dailyRows, progressRows] = await Promise.all([
+    listUserDailyActivity(userId),
+    listUserProgressRows(userId),
+  ])
+  const today = new Date()
+  const todayKey = toIsoDateKey(today)
+  const currentWeekStart = (() => {
+    const current = new Date(today)
+    const day = current.getDay()
+    const mondayOffset = day === 0 ? -6 : 1 - day
+    current.setDate(current.getDate() + mondayOffset)
+    return toIsoDateKey(current)
+  })()
+  const globalProgress =
+    progressRows.find(
+      (row) =>
+        row.subjectId === GLOBAL_PROGRESS_SUBJECT_ID &&
+        row.topicId === GLOBAL_PROGRESS_TOPIC_ID
+    ) ?? null
+
+  const todayRows = dailyRows.filter((row) => row.activityDate === todayKey)
+  const weekRows = dailyRows.filter((row) => row.weekStartDate === currentWeekStart)
+  const monthRows = filterRowsByMonth(
+    dailyRows,
+    today.getFullYear(),
+    today.getMonth()
+  )
+  const yearRows = filterRowsByYear(dailyRows, today.getFullYear())
+
+  const lifetimeAnsweredCount =
+    globalProgress?.answeredCount ??
+    dailyRows.reduce((total, row) => total + row.answeredCount, 0)
+  const lifetimeCorrectCount =
+    globalProgress?.correctCount ??
+    dailyRows.reduce((total, row) => total + row.correctCount, 0)
+  const lifetimeIncorrectCount =
+    globalProgress?.incorrectCount ??
+    dailyRows.reduce((total, row) => total + row.incorrectCount, 0)
+
+  return {
+    today: buildDashboardSnapshot("Today", todayRows),
+    week: buildDashboardSnapshot("This Week", weekRows),
+    month: buildDashboardSnapshot("This Month", monthRows),
+    year: buildDashboardSnapshot("This Year", yearRows),
+    lifetime: {
+      totalStudyMinutes:
+        globalProgress?.totalStudyMinutes ??
+        dailyRows.reduce((total, row) => total + row.studyMinutes, 0),
+      activeDaysCount:
+        globalProgress?.activeDaysCount ??
+        dailyRows.filter(
+          (row) =>
+            row.answeredCount > 0 ||
+            row.studyMinutes > 0 ||
+            row.completedMaterials > 0
+        ).length,
+      achievementsCount:
+        globalProgress?.achievementsCount ??
+        dailyRows.reduce((total, row) => total + row.earnedAchievementsCount, 0),
+      weeklyAverageScore: globalProgress?.weeklyAverageScore ?? 0,
+      dayStreak: globalProgress?.dayStreak ?? 0,
+      accuracyRate:
+        lifetimeAnsweredCount > 0
+          ? Math.round((lifetimeCorrectCount / lifetimeAnsweredCount) * 10000) /
+            100
+          : globalProgress?.accuracyRate ?? 0,
+      answeredCount: lifetimeAnsweredCount,
+      correctCount: lifetimeCorrectCount,
+      incorrectCount: lifetimeIncorrectCount,
+      completedMaterials:
+        globalProgress?.completedMaterials ??
+        dailyRows.reduce((total, row) => total + row.completedMaterials, 0),
+    },
+  }
+}
+
+export async function getDashboardInsights(
+  userId: string
+): Promise<DashboardInsights> {
+  const [subjects, answers, dailyRows, weeklyRows, progressRows, achievements] =
+    await Promise.all([
+      listSubjects(),
+      listUserAnswers(userId),
+      listUserDailyActivity(userId),
+      listUserWeeklyReports(userId),
+      listUserProgressRows(userId),
+      listRecentAchievements(userId, 4),
+    ])
+
+  const subjectBreakdown = buildSubjectBreakdown(
+    buildSubjectNameMap(subjects),
+    answers
+  )
+  const focusableSubjects = filterFocusableSubjects(subjectBreakdown)
+  const strongestSubject = focusableSubjects[0] ?? subjectBreakdown[0] ?? null
+  const weakestSubject =
+    [...focusableSubjects].sort(
+      (left, right) => left.correctPercent - right.correctPercent
+    )[0] ??
+    [...subjectBreakdown].sort(
+      (left, right) => left.correctPercent - right.correctPercent
+    )[0] ??
+    null
+
+  const today = new Date()
+  const currentWeekStart = getWeekStartDate(today)
+  const previousWeekStart = subtractDays(currentWeekStart, 7)
+  const currentWeekKey = toIsoDateKey(currentWeekStart)
+  const previousWeekKey = toIsoDateKey(previousWeekStart)
+
+  const currentWeekReport =
+    weeklyRows.find((row) => row.weekStartDate === currentWeekKey) ?? null
+  const previousWeekReport =
+    weeklyRows.find((row) => row.weekStartDate === previousWeekKey) ?? null
+
+  const currentWeekSnapshot = currentWeekReport
+    ? {
+        label: "This Week",
+        answeredCount: currentWeekReport.answeredCount,
+        correctCount: currentWeekReport.correctCount,
+        incorrectCount: currentWeekReport.incorrectCount,
+        accuracyRate: currentWeekReport.accuracyRate,
+        studyMinutes: currentWeekReport.studyMinutes,
+        completedMaterials: currentWeekReport.completedMaterials,
+        earnedAchievementsCount: currentWeekReport.earnedAchievementsCount,
+        activeDaysCount: currentWeekReport.activeDaysCount,
+        averageScore: currentWeekReport.averageScore,
+      }
+    : buildDashboardSnapshot(
+        "This Week",
+        dailyRows.filter((row) => row.weekStartDate === currentWeekKey)
+      )
+  const previousWeekSnapshot = previousWeekReport
+    ? {
+        label: "Last Week",
+        answeredCount: previousWeekReport.answeredCount,
+        correctCount: previousWeekReport.correctCount,
+        incorrectCount: previousWeekReport.incorrectCount,
+        accuracyRate: previousWeekReport.accuracyRate,
+        studyMinutes: previousWeekReport.studyMinutes,
+        completedMaterials: previousWeekReport.completedMaterials,
+        earnedAchievementsCount: previousWeekReport.earnedAchievementsCount,
+        activeDaysCount: previousWeekReport.activeDaysCount,
+        averageScore: previousWeekReport.averageScore,
+      }
+    : buildDashboardSnapshot(
+        "Last Week",
+        dailyRows.filter((row) => row.weekStartDate === previousWeekKey)
+      )
+
+  const currentMonthDate = new Date(today.getFullYear(), today.getMonth(), 1)
+  const previousMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+  const currentMonthSnapshot = buildDashboardSnapshot(
+    "This Month",
+    filterRowsByMonth(dailyRows, currentMonthDate.getFullYear(), currentMonthDate.getMonth())
+  )
+  const previousMonthSnapshot = buildDashboardSnapshot(
+    "Last Month",
+    filterRowsByMonth(
+      dailyRows,
+      previousMonthDate.getFullYear(),
+      previousMonthDate.getMonth()
+    )
+  )
+
+  const globalProgress =
+    progressRows.find(
+      (row) =>
+        row.subjectId === GLOBAL_PROGRESS_SUBJECT_ID &&
+        row.topicId === GLOBAL_PROGRESS_TOPIC_ID
+    ) ?? null
+
+  return {
+    weekOverWeek: buildTrendSnapshot({
+      label: "Week over Week",
+      currentLabel: "This Week",
+      previousLabel: "Last Week",
+      current: currentWeekSnapshot,
+      previous: previousWeekSnapshot,
+    }),
+    monthOverMonth: buildTrendSnapshot({
+      label: "Month over Month",
+      currentLabel: formatMonthLabel(currentMonthDate),
+      previousLabel: formatMonthLabel(previousMonthDate),
+      current: currentMonthSnapshot,
+      previous: previousMonthSnapshot,
+    }),
+    consistency: {
+      currentWeekActiveDays: currentWeekSnapshot.activeDaysCount,
+      targetActiveDays: 5,
+      remainingDaysToGoal: Math.max(5 - currentWeekSnapshot.activeDaysCount, 0),
+      currentStreak: globalProgress?.dayStreak ?? 0,
+      weeklyAverageScore: globalProgress?.weeklyAverageScore ?? 0,
+    },
+    strongestSubject,
+    weakestSubject,
+    focusSubjects: [...focusableSubjects]
+      .sort((left, right) => left.correctPercent - right.correctPercent)
+      .slice(0, 3),
+    recentAchievements: achievements.map((achievement) => ({
+      id: achievement.$id,
+      title: achievement.title,
+      description: achievement.description ?? null,
+      earnedAt: achievement.earnedAt,
+      achievementType: achievement.achievementType,
+      badgeKey: achievement.badgeKey ?? null,
+    })),
   }
 }

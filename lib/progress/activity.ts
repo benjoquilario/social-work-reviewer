@@ -1,14 +1,18 @@
-import { COLLECTIONS, DB_ID, ID, Query, tablesDB } from "../appwrite"
+import { COLLECTIONS, DB_ID, Query, tablesDB } from "../appwrite"
 import type {
   LearningAchievementDocument,
   LearningHistoryDocument,
+  UserDailyActivityDocument,
   UserProgressDocument,
+  UserWeeklyReportDocument,
 } from "../schema"
 import { ACTIVITY_QUERY_LIMIT, GLOBAL_PROGRESS_SUBJECT_ID, GLOBAL_PROGRESS_TOPIC_ID, HISTORY_QUERY_LIMIT } from "./constants"
 import { awardMilestoneIfEligible } from "./milestones"
+import { getQuizSessionTitle, listUserQuizSessions } from "./quiz-sessions"
 import type {
   AchievementProfileSnapshot,
   ActivityFeedOptions,
+  RecordDailyActivityParams,
   UpsertUserProgressParams,
   UserActivityFeed,
   UserProgressSummary,
@@ -17,10 +21,18 @@ import type {
 } from "./types"
 import {
   computeNextDayStreak,
+  buildDeterministicRowId,
   fetchEntityTitleMap,
   fallbackEntityLabel,
+  getWeekEndDateKey,
+  getWeekStartDateKey,
+  getRowByIdSafe,
+  isSameUtcDay,
+  isAppwriteConflictError,
   listFirstRow,
   resolveAverageScoreValues,
+  sumNumbers,
+  toIsoDateKey,
   uniqueStrings,
   mapLearningHistoryRowsToActivityItems,
 } from "./utils"
@@ -30,6 +42,40 @@ export async function findUserProgressRow(
   subjectId: string,
   topicId: string
 ) {
+  const rowId = buildUserProgressRowId({
+    userId,
+    subjectId,
+    topicId,
+    questionnaireKey: null,
+    completedMaterials: 0,
+    averageScore: 0,
+    lastStudied: "",
+    lastQuestionId: null,
+    lastQuestionIndex: 0,
+    score: 0,
+    answeredCount: 0,
+    correctCount: 0,
+    incorrectCount: 0,
+    accuracyRate: 0,
+    lastSourceQuestionId: null,
+    answeredQuestionIds: [],
+    setName: "Set A",
+    dayStreak: 0,
+    weeklyAverageScore: 0,
+    lastActiveAt: "",
+    totalStudyMinutes: 0,
+    activeDaysCount: 0,
+    achievementsCount: 0,
+  })
+  const directRow = await getRowByIdSafe<UserProgressDocument>(
+    COLLECTIONS.USER_PROGRESS,
+    rowId
+  )
+
+  if (directRow) {
+    return directRow
+  }
+
   return listFirstRow<UserProgressDocument>(COLLECTIONS.USER_PROGRESS, [
     Query.equal("userId", userId),
     Query.equal("subjectId", subjectId),
@@ -43,30 +89,81 @@ export function buildUserProgressUpsertData(
   existing: UserProgressDocument | null,
   nowIso: string
 ): UserProgressUpsertData {
+  const answeredCount = Math.max(
+    0,
+    (existing?.answeredCount ?? 0) + (params.answeredCountDelta ?? 0)
+  )
+  const correctCount = Math.max(
+    0,
+    (existing?.correctCount ?? 0) + (params.correctCountDelta ?? 0)
+  )
+  const incorrectCount = Math.max(
+    0,
+    (existing?.incorrectCount ?? 0) + (params.incorrectCountDelta ?? 0)
+  )
   const completedMaterials = Math.max(
     0,
     (existing?.completedMaterials ?? 0) + (params.completedMaterialsDelta ?? 0)
+  )
+  const score = Math.max(0, (existing?.score ?? 0) + (params.scoreDelta ?? 0))
+  const totalStudyMinutes = Math.max(
+    0,
+    (existing?.totalStudyMinutes ?? 0) + (params.totalStudyMinutesDelta ?? 0)
+  )
+  const achievementsCount = Math.max(
+    0,
+    (existing?.achievementsCount ?? 0) + (params.achievementsCountDelta ?? 0)
   )
   const dayStreak = computeNextDayStreak(
     existing?.dayStreak ?? 0,
     existing?.lastActiveAt,
     nowIso
   )
+  const activeDaysCount = isSameUtcDay(existing?.lastActiveAt, nowIso)
+    ? existing?.activeDaysCount ?? 0
+    : (existing?.activeDaysCount ?? 0) + 1
   const { averageScore, weeklyAverageScore } = resolveAverageScoreValues(
     existing,
     params.averageScore
   )
+  const answeredQuestionIds = uniqueStrings([
+    ...(existing?.answeredQuestionIds ?? []),
+    ...(params.answeredQuestionIdsToAdd ?? []),
+  ])
+  const accuracyRate =
+    answeredCount > 0
+      ? Math.round((correctCount / answeredCount) * 10000) / 100
+      : existing?.accuracyRate ?? 0
 
   return {
     userId: params.userId,
     subjectId: params.subjectId,
     topicId: params.topicId,
+    questionnaireKey:
+      params.questionnaireKey ?? existing?.questionnaireKey ?? null,
     completedMaterials,
     averageScore,
     lastStudied: nowIso,
+    lastQuestionId: params.lastQuestionId ?? existing?.lastQuestionId ?? null,
+    lastQuestionIndex: Math.max(
+      params.lastQuestionIndex ?? existing?.lastQuestionIndex ?? 0,
+      0
+    ),
+    score,
+    answeredCount,
+    correctCount,
+    incorrectCount,
+    accuracyRate,
+    lastSourceQuestionId:
+      params.lastSourceQuestionId ?? existing?.lastSourceQuestionId ?? null,
+    answeredQuestionIds,
+    setName: params.setName ?? existing?.setName ?? "Set A",
     dayStreak,
     weeklyAverageScore,
     lastActiveAt: nowIso,
+    totalStudyMinutes,
+    activeDaysCount,
+    achievementsCount,
   }
 }
 
@@ -87,17 +184,27 @@ export async function updateExistingUserProgress(
   }
 }
 
+export function buildUserProgressRowId(progressData: UserProgressUpsertData) {
+  return buildDeterministicRowId("progress", [
+    progressData.userId,
+    progressData.subjectId,
+    progressData.topicId,
+  ])
+}
+
 export async function createUserProgressRow(progressData: UserProgressUpsertData) {
+  const rowId = buildUserProgressRowId(progressData)
+
   await tablesDB.createRow({
     databaseId: DB_ID,
     tableId: COLLECTIONS.USER_PROGRESS,
-    rowId: ID.unique(),
+    rowId,
     data: progressData,
   })
 
   return {
     ...progressData,
-    $id: "",
+    $id: rowId,
   }
 }
 
@@ -111,7 +218,32 @@ export async function upsertUserProgress(params: UpsertUserProgressParams) {
   const progressData = buildUserProgressUpsertData(params, existing, nowIso)
 
   if (!existing) {
-    return createUserProgressRow(progressData)
+    try {
+      return await createUserProgressRow(progressData)
+    } catch (error) {
+      if (!isAppwriteConflictError(error)) {
+        throw error
+      }
+
+      const createdByConcurrentRequest = await findUserProgressRow(
+        params.userId,
+        params.subjectId,
+        params.topicId
+      )
+
+      if (!createdByConcurrentRequest) {
+        throw error
+      }
+
+      return updateExistingUserProgress(
+        createdByConcurrentRequest,
+        buildUserProgressUpsertData(
+          params,
+          createdByConcurrentRequest,
+          nowIso
+        )
+      )
+    }
   }
 
   return updateExistingUserProgress(existing, progressData)
@@ -129,22 +261,267 @@ export async function touchGlobalActivity(params: {
     nowIso: params.nowIso,
   })
 
-  await awardMilestoneIfEligible({
+  const earnedAchievementsCount = await awardMilestoneIfEligible({
     configType: "streak",
     payload: {
       userId: params.userId,
       metricValue: progress.dayStreak,
       dayStreak: progress.dayStreak,
       weeklyAverageScore: progress.weeklyAverageScore,
+      metricKey: "study_streak",
+      badgeKey: `streak-${progress.dayStreak}`,
+      periodType: "lifetime",
       profileSnapshot: params.profileSnapshot,
     },
   })
 
-  return progress
+  if (earnedAchievementsCount > 0) {
+    const updatedProgress = await upsertUserProgress({
+      userId: params.userId,
+      subjectId: GLOBAL_PROGRESS_SUBJECT_ID,
+      topicId: GLOBAL_PROGRESS_TOPIC_ID,
+      nowIso: params.nowIso,
+      achievementsCountDelta: earnedAchievementsCount,
+    })
+
+    return {
+      ...updatedProgress,
+      earnedAchievementsCount,
+    }
+  }
+
+  return {
+    ...progress,
+    earnedAchievementsCount,
+  }
+}
+
+function buildUserDailyActivityRowId(userId: string, activityDate: string) {
+  return buildDeterministicRowId("daily", [userId, activityDate])
+}
+
+function buildUserWeeklyReportRowId(userId: string, weekStartDate: string) {
+  return buildDeterministicRowId("weekly", [userId, weekStartDate])
+}
+
+async function findUserDailyActivityRow(userId: string, activityDate: string) {
+  return getRowByIdSafe<UserDailyActivityDocument>(
+    COLLECTIONS.USER_DAILY_ACTIVITY,
+    buildUserDailyActivityRowId(userId, activityDate)
+  )
+}
+
+async function upsertUserDailyActivity(
+  params: RecordDailyActivityParams
+): Promise<UserDailyActivityDocument> {
+  const nowIso = params.nowIso ?? new Date().toISOString()
+  const activityDate = toIsoDateKey(nowIso)
+  const weekStartDate = getWeekStartDateKey(nowIso)
+  const existing = await findUserDailyActivityRow(params.userId, activityDate)
+  const answeredCount = Math.max(
+    0,
+    (existing?.answeredCount ?? 0) + params.counters.answeredCount
+  )
+  const correctCount = Math.max(
+    0,
+    (existing?.correctCount ?? 0) + params.counters.correctCount
+  )
+  const incorrectCount = Math.max(
+    0,
+    (existing?.incorrectCount ?? 0) + params.counters.incorrectCount
+  )
+  const accuracyRate =
+    answeredCount > 0 ? Math.round((correctCount / answeredCount) * 10000) / 100 : 0
+  const averageScore =
+    typeof params.counters.averageScore === "number"
+      ? params.counters.averageScore
+      : accuracyRate
+
+  const data = {
+    userId: params.userId,
+    activityDate,
+    weekStartDate,
+    subjectId: params.subjectId ?? existing?.subjectId ?? null,
+    topicId: params.topicId ?? existing?.topicId ?? null,
+    questionnaireKey:
+      params.questionnaireKey ?? existing?.questionnaireKey ?? null,
+    setName: params.setName ?? existing?.setName ?? "Set A",
+    answeredCount,
+    correctCount,
+    incorrectCount,
+    accuracyRate,
+    averageScore,
+    studyMinutes: Math.max(
+      0,
+      (existing?.studyMinutes ?? 0) + params.counters.studyMinutes
+    ),
+    completedMaterials: Math.max(
+      0,
+      (existing?.completedMaterials ?? 0) + params.counters.completedMaterials
+    ),
+    earnedAchievementsCount: Math.max(
+      0,
+      (existing?.earnedAchievementsCount ?? 0) +
+        params.counters.earnedAchievementsCount
+    ),
+    firstAnsweredAt:
+      existing?.firstAnsweredAt ??
+      (params.counters.answeredCount > 0 ? nowIso : null),
+    lastAnsweredAt:
+      params.counters.answeredCount > 0
+        ? nowIso
+        : existing?.lastAnsweredAt ?? null,
+    createdAt: existing?.createdAt ?? nowIso,
+  }
+
+  if (existing) {
+    await tablesDB.updateRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.USER_DAILY_ACTIVITY,
+      rowId: existing.$id,
+      data,
+    })
+
+    return {
+      ...existing,
+      ...data,
+    }
+  }
+
+  const rowId = buildUserDailyActivityRowId(params.userId, activityDate)
+  await tablesDB.createRow({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.USER_DAILY_ACTIVITY,
+    rowId,
+    data,
+  })
+
+  return {
+    $id: rowId,
+    $createdAt: nowIso,
+    $updatedAt: nowIso,
+    ...data,
+  }
+}
+
+export async function rebuildUserWeeklyReport(params: {
+  userId: string
+  weekStartDate: string
+  nowIso?: string
+}) {
+  const nowIso = params.nowIso ?? new Date().toISOString()
+  const weekStartDate = params.weekStartDate
+  const weekEndDate = getWeekEndDateKey(weekStartDate)
+  const [{ rows }, globalProgress] = await Promise.all([
+    tablesDB.listRows({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.USER_DAILY_ACTIVITY,
+      queries: [
+        Query.equal("userId", params.userId),
+        Query.equal("weekStartDate", weekStartDate),
+        Query.limit(20),
+      ],
+    }),
+    findUserProgressRow(
+      params.userId,
+      GLOBAL_PROGRESS_SUBJECT_ID,
+      GLOBAL_PROGRESS_TOPIC_ID
+    ),
+  ])
+
+  const dailyRows = rows as unknown as UserDailyActivityDocument[]
+  const answeredCount = sumNumbers(dailyRows.map((row) => row.answeredCount))
+  const correctCount = sumNumbers(dailyRows.map((row) => row.correctCount))
+  const incorrectCount = sumNumbers(dailyRows.map((row) => row.incorrectCount))
+  const completedMaterials = sumNumbers(
+    dailyRows.map((row) => row.completedMaterials)
+  )
+  const earnedAchievementsCount = sumNumbers(
+    dailyRows.map((row) => row.earnedAchievementsCount)
+  )
+  const studyMinutes = sumNumbers(dailyRows.map((row) => row.studyMinutes))
+  const activeDaysCount = dailyRows.filter(
+    (row) =>
+      row.answeredCount > 0 || row.studyMinutes > 0 || row.completedMaterials > 0
+  ).length
+  const accuracyRate =
+    answeredCount > 0 ? Math.round((correctCount / answeredCount) * 10000) / 100 : 0
+  const averageScore = accuracyRate
+  const data = {
+    userId: params.userId,
+    weekStartDate,
+    weekEndDate,
+    subjectId: null,
+    topicId: null,
+    questionnaireKey: null,
+    answeredCount,
+    correctCount,
+    incorrectCount,
+    accuracyRate,
+    averageScore,
+    studyMinutes,
+    activeDaysCount,
+    completedMaterials,
+    earnedAchievementsCount,
+    dayStreak: globalProgress?.dayStreak ?? 0,
+    generatedAt: nowIso,
+  }
+
+  const rowId = buildUserWeeklyReportRowId(params.userId, weekStartDate)
+  const existing = await getRowByIdSafe<UserWeeklyReportDocument>(
+    COLLECTIONS.USER_WEEKLY_REPORTS,
+    rowId
+  )
+
+  if (existing) {
+    await tablesDB.updateRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.USER_WEEKLY_REPORTS,
+      rowId,
+      data,
+    })
+
+    return {
+      ...existing,
+      ...data,
+    }
+  }
+
+  await tablesDB.createRow({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.USER_WEEKLY_REPORTS,
+    rowId,
+    data,
+  })
+
+  return {
+    $id: rowId,
+    $createdAt: nowIso,
+    $updatedAt: nowIso,
+    ...data,
+  }
+}
+
+export async function recordDailyActivity(params: RecordDailyActivityParams) {
+  const nowIso = params.nowIso ?? new Date().toISOString()
+  const dailyRow = await upsertUserDailyActivity({
+    ...params,
+    nowIso,
+  })
+  const weeklyReport = await rebuildUserWeeklyReport({
+    userId: params.userId,
+    weekStartDate: dailyRow.weekStartDate,
+    nowIso,
+  })
+
+  return {
+    dailyRow,
+    weeklyReport,
+  }
 }
 
 export async function countCompletedMaterials(payload: { userId: string }) {
-  const { rows } = await tablesDB.listRows({
+  const { rows, total } = await tablesDB.listRows({
     databaseId: DB_ID,
     tableId: COLLECTIONS.LEARNING_HISTORY,
     queries: [
@@ -155,21 +532,24 @@ export async function countCompletedMaterials(payload: { userId: string }) {
   })
 
   const completedHistory = rows as unknown as LearningHistoryDocument[]
+
+  // Warn when the result hits the 500-row ceiling so the truncation is
+  // visible in logs rather than silently returning an under-count.
+  // Long-term fix: maintain a completedMaterialCount counter on the
+  // global user_progress row and increment it on material completion.
+  if (total > 500) {
+    console.warn(
+      `[progress] countCompletedMaterials: userId=${payload.userId} has ${total} completed history rows — result is truncated at 500. Consider maintaining a denormalized counter.`
+    )
+  }
+
   return uniqueStrings(completedHistory.map((row) => row.learningMaterialId)).length
 }
 
-export async function countCompletedQuizzes(payload: { userId: string }) {
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.EXAM_ATTEMPTS,
-    queries: [
-      Query.equal("userId", payload.userId),
-      Query.equal("status", "done"),
-      Query.limit(500),
-    ],
-  })
 
-  return rows.length
+export async function countCompletedQuizzes(payload: { userId: string }) {
+  const sessions = await listUserQuizSessions({ userId: payload.userId })
+  return sessions.filter((session) => session.status === "done").length
 }
 
 export async function getUserActivityFeed(
@@ -181,7 +561,7 @@ export async function getUserActivityFeed(
   const learningHistoryLimit = Math.floor(Math.min(Math.max(options.learningHistoryLimit ?? 8, 1), 100))
   const achievementsLimit = Math.floor(Math.min(Math.max(options.achievementsLimit ?? 8, 1), 100))
 
-  const [progressRowsResult, attemptsResult, historyResult, achievementsResult] =
+  const [progressRowsResult, quizSessions, historyResult, achievementsResult] =
     await Promise.all([
       tablesDB.listRows({
         databaseId: DB_ID,
@@ -192,15 +572,7 @@ export async function getUserActivityFeed(
           Query.limit(500),
         ],
       }),
-      tablesDB.listRows({
-        databaseId: DB_ID,
-        tableId: COLLECTIONS.EXAM_ATTEMPTS,
-        queries: [
-          Query.equal("userId", userId),
-          Query.orderDesc("$updatedAt"),
-          Query.limit(Math.min(quizAttemptsLimit + 1, HISTORY_QUERY_LIMIT)),
-        ],
-      }),
+      listUserQuizSessions({ userId }),
       tablesDB.listRows({
         databaseId: DB_ID,
         tableId: COLLECTIONS.LEARNING_HISTORY,
@@ -222,15 +594,14 @@ export async function getUserActivityFeed(
     ])
 
   const progressRows = progressRowsResult.rows as unknown as UserProgressDocument[]
-  const attempts = attemptsResult.rows as unknown as ExamAttempt[]
   const historyRows = historyResult.rows as unknown as LearningHistoryDocument[]
   const achievements = achievementsResult.rows as unknown as LearningAchievementDocument[]
   
-  const displayAttempts = attempts.slice(0, quizAttemptsLimit)
+  const displayAttempts = quizSessions.slice(0, quizAttemptsLimit)
   const displayHistory = historyRows.slice(0, learningHistoryLimit)
   const displayAchievements = achievements.slice(0, achievementsLimit)
   
-  const quizAttemptsHasMore = attempts.length > quizAttemptsLimit
+  const quizAttemptsHasMore = quizSessions.length > quizAttemptsLimit
   const learningHistoryHasMore = historyRows.length > learningHistoryLimit
   const achievementsHasMore = achievements.length > achievementsLimit
   
@@ -268,11 +639,10 @@ export async function getUserActivityFeed(
           }, 0) / doneAttempts.length
         )
 
-  const [completedMaterials, completedQuizzes, examTitleMap, materialTitleMap] =
+  const [completedMaterials, completedQuizzes, materialTitleMap] =
     await Promise.all([
       countCompletedMaterials({ userId }),
       countCompletedQuizzes({ userId }),
-      fetchEntityTitleMap({ collectionId: COLLECTIONS.EXAMS, entityIds: uniqueStrings(displayAttempts.map((attempt) => attempt.examId)), fallbackPrefix: "Exam" }),
       fetchEntityTitleMap({ collectionId: COLLECTIONS.LEARNING_MATERIALS, entityIds: uniqueStrings(displayHistory.map((row) => row.learningMaterialId)), fallbackPrefix: "Material" }),
     ])
 
@@ -289,7 +659,7 @@ export async function getUserActivityFeed(
     quizAttempts: displayAttempts.map((attempt) => ({
       id: attempt.$id,
       examId: attempt.examId,
-      examTitle: examTitleMap.get(attempt.examId) ?? fallbackEntityLabel("Exam", attempt.examId),
+      examTitle: getQuizSessionTitle(attempt),
       score: attempt.score,
       totalItems: attempt.totalItems,
       percent: attempt.totalItems > 0 ? Math.round((attempt.score / attempt.totalItems) * 100) : 0,

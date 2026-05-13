@@ -2,14 +2,8 @@ import { useMemo } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list"
 import { useQuery } from "@tanstack/react-query"
-import { useRouter } from "expo-router"
-import {
-  ArrowLeft,
-  ChevronRight,
-  FileQuestion,
-  ListChecks,
-  LockKeyhole,
-} from "lucide-react-native"
+import { Stack, useRouter } from "expo-router"
+import { ChevronRight, FileQuestion, ListChecks } from "lucide-react-native"
 import { Pressable, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
@@ -22,7 +16,6 @@ import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
-import { AppShellHeader } from "@/components/app-shell-header"
 
 const LIST_CONTENT_STYLE = { paddingHorizontal: 16, paddingVertical: 16 }
 
@@ -75,7 +68,7 @@ function BoardExamCategoryCard({
               </View>
               <Text className="text-[12px] leading-5 text-muted-foreground">
                 {category.description ||
-                  "Board exam category with curated sets and answer keys."}
+                  "Practice questions and review sets for board exam preparation."}
               </Text>
             </View>
 
@@ -105,7 +98,7 @@ function BoardExamCategoryCard({
             ) : null}
           </View>
 
-          {category.isLocked ? (
+          {/* {category.premiumQuestionCount > 0 ? (
             <View
               className="flex-row items-center gap-1.5 self-start rounded-full px-3 py-1"
               style={{ backgroundColor: withOpacity(theme.accent, 0.12) }}
@@ -115,10 +108,10 @@ function BoardExamCategoryCard({
                 className="text-[10px] font-black uppercase tracking-[1.1px]"
                 style={{ color: theme.accent }}
               >
-                Premium category for free users
+                {category.freeQuestionCount} free · {category.premiumQuestionCount} premium
               </Text>
             </View>
-          ) : null}
+          ) : null} */}
         </CardContent>
       </Card>
     </Pressable>
@@ -142,33 +135,11 @@ export default function BoardExamCategoriesScreen() {
     [categoriesQuery.data]
   )
 
-  const stats = useMemo(
-    () => [
-      { label: "Categories", value: String(categories.length) },
-      {
-        label: "Sets",
-        value: String(
-          categories.reduce((total, category) => total + category.setCount, 0)
-        ),
-      },
-      {
-        label: "Visible",
-        value: String(
-          categories.reduce(
-            (total, category) => total + category.availableQuestionCount,
-            0
-          )
-        ),
-      },
-    ],
-    [categories]
-  )
-
   const errorMessage =
     categoriesQuery.error instanceof Error
       ? categoriesQuery.error.message
       : categoriesQuery.error
-        ? "Unable to load board exam categories from Appwrite."
+        ? "Unable to load board exam categories. Please try again later."
         : null
 
   const renderCategory = ({
@@ -187,59 +158,38 @@ export default function BoardExamCategoriesScreen() {
   )
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView edges={["left", "right", "bottom"]} className="flex-1 bg-background">
+      <Stack.Screen options={{ title: "Board Exams" }} />
       <FlashList
         data={categories}
+        extraData={theme}
         keyExtractor={(item) => item.id}
         renderItem={renderCategory}
         contentContainerStyle={LIST_CONTENT_STYLE}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View className="h-3" />}
         ListHeaderComponent={
-          <View className="gap-3 pb-4">
-            <Pressable
-              className="h-10 flex-row items-center gap-2 rounded-2xl px-3"
-              style={{
-                borderWidth: 1,
-                borderColor: theme.border,
-                backgroundColor: theme.card,
-                alignSelf: "flex-start",
-              }}
-              onPress={() => router.push("/")}
-            >
-              <ArrowLeft size={15} color={theme.primary} />
-              <Text className="text-[12px] font-bold text-primary">Home</Text>
-            </Pressable>
-
-            <AppShellHeader
-              eyebrow="Board Exams"
-              title="Choose a Category"
-              subtitle="Open a board exam category, choose a set, select a mode, and take a timed exam."
-              avatarLabel="BE"
-              badgeLabel="Library"
-              badgeValue={`${categories.length} categories`}
-              stats={stats}
-              compact
-            />
-
+          <View className="pb-3">
             {categoriesQuery.isLoading ? (
-              <View className="gap-3">
-                <Skeleton className="h-32 rounded-3xl" />
-                <Skeleton className="h-32 rounded-3xl" />
+              <View className="gap-3 px-4">
+                <Skeleton className="h-24 rounded-2xl" />
+                <Skeleton className="h-24 rounded-2xl" />
               </View>
             ) : null}
 
             {errorMessage ? (
-              <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-                <CardContent className="gap-1.5 px-4 py-3.5">
-                  <Text className="text-[13px] font-black text-destructive">
-                    Board exam categories unavailable
-                  </Text>
-                  <Text className="text-[12px] leading-5 text-muted-foreground">
-                    {errorMessage}
-                  </Text>
-                </CardContent>
-              </Card>
+              <View className="px-4">
+                <Card style={{ borderWidth: 1, borderColor: theme.border }}>
+                  <CardContent className="gap-1.5 px-4 py-3.5">
+                    <Text className="text-[13px] font-black text-destructive">
+                      Board exam categories unavailable
+                    </Text>
+                    <Text className="text-[12px] leading-5 text-muted-foreground">
+                      {errorMessage}
+                    </Text>
+                  </CardContent>
+                </Card>
+              </View>
             ) : null}
           </View>
         }
@@ -251,8 +201,8 @@ export default function BoardExamCategoriesScreen() {
                   No board exam categories yet
                 </Text>
                 <Text className="text-[12px] leading-5 text-muted-foreground">
-                  Add board exam category, set, question, and choice records in
-                  Appwrite to populate this screen.
+                  No board exam categories are available right now. Check back
+                  later for updates.
                 </Text>
               </CardContent>
             </Card>

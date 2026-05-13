@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useQuery } from "@tanstack/react-query"
-import { useLocalSearchParams, useRouter } from "expo-router"
+import { Stack, useLocalSearchParams, useRouter } from "expo-router"
 import {
-  ArrowLeft,
   Clock3,
+  Crown,
   FileQuestion,
   LockKeyhole,
   Play,
@@ -12,7 +12,7 @@ import {
 import { Pressable, TextInput, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import { getBoardExamSetDetail } from "@/lib/board-exams"
+import { FREE_QUESTION_LIMIT, getBoardExamSetDetail } from "@/lib/board-exams"
 import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Button } from "@/components/ui/button"
@@ -20,7 +20,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
-import { AppShellHeader } from "@/components/app-shell-header"
 
 const MODE_CARD_STYLE = "rounded-[24px]"
 
@@ -181,26 +180,11 @@ export default function BoardExamSetDetailScreen() {
   const [selectedModeId, setSelectedModeId] = useState<string | null>(null)
   const [customMinutesDraft, setCustomMinutesDraft] = useState("180")
 
-  const stats = useMemo(
-    () => [
-      { label: "Questions", value: String(questions.length) },
-      {
-        label: "Type",
-        value: String(set?.questionType ?? "Board"),
-      },
-      {
-        label: "Hidden",
-        value: String(hiddenPremiumQuestionCount),
-      },
-    ],
-    [hiddenPremiumQuestionCount, questions.length, set?.questionType]
-  )
-
   const errorMessage =
     setDetailQuery.error instanceof Error
       ? setDetailQuery.error.message
       : setDetailQuery.error
-        ? "Unable to load board exam questions from Appwrite."
+        ? "Unable to load board exam questions. Please try again later."
         : null
 
   const modeCards = useMemo(
@@ -253,46 +237,16 @@ export default function BoardExamSetDetailScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView edges={["left", "right", "bottom"]} className="flex-1 bg-background">
+      <Stack.Screen options={{ title: set?.title ?? "Choose Mode" }} />
       <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="gap-3 px-4 pb-8 pt-4"
+        contentContainerClassName="gap-3 px-4 pb-8 pt-2"
         showsVerticalScrollIndicator={false}
       >
-        <Pressable
-          className="h-10 flex-row items-center gap-2 rounded-2xl px-3"
-          style={{
-            borderWidth: 1,
-            borderColor: theme.border,
-            backgroundColor: theme.card,
-            alignSelf: "flex-start",
-          }}
-          onPress={() =>
-            router.push({
-              pathname: "/board-exams/[categoryId]",
-              params: { categoryId },
-            })
-          }
-        >
-          <ArrowLeft size={15} color={theme.primary} />
-          <Text className="text-[12px] font-bold text-primary">Sets</Text>
-        </Pressable>
-
-        <AppShellHeader
-          eyebrow="Board Exams"
-          title={set?.title ?? "Choose Mode"}
-          subtitle={`Category: ${category?.title ?? "Board Exam"}. Choose a timed mode and answer each question before moving forward.`}
-          avatarLabel="MODE"
-          badgeLabel="Set"
-          badgeValue={set?.setCode ?? "Selection"}
-          stats={stats}
-          compact
-        />
-
         {setDetailQuery.isLoading ? (
           <View className="gap-3">
-            <Skeleton className="h-36 rounded-3xl" />
-            <Skeleton className="h-36 rounded-3xl" />
+            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
           </View>
         ) : null}
 
@@ -313,29 +267,59 @@ export default function BoardExamSetDetailScreen() {
           <Card
             style={{
               borderWidth: 1,
-              borderColor: withOpacity(theme.accent, 0.32),
-              backgroundColor: withOpacity(theme.accent, 0.08),
+              borderColor: theme.border,
+              // backgroundColor: withOpacity(theme.accent, 0.08),
             }}
           >
-            <CardContent className="gap-1.5 px-4 py-3.5">
+            <CardContent className="gap-3 px-4 py-3.5">
               <View className="flex-row items-center gap-2">
                 <LockKeyhole size={14} color={theme.accent} />
                 <Text
                   className="text-[11px] font-black uppercase tracking-[1.1px]"
                   style={{ color: theme.accent }}
                 >
-                  Premium visibility note
+                  Free Preview
                 </Text>
               </View>
-              <Text className="text-[12px] leading-5 text-muted-foreground">
-                {hiddenPremiumQuestionCount} questions are hidden for free users
-                in this set.
+              <Text className="text-[13px] font-bold text-card-foreground">
+                You have access to {visibleQuestionCount} of{" "}
+                {visibleQuestionCount + hiddenPremiumQuestionCount} questions
               </Text>
+              <Text className="text-[12px] leading-5 text-muted-foreground">
+                Free users can answer up to {FREE_QUESTION_LIMIT} questions per
+                set. Upgrade to Premium to unlock all{" "}
+                {hiddenPremiumQuestionCount} remaining questions and access
+                every mode.
+              </Text>
+              <Pressable
+                className="mt-1 h-11 flex-row items-center justify-center gap-2 rounded-2xl"
+                style={{
+                  backgroundColor: theme.accent,
+                }}
+                onPress={() =>
+                  router.push({
+                    pathname: "/premium",
+                    params: {
+                      source: "exam",
+                      title: set?.title ?? "Board Exam Set",
+                      categoryId,
+                    },
+                  })
+                }
+              >
+                <Crown size={15} color={theme.accentForeground} />
+                <Text
+                  className="text-[13px] font-black"
+                  style={{ color: theme.accentForeground }}
+                >
+                  Unlock All Questions
+                </Text>
+              </Pressable>
             </CardContent>
           </Card>
         ) : null}
 
-        {!setDetailQuery.isLoading && !errorMessage && set ? (
+        {/* {!setDetailQuery.isLoading && !errorMessage && set ? (
           <Card style={{ borderWidth: 1, borderColor: theme.border }}>
             <CardContent className="gap-1.5 px-4 py-3.5">
               <Text className="text-[13px] font-bold text-card-foreground">
@@ -348,7 +332,7 @@ export default function BoardExamSetDetailScreen() {
               </Text>
             </CardContent>
           </Card>
-        ) : null}
+        ) : null} */}
         {!setDetailQuery.isLoading && !errorMessage ? (
           <View className="gap-3">
             {modeCards.map((preset) => (
@@ -385,10 +369,7 @@ export default function BoardExamSetDetailScreen() {
                     className="rounded-2xl border px-4 py-3 text-sm text-foreground"
                     style={{
                       borderColor: theme.border,
-                      backgroundColor:
-                        colorScheme === "dark"
-                          ? "hsl(240 10% 14%)"
-                          : "hsl(243 30% 97%)",
+                      backgroundColor: theme.input,
                       color: theme.foreground,
                       fontFamily: "PlusJakartaSans_500Medium",
                     }}
@@ -406,8 +387,8 @@ export default function BoardExamSetDetailScreen() {
                     No visible questions in this set
                   </Text>
                   <Text className="text-[12px] leading-5 text-muted-foreground">
-                    Publish board exam questions and choices in Appwrite or
-                    check premium access to view locked content.
+                    No questions are available for this set yet. Check back
+                    later for updates.
                   </Text>
                 </CardContent>
               </Card>

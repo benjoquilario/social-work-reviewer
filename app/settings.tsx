@@ -110,7 +110,7 @@ function SettingsInput({
         style={{
           minHeight: 52,
           borderColor: theme.border,
-          backgroundColor: isDark ? "hsl(240 10% 14%)" : "hsl(243 30% 97%)",
+          backgroundColor: theme.input,
           fontFamily: "PlusJakartaSans_500Medium",
           color: theme.foreground,
         }}
@@ -500,8 +500,8 @@ export default function SettingsScreen() {
               disabled={isLoggingOut}
               style={
                 {
-                  borderColor: "hsl(0 84% 60% / 0.35)",
-                  backgroundColor: "hsl(0 84% 60% / 0.07)",
+                  borderColor: withOpacity(theme.destructive, 0.35),
+                  backgroundColor: withOpacity(theme.destructive, 0.07),
                 } as never
               }
             >

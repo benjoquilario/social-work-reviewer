@@ -1,7 +1,7 @@
 import { type ReactNode } from "react"
 import { View } from "react-native"
 
-import { THEME, withOpacity } from "@/lib/theme"
+import { THEME } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Text } from "@/components/ui/text"
 
@@ -13,7 +13,7 @@ type HeaderStat = {
 type AppShellHeaderProps = {
   eyebrow?: ReactNode
   title: ReactNode
-  subtitle: ReactNode
+  subtitle?: ReactNode
   avatarLabel?: string
   badgeLabel?: string
   badgeValue?: string
@@ -58,7 +58,7 @@ export function AppShellHeader({
           </Text>
         </View>
 
-        <View
+        {/* <View
           className="items-center gap-1.5 rounded-2xl px-3 py-2.5"
           style={{
             backgroundColor: withOpacity(theme.primary, 0.08),
@@ -82,9 +82,9 @@ export function AppShellHeader({
               {badgeValue}
             </Text>
           ) : null}
-        </View>
+        </View> */}
       </View>
-
+      {/* 
       {stats?.length ? (
         <View className="flex-row gap-2">
           {stats.slice(0, 3).map((stat) => (
@@ -104,7 +104,7 @@ export function AppShellHeader({
             </View>
           ))}
         </View>
-      ) : null}
+      ) : null} */}
     </View>
   )
 }

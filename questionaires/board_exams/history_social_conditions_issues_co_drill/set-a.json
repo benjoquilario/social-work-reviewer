@@ -1,0 +1,3704 @@
+{
+  "questionnaire": "history_social_conditions_issues_co_drill",
+  "set": "A",
+  "questionCount": 183,
+  "questions": [
+    {
+      "id": 1,
+      "type": "multiple_choice",
+      "question": "The term community organization originated in ____ where it meant the coordination of existing social services through joint planning \u0026 fund-raising.",
+      "options": [
+        {
+          "key": "A",
+          "text": "US"
+        },
+        {
+          "key": "B",
+          "text": "Manila"
+        },
+        {
+          "key": "C",
+          "text": "Spain"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "US"
+      }
+    },
+    {
+      "id": 2,
+      "type": "multiple_choice",
+      "question": "Daughters of charity were organized by ____ in 1633.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Fr. Vincent de Paul"
+        },
+        {
+          "key": "B",
+          "text": "Juan Luis De Vives"
+        },
+        {
+          "key": "C",
+          "text": "Franciscan Order"
+        },
+        {
+          "key": "D",
+          "text": "Benjamin Thompson"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Fr. Vincent de Paul"
+      }
+    },
+    {
+      "id": 3,
+      "type": "multiple_choice",
+      "question": "It became the main agency of medieval charity.",
+      "options": [
+        {
+          "key": "A",
+          "text": "hospital"
+        },
+        {
+          "key": "B",
+          "text": "foundations/charity"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "hospital"
+      }
+    },
+    {
+      "id": 4,
+      "type": "multiple_choice",
+      "question": "An Augustinian priest who proposed begging and a \"common chest\" for money, food and clothes for the needy be set up in all parishes.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Martin Luther"
+        },
+        {
+          "key": "B",
+          "text": "Martin Luther King"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Martin Luther"
+      }
+    },
+    {
+      "id": 5,
+      "type": "multiple_choice",
+      "question": "Recognized community legal responsibility for the poor but did little to change the social condition of poor families.",
+      "options": [
+        {
+          "key": "A",
+          "text": "common chest"
+        },
+        {
+          "key": "B",
+          "text": "community chest"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "common chest"
+      }
+    },
+    {
+      "id": 6,
+      "type": "multiple_choice",
+      "question": "Their teachings became the basis for charitable works.",
+      "options": [
+        {
+          "key": "A",
+          "text": "the Jewish \u0026 Christian"
+        },
+        {
+          "key": "B",
+          "text": "Religious devotion"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "the Jewish \u0026 Christian"
+      }
+    },
+    {
+      "id": 7,
+      "type": "multiple_choice",
+      "question": "Became the most powerful incentive for benevolence and charity.",
+      "options": [
+        {
+          "key": "A",
+          "text": "mutual protection/mutual aid/mutual assistance"
+        },
+        {
+          "key": "B",
+          "text": "Religious devotion"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Religious devotion"
+      }
+    },
+    {
+      "id": 8,
+      "type": "multiple_choice",
+      "question": "He divided the city into Parish quarters, assisting 2 senators with a secretary to investigate the social conditions of pauper families and providing aid through vocational training instead of customary distribution of alms. The faith of the individual poor deserve attention.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Fr. Vincent de Paul"
+        },
+        {
+          "key": "B",
+          "text": "Juan Luis De Vives"
+        },
+        {
+          "key": "C",
+          "text": "Franciscan Order"
+        },
+        {
+          "key": "D",
+          "text": "Benjamin Thompson"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Juan Luis De Vives"
+      }
+    },
+    {
+      "id": 9,
+      "type": "multiple_choice",
+      "question": "Founded military workhouse to prevent sturdy beggars from begging.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Fr. Vincent de Paul"
+        },
+        {
+          "key": "B",
+          "text": "Juan Luis De Vives"
+        },
+        {
+          "key": "C",
+          "text": "Franciscan Order"
+        },
+        {
+          "key": "D",
+          "text": "Benjamin Thompson"
+        }
+      ],
+      "answer": {
+        "key": "D",
+        "text": "Benjamin Thompson"
+      }
+    },
+    {
+      "id": 10,
+      "type": "multiple_choice",
+      "question": "Composed of young women who wanted to devote themselves to charitable works; forerunners of modern social casework.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Associated Charities"
+        },
+        {
+          "key": "B",
+          "text": "Daughters of Charities"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Daughters of Charities"
+      }
+    },
+    {
+      "id": 11,
+      "type": "multiple_choice",
+      "question": "Main motive of alms giving",
+      "options": [
+        {
+          "key": "A",
+          "text": "Passport to heaven to avoid hell"
+        },
+        {
+          "key": "B",
+          "text": "Salvation of soul with little concern to human being who received charity"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Salvation of soul with little concern to human being who received charity"
+      }
+    },
+    {
+      "id": 12,
+      "type": "multiple_choice",
+      "question": "Relief to destitute was first distributed by ____.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Franciscan Order"
+        },
+        {
+          "key": "B",
+          "text": "Priests"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Priests"
+      }
+    },
+    {
+      "id": 13,
+      "type": "multiple_choice",
+      "question": "12th – 15th century, relief activities of the church were supplemented by charities sponsored by guilds.",
+      "options": [
+        {
+          "key": "A",
+          "text": "True"
+        },
+        {
+          "key": "B",
+          "text": "False"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "True"
+      }
+    },
+    {
+      "id": 14,
+      "type": "multiple_choice",
+      "question": "The 1st Poor Law in England was based on national catastrophe called ____ in 1348.",
+      "options": [
+        {
+          "key": "A",
+          "text": "WWII"
+        },
+        {
+          "key": "B",
+          "text": "Black Death"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Black Death"
+      }
+    },
+    {
+      "id": 15,
+      "type": "multiple_choice",
+      "question": "He designed the Statute of Laborers to prevent vagrancy and begging, to force the rural workers to stay on the land.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Henry VIII"
+        },
+        {
+          "key": "B",
+          "text": "Edward III"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Edward III"
+      }
+    },
+    {
+      "id": 16,
+      "type": "multiple_choice",
+      "question": "He designed the 1st constructive measure taken by the government for relief of the poor, the law (Reformation) marked the beginning of public responsibility for the poor.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Charles II"
+        },
+        {
+          "key": "B",
+          "text": "Henry VIII"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Henry VIII"
+      }
+    },
+    {
+      "id": 17,
+      "type": "multiple_choice",
+      "question": "Codification of previous poor laws in England; made it compulsory for parishes to levy a \u0027poor rate\u0027 to fund financial support (\u0027public assistance\u0027) for those who could not work.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Elizabethan Poor Law of 1901"
+        },
+        {
+          "key": "B",
+          "text": "Elizabethan Poor Law of 1601"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Elizabethan Poor Law of 1601"
+      }
+    },
+    {
+      "id": 18,
+      "type": "multiple_choice",
+      "question": "\u0027sturdy beggars\u0027",
+      "options": [
+        {
+          "key": "A",
+          "text": "Able-bodied Poor"
+        },
+        {
+          "key": "B",
+          "text": "Impotent Poor"
+        },
+        {
+          "key": "C",
+          "text": "Dependent Poor"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Able-bodied Poor"
+      }
+    },
+    {
+      "id": 19,
+      "type": "multiple_choice",
+      "question": "people who were not able to work",
+      "options": [
+        {
+          "key": "A",
+          "text": "Able-bodied Poor"
+        },
+        {
+          "key": "B",
+          "text": "Impotent Poor"
+        },
+        {
+          "key": "C",
+          "text": "Dependent Poor"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Impotent Poor"
+      }
+    },
+    {
+      "id": 20,
+      "type": "multiple_choice",
+      "question": "orphans, foundling, children, deserted by parents or parents are poor.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Able-bodied Poor"
+        },
+        {
+          "key": "B",
+          "text": "Impotent Poor"
+        },
+        {
+          "key": "C",
+          "text": "Dependent Poor"
+        }
+      ],
+      "answer": {
+        "key": "C",
+        "text": "Dependent Poor"
+      }
+    },
+    {
+      "id": 21,
+      "type": "multiple_choice",
+      "question": "Enacted by Charles II to protect the community against additional burden created by poor persons moving in from communities.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Settlement Movement"
+        },
+        {
+          "key": "B",
+          "text": "Settlement Act of 1662"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Settlement Act of 1662"
+      }
+    },
+    {
+      "id": 22,
+      "type": "multiple_choice",
+      "question": "Stated that the state should not interfere with private economy.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Adam Smith"
+        },
+        {
+          "key": "B",
+          "text": "Thomas Malthus"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Adam Smith"
+      }
+    },
+    {
+      "id": 23,
+      "type": "multiple_choice",
+      "question": "He disapproved poor relief as it tended to encourage paupers to have more children to get relief for them.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Thomas Chalmers"
+        },
+        {
+          "key": "B",
+          "text": "Thomas Malthus"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Thomas Malthus"
+      }
+    },
+    {
+      "id": 24,
+      "type": "multiple_choice",
+      "question": "A Parish minister in Scotland ; principle of neighborly aid.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Thomas Chalmers"
+        },
+        {
+          "key": "B",
+          "text": "Thomas Malthus"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Thomas Chalmers"
+      }
+    },
+    {
+      "id": 25,
+      "type": "multiple_choice",
+      "question": "Laid the 1st foundation for individual approach in social work – casework.",
+      "options": [
+        {
+          "key": "A",
+          "text": "COS"
+        },
+        {
+          "key": "B",
+          "text": "London Charity Organization Society"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "London Charity Organization Society"
+      }
+    },
+    {
+      "id": 26,
+      "type": "multiple_choice",
+      "question": "The pioneer of public hygiene; developed a program against contagious disease.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Edwin Chadwick"
+        },
+        {
+          "key": "B",
+          "text": "Sir Robert Peel"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Edwin Chadwick"
+      }
+    },
+    {
+      "id": 27,
+      "type": "multiple_choice",
+      "question": "He initiated the Health and Moral Act of 1802, he objected the use of young children in labor work camp and textile mills.",
+      "options": [
+        {
+          "key": "A",
+          "text": "William Beveridge"
+        },
+        {
+          "key": "B",
+          "text": "Sir Robert Peel"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Sir Robert Peel"
+      }
+    },
+    {
+      "id": 28,
+      "type": "multiple_choice",
+      "question": "He devised a system of social security; 5 giant evils.",
+      "options": [
+        {
+          "key": "A",
+          "text": "William Beveridge"
+        },
+        {
+          "key": "B",
+          "text": "Sir Robert Peel"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "William Beveridge"
+      }
+    },
+    {
+      "id": 29,
+      "type": "multiple_choice",
+      "question": "The 1st hospital and was transferred to Manila in 1571 under the Franciscans; it was renamed Steinberg General Hospital; originator of SanLazaro and San Juan De Dios during American Period.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Hospicio de San Jose"
+        },
+        {
+          "key": "B",
+          "text": "Hospitalito de Santa Ana"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Hospitalito de Santa Ana"
+      }
+    },
+    {
+      "id": 30,
+      "type": "multiple_choice",
+      "question": "Hospital for lepers; was also built to house beggars; it started the concept of organized isolation of the sick – Fr. Juan Clemente.",
+      "options": [
+        {
+          "key": "A",
+          "text": "San Lazaro"
+        },
+        {
+          "key": "B",
+          "text": "San Juan De Dios"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "San Lazaro"
+      }
+    },
+    {
+      "id": 31,
+      "type": "multiple_choice",
+      "question": "Asylums that were organized ____ to take care of the victims of cholera epidemic, except one.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Nuestra Senora Dela Consolacion"
+        },
+        {
+          "key": "B",
+          "text": "Santo Tomas de Villanueva"
+        },
+        {
+          "key": "C",
+          "text": "Hospicio"
+        }
+      ],
+      "answer": {
+        "key": "C",
+        "text": "Hospicio"
+      }
+    },
+    {
+      "id": 32,
+      "type": "multiple_choice",
+      "question": "Established to house the aged, orphans, mentally defective and young boys requiring reform.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Hospicio de San Jose"
+        },
+        {
+          "key": "B",
+          "text": "Asilo de San Vicente"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Hospicio de San Jose"
+      }
+    },
+    {
+      "id": 33,
+      "type": "multiple_choice",
+      "question": "The 1st asylum for girls.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Parochial School of Cebu"
+        },
+        {
+          "key": "B",
+          "text": "Asilo de San Vicente"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Asilo de San Vicente"
+      }
+    },
+    {
+      "id": 34,
+      "type": "multiple_choice",
+      "question": "Parochial school of Cebu, the 1st school established by the ____.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Franciscans"
+        },
+        {
+          "key": "B",
+          "text": "Augustinians"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Augustinians"
+      }
+    },
+    {
+      "id": 35,
+      "type": "multiple_choice",
+      "question": "1st school for boys.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Colegio de San Felipe"
+        },
+        {
+          "key": "B",
+          "text": "Colegio de San Ignacio"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Colegio de San Ignacio"
+      }
+    },
+    {
+      "id": 36,
+      "type": "multiple_choice",
+      "question": "A religious order that provided leadership in nursing the wounded.",
+      "options": [
+        {
+          "key": "A",
+          "text": "COS"
+        },
+        {
+          "key": "B",
+          "text": "Hermanos"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Hermanos"
+      }
+    },
+    {
+      "id": 37,
+      "type": "multiple_choice",
+      "question": "When was PGH established?",
+      "options": [
+        {
+          "key": "A",
+          "text": "1902"
+        },
+        {
+          "key": "B",
+          "text": "1908"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "1908"
+      }
+    },
+    {
+      "id": 38,
+      "type": "multiple_choice",
+      "question": "Insular board was created on",
+      "options": [
+        {
+          "key": "A",
+          "text": "1910"
+        },
+        {
+          "key": "B",
+          "text": "1902"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "1902"
+      }
+    },
+    {
+      "id": 39,
+      "type": "multiple_choice",
+      "question": "La Gota de Leche gets fresh cow’s milk in ____.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Pasay Farm"
+        },
+        {
+          "key": "B",
+          "text": "Manila Farm"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Pasay Farm"
+      }
+    },
+    {
+      "id": 40,
+      "type": "multiple_choice",
+      "question": "When was PWB created?",
+      "options": [
+        {
+          "key": "A",
+          "text": "Feb 15, 1915"
+        },
+        {
+          "key": "B",
+          "text": "June 27, 2001"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Feb 15, 1915"
+      }
+    },
+    {
+      "id": 41,
+      "type": "multiple_choice",
+      "question": "On 1900, an attempt to alleviate the condition of deaf children started at",
+      "options": [
+        {
+          "key": "A",
+          "text": "Philippine Women University"
+        },
+        {
+          "key": "B",
+          "text": "Philippine Normal School"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Philippine Normal School"
+      }
+    },
+    {
+      "id": 42,
+      "type": "multiple_choice",
+      "question": "Association de Damas Filipinas was organized by ____.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Civic-spirited Women"
+        },
+        {
+          "key": "B",
+          "text": "Civic-spirited Men"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Civic-spirited Women"
+      }
+    },
+    {
+      "id": 43,
+      "type": "multiple_choice",
+      "question": "WWII existed from ____ during the Japanese Occupation period.",
+      "options": [
+        {
+          "key": "A",
+          "text": "1942-1944"
+        },
+        {
+          "key": "B",
+          "text": "1941-1944"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "1942-1944"
+      }
+    },
+    {
+      "id": 44,
+      "type": "multiple_choice",
+      "question": "Bureau of Public Welfare was reopened",
+      "options": [
+        {
+          "key": "A",
+          "text": "1946"
+        },
+        {
+          "key": "B",
+          "text": "1915"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "1946"
+      }
+    },
+    {
+      "id": 45,
+      "type": "multiple_choice",
+      "question": "On Nov 12, 1947, 8 social workers had gone to US to pursue formal social work education",
+      "options": [
+        {
+          "key": "A",
+          "text": "Nov 12, 1947"
+        },
+        {
+          "key": "B",
+          "text": "April 18, 1948"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Nov 12, 1947"
+      }
+    },
+    {
+      "id": 46,
+      "type": "multiple_choice",
+      "question": "When was Philippine Social Work Code of ethics adopted?",
+      "options": [
+        {
+          "key": "A",
+          "text": "November 24, 1964"
+        },
+        {
+          "key": "B",
+          "text": "Nov 12, 1947"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "November 24, 1964"
+      }
+    },
+    {
+      "id": 47,
+      "type": "multiple_choice",
+      "question": "Josefa Jara Martinez was the first director of what school?",
+      "options": [
+        {
+          "key": "A",
+          "text": "PWU"
+        },
+        {
+          "key": "B",
+          "text": "CEU"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "PWU"
+      }
+    },
+    {
+      "id": 48,
+      "type": "multiple_choice",
+      "question": "It created dissident movement (Central Luzon) which threatened the stability of government.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Feudalistic Tenancy"
+        },
+        {
+          "key": "B",
+          "text": "Feudalistic Movement"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Feudalistic Tenancy"
+      }
+    },
+    {
+      "id": 49,
+      "type": "multiple_choice",
+      "question": "PRATRA stands for",
+      "options": [
+        {
+          "key": "A",
+          "text": "Philippine Relief And Trade Rehabilitation Administration"
+        },
+        {
+          "key": "B",
+          "text": "Philippine Relief and Trade Rehabilitation Agency"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Philippine Relief And Trade Rehabilitation Administration"
+      }
+    },
+    {
+      "id": 50,
+      "type": "multiple_choice",
+      "question": "It became the underlying philosophy for rural community development projects by SWA.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Casework"
+        },
+        {
+          "key": "B",
+          "text": "Self-help"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Self-help"
+      }
+    },
+    {
+      "id": 51,
+      "type": "multiple_choice",
+      "question": "When did Marcos declare Martial Law?",
+      "options": [
+        {
+          "key": "A",
+          "text": "September 21, 1972"
+        },
+        {
+          "key": "B",
+          "text": "September 12, 1972"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "September 21, 1972"
+      }
+    },
+    {
+      "id": 52,
+      "type": "multiple_choice",
+      "question": "Baranganic approach originated in ____",
+      "options": [
+        {
+          "key": "A",
+          "text": "Davao"
+        },
+        {
+          "key": "B",
+          "text": "Manila"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Davao"
+      }
+    },
+    {
+      "id": 53,
+      "type": "multiple_choice",
+      "question": "On January 30, 1987, Pres. Aquino signed E.O. ____ reorganized MSSD to DSWD.",
+      "options": [
+        {
+          "key": "A",
+          "text": "123"
+        },
+        {
+          "key": "B",
+          "text": "143"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "123"
+      }
+    },
+    {
+      "id": 54,
+      "type": "multiple_choice",
+      "question": "Feel a physical loss of a part of the self.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Amputees"
+        },
+        {
+          "key": "B",
+          "text": "Handicapped"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Amputees"
+      }
+    },
+    {
+      "id": 55,
+      "type": "multiple_choice",
+      "question": "The ____ 1995-2025 (PPGD) is the government\u0027s 30 year perspective framework for pursuing full equality and development for women and men.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Philippine Plan for Gender-Responsive Development"
+        },
+        {
+          "key": "B",
+          "text": "Philippine Plan for Gender-Responsive Department"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Philippine Plan for Gender-Responsive Development"
+      }
+    },
+    {
+      "id": 56,
+      "type": "multiple_choice",
+      "question": "Developed by Max Weber",
+      "options": [
+        {
+          "key": "A",
+          "text": "Bureaucratic \u0026 Autocratic Model"
+        },
+        {
+          "key": "B",
+          "text": "Custodial Model"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Bureaucratic \u0026 Autocratic Model"
+      }
+    },
+    {
+      "id": 57,
+      "type": "multiple_choice",
+      "question": "____ setting up of the framework or structure of the different units of the system to carry out or perform distinct tasks for a \"specified objectives\".",
+      "options": [
+        {
+          "key": "A",
+          "text": "Management"
+        },
+        {
+          "key": "B",
+          "text": "Organization"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Organization"
+      }
+    },
+    {
+      "id": 58,
+      "type": "multiple_choice",
+      "question": "Woman who\u0027s enduring physical, romantic and/or emotional attraction is to other women",
+      "options": [
+        {
+          "key": "A",
+          "text": "Gay"
+        },
+        {
+          "key": "B",
+          "text": "Lesbian"
+        },
+        {
+          "key": "C",
+          "text": "Bisexual"
+        },
+        {
+          "key": "D",
+          "text": "Transgender"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Lesbian"
+      }
+    },
+    {
+      "id": 59,
+      "type": "multiple_choice",
+      "question": "____ is for people who have been convicted of a crime and have already served a portion of their prison sentence, ____ is a community supervision option that does not require the convicted person to spend time in jail.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Parole; Probation"
+        },
+        {
+          "key": "B",
+          "text": "Probation; Parole"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Parole; Probation"
+      }
+    },
+    {
+      "id": 60,
+      "type": "multiple_choice",
+      "question": "These are those persons whose enduring physical, romantic, and or emotional attractions are to people of the same sex.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Gay"
+        },
+        {
+          "key": "B",
+          "text": "Lesbian"
+        },
+        {
+          "key": "C",
+          "text": "Bisexual"
+        },
+        {
+          "key": "D",
+          "text": "Transgender"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Gay"
+      }
+    },
+    {
+      "id": 61,
+      "type": "multiple_choice",
+      "question": "A person who has the capacity to form enduring physical, romantic, and or emotional attractions to those of the same gender or to those of another gender.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Gay"
+        },
+        {
+          "key": "B",
+          "text": "Lesbian"
+        },
+        {
+          "key": "C",
+          "text": "Bisexual"
+        },
+        {
+          "key": "D",
+          "text": "Transgender"
+        }
+      ],
+      "answer": {
+        "key": "C",
+        "text": "Bisexual"
+      }
+    },
+    {
+      "id": 62,
+      "type": "multiple_choice",
+      "question": "An umbrella term for people whose gender identity and/or gender expression differs from what is typically associated with the sex they were assigned at birth.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Gay"
+        },
+        {
+          "key": "B",
+          "text": "Lesbian"
+        },
+        {
+          "key": "C",
+          "text": "Queer"
+        },
+        {
+          "key": "D",
+          "text": "Transgender"
+        }
+      ],
+      "answer": {
+        "key": "D",
+        "text": "Transgender"
+      }
+    },
+    {
+      "id": 63,
+      "type": "multiple_choice",
+      "question": "____ an adjective used by some people particularly younger people whose sexual orientation is not exclusively heterosexual.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Gay"
+        },
+        {
+          "key": "B",
+          "text": "Lesbian"
+        },
+        {
+          "key": "C",
+          "text": "Queer"
+        },
+        {
+          "key": "D",
+          "text": "Transgender"
+        }
+      ],
+      "answer": {
+        "key": "C",
+        "text": "Queer"
+      }
+    },
+    {
+      "id": 64,
+      "type": "multiple_choice",
+      "question": "According to the Philippine Statistics Authority, what was the national poverty incidence among families in the Philippines in 2023?",
+      "options": [
+        {
+          "key": "A",
+          "text": "10.9%"
+        },
+        {
+          "key": "B",
+          "text": "15.5%"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "10.9%"
+      }
+    },
+    {
+      "id": 65,
+      "type": "multiple_choice",
+      "question": "When did the Philippines gain independence from the United States?",
+      "options": [
+        {
+          "key": "A",
+          "text": "1946"
+        },
+        {
+          "key": "B",
+          "text": "1935"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "1946"
+      }
+    },
+    {
+      "id": 66,
+      "type": "multiple_choice",
+      "question": "As of the latest data, which sector employs the largest number of Filipino workers?",
+      "options": [
+        {
+          "key": "A",
+          "text": "Agriculture"
+        },
+        {
+          "key": "B",
+          "text": "Services"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Services"
+      }
+    },
+    {
+      "id": 67,
+      "type": "multiple_choice",
+      "question": "According to a 2024 U-Report poll by UNICEF, what was the top concern among Filipino youth?",
+      "options": [
+        {
+          "key": "A",
+          "text": "Climate change and natural disasters"
+        },
+        {
+          "key": "B",
+          "text": "Access to quality education"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Climate change and natural disasters"
+      }
+    },
+    {
+      "id": 68,
+      "type": "multiple_choice",
+      "question": "What year was the Philippine Social Welfare and Development Act (Republic Act No. 7160) enacted, which decentralizes social welfare services?",
+      "options": [
+        {
+          "key": "A",
+          "text": "1991"
+        },
+        {
+          "key": "B",
+          "text": "1992"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "1991"
+      }
+    },
+    {
+      "id": 69,
+      "type": "multiple_choice",
+      "question": "What is considered the main driver of population growth in the Philippines according to recent demographic studies?",
+      "options": [
+        {
+          "key": "A",
+          "text": "High mortality rate"
+        },
+        {
+          "key": "B",
+          "text": "High fertility rate"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "High fertility rate"
+      }
+    },
+    {
+      "id": 70,
+      "type": "multiple_choice",
+      "question": "What is the primary cause of poverty in the Philippines according to the 2023 Social Weather Stations (SWS) report?",
+      "options": [
+        {
+          "key": "A",
+          "text": "Lack of stable employment opportunities"
+        },
+        {
+          "key": "B",
+          "text": "High crime rates"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Lack of stable employment opportunities"
+      }
+    },
+    {
+      "id": 71,
+      "type": "multiple_choice",
+      "question": "What was the significance of the establishment of the Public Welfare Board in 1915 under the American regime in the Philippines?",
+      "options": [
+        {
+          "key": "A",
+          "text": "It marked the beginning of organized government social welfare efforts in the country."
+        },
+        {
+          "key": "B",
+          "text": "It was created solely to distribute foreign donations to disaster-stricken areas."
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "It marked the beginning of organized government social welfare efforts in the country."
+      }
+    },
+    {
+      "id": 72,
+      "type": "multiple_choice",
+      "question": "Which of the following is a key structural cause of poverty in the Philippines?",
+      "options": [
+        {
+          "key": "A",
+          "text": "Unequal distribution of wealth and limited access to basic social services."
+        },
+        {
+          "key": "B",
+          "text": "Laziness among poor households and their unwillingness to work."
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Unequal distribution of wealth and limited access to basic social services."
+      }
+    },
+    {
+      "id": 73,
+      "type": "multiple_choice",
+      "question": "Why is 1965 considered a milestone in the professionalization of social work in the Philippines?",
+      "options": [
+        {
+          "key": "A",
+          "text": "It was the year the Republic Act No. 4373 or the Social Work Law was enacted."
+        },
+        {
+          "key": "B",
+          "text": "It was the year when the first foreign-trained social workers arrived in the country."
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "It was the year the Republic Act No. 4373 or the Social Work Law was enacted."
+      }
+    },
+    {
+      "id": 74,
+      "type": "multiple_choice",
+      "question": "The charity organization period",
+      "options": [
+        {
+          "key": "A",
+          "text": "1870-1917"
+        },
+        {
+          "key": "B",
+          "text": "1917-1935"
+        },
+        {
+          "key": "C",
+          "text": "1935-1955"
+        },
+        {
+          "key": "D",
+          "text": "1955-1970"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "1870-1917"
+      }
+    },
+    {
+      "id": 75,
+      "type": "multiple_choice",
+      "question": "The rise of federation",
+      "options": [
+        {
+          "key": "A",
+          "text": "1917-1935"
+        },
+        {
+          "key": "B",
+          "text": "1870-1917"
+        },
+        {
+          "key": "C",
+          "text": "1935-1955"
+        },
+        {
+          "key": "D",
+          "text": "1955-1970"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "1917-1935"
+      }
+    },
+    {
+      "id": 76,
+      "type": "multiple_choice",
+      "question": "Expansion \u0026 Professional development",
+      "options": [
+        {
+          "key": "A",
+          "text": "1870-1917"
+        },
+        {
+          "key": "B",
+          "text": "1917-1935"
+        },
+        {
+          "key": "C",
+          "text": "1935-1955"
+        },
+        {
+          "key": "D",
+          "text": "1955-1970"
+        }
+      ],
+      "answer": {
+        "key": "D",
+        "text": "1955-1970"
+      }
+    },
+    {
+      "id": 77,
+      "type": "multiple_choice",
+      "question": "Community Organization \u0026 Social Change",
+      "options": [
+        {
+          "key": "A",
+          "text": "1970-present (implied/based on sequence)"
+        },
+        {
+          "key": "B",
+          "text": "Other"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "1970-present (implied/based on sequence)"
+      }
+    },
+    {
+      "id": 78,
+      "type": "multiple_choice",
+      "question": "Sustainable development paradigm started in the latter part of the 80\u0027s while its institutionalization took place in the 90\u0027s.",
+      "options": [
+        {
+          "key": "A",
+          "text": "True"
+        },
+        {
+          "key": "B",
+          "text": "False"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "True"
+      }
+    },
+    {
+      "id": 79,
+      "type": "multiple_choice",
+      "question": "Marked the advent of the women\u0027s movement in the Philippines",
+      "options": [
+        {
+          "key": "A",
+          "text": "1990s"
+        },
+        {
+          "key": "B",
+          "text": "1980s"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "1990s"
+      }
+    },
+    {
+      "id": 80,
+      "type": "multiple_choice",
+      "question": "CO is said to have started in the Philippines in the pre-colonial era in the form of",
+      "options": [
+        {
+          "key": "A",
+          "text": "Bayanihan \u0026 Damayan"
+        },
+        {
+          "key": "B",
+          "text": "Disaster Relief"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Bayanihan \u0026 Damayan"
+      }
+    },
+    {
+      "id": 81,
+      "type": "multiple_choice",
+      "question": "Associated charities was established in",
+      "options": [
+        {
+          "key": "A",
+          "text": "1917"
+        },
+        {
+          "key": "B",
+          "text": "1914"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "1917"
+      }
+    },
+    {
+      "id": 82,
+      "type": "multiple_choice",
+      "question": "ZOTO succeed to stop the construction of International Port in Tondo",
+      "options": [
+        {
+          "key": "A",
+          "text": "True"
+        },
+        {
+          "key": "B",
+          "text": "False"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "True"
+      }
+    },
+    {
+      "id": 83,
+      "type": "multiple_choice",
+      "question": "____ was among the dominant approach used to address the problems after WWII.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Disaster Relief"
+        },
+        {
+          "key": "B",
+          "text": "Alms Giving"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Disaster Relief"
+      }
+    },
+    {
+      "id": 84,
+      "type": "multiple_choice",
+      "question": "NGO\u0027s were using the tools of structural analysis and ____ as guiding frameworks (integrated methods).",
+      "options": [
+        {
+          "key": "A",
+          "text": "Dependency Theory"
+        },
+        {
+          "key": "B",
+          "text": "CO"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Dependency Theory"
+      }
+    },
+    {
+      "id": 85,
+      "type": "multiple_choice",
+      "question": "The ____ approach to management is one such strategy, in which the decision-making process occurs at the highest level and is then communicated to the rest of the team.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Top-down"
+        },
+        {
+          "key": "B",
+          "text": "Bottom-up"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Top-down"
+      }
+    },
+    {
+      "id": 86,
+      "type": "multiple_choice",
+      "question": "____ approach is a way of making corporate decisions that starts from the bottom of the hierarchy, rather than at the top.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Top-down"
+        },
+        {
+          "key": "B",
+          "text": "Bottom-up"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Bottom-up"
+      }
+    },
+    {
+      "id": 87,
+      "type": "multiple_choice",
+      "question": "Paolo Freire’s theory on ____ created a big influence in organizing work in the Philippines. His theoretical assertions provided theoretical assertions of CO in the country.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Pedagogy of the Oppressed"
+        },
+        {
+          "key": "B",
+          "text": "Liberative Education"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Pedagogy of the Oppressed"
+      }
+    },
+    {
+      "id": 88,
+      "type": "multiple_choice",
+      "question": "Pedagogy means",
+      "options": [
+        {
+          "key": "A",
+          "text": "The method and practice of teaching, especially as an academic subject or theoretical concept"
+        },
+        {
+          "key": "B",
+          "text": "Skill, science and art"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "The method and practice of teaching, especially as an academic subject or theoretical concept"
+      }
+    },
+    {
+      "id": 89,
+      "type": "multiple_choice",
+      "question": "Originally the term cry referred to the first clash between the Katipuneros and the Civil Guards (Guardia Civil). The cry could also refer to the tearing up of community tax certificates (cédulas personales) in defiance of their allegiance to Spain.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Cry of Pugad Lawin"
+        },
+        {
+          "key": "B",
+          "text": "Treaty of Paris"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Cry of Pugad Lawin"
+      }
+    },
+    {
+      "id": 90,
+      "type": "multiple_choice",
+      "question": "The Treaty of Paris ended the Spanish-American War, and forced Spain to cede the Philippines, Guam, and Puerto Rico to the United States. In return, the United States paid Spain ____ for the Philippines. President William McKinley was then faced with the decision of what to do with the Philippines.",
+      "options": [
+        {
+          "key": "A",
+          "text": "$20 Million"
+        },
+        {
+          "key": "B",
+          "text": "$25 Million"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "$20 Million"
+      }
+    },
+    {
+      "id": 91,
+      "type": "multiple_choice",
+      "question": "The battle cry of 1970 and the 1980\u0027s is ____; It marked the peak of NGO work in the Philippines.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Revolution"
+        },
+        {
+          "key": "B",
+          "text": "People Power"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "People Power"
+      }
+    },
+    {
+      "id": 92,
+      "type": "multiple_choice",
+      "question": "CO adopted two pronged approach; strengthening people’s organization to gain more power \u0026",
+      "options": [
+        {
+          "key": "A",
+          "text": "Implementation of socio-economic activities"
+        },
+        {
+          "key": "B",
+          "text": "Implementation of biopsychosocial activities"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Implementation of socio-economic activities"
+      }
+    },
+    {
+      "id": 93,
+      "type": "multiple_choice",
+      "question": "1950s – 1960s ; SWA; dole-outs; marked the birth of community development in Ph",
+      "options": [
+        {
+          "key": "A",
+          "text": "Reconstruction Period"
+        },
+        {
+          "key": "B",
+          "text": "Developmental Decade"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Reconstruction Period"
+      }
+    },
+    {
+      "id": 94,
+      "type": "multiple_choice",
+      "question": "1960s – 1970s ; NGOs; social action; sectoral \u0026 mass-based organizations were organized",
+      "options": [
+        {
+          "key": "A",
+          "text": "Participatory Development"
+        },
+        {
+          "key": "B",
+          "text": "Developmental Decade"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Developmental Decade"
+      }
+    },
+    {
+      "id": 95,
+      "type": "multiple_choice",
+      "question": "1970s –1980s; institutionalization of CO; PECCO; ZOTO; Integrated method; Paolo Freire\u0027s Liberative Education; shift from bottom-up to top-down",
+      "options": [
+        {
+          "key": "A",
+          "text": "Socio-economic Work"
+        },
+        {
+          "key": "B",
+          "text": "Participatory Development"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Participatory Development"
+      }
+    },
+    {
+      "id": 96,
+      "type": "multiple_choice",
+      "question": "1980s – 1990s; People Power; marked the peak of NGO; CO - 2 pronged approach; fight for freedom \u0026 justice; formation of self-group",
+      "options": [
+        {
+          "key": "A",
+          "text": "Socio-economic Work"
+        },
+        {
+          "key": "B",
+          "text": "Sustainable Development \u0026 Gender Development"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Socio-economic Work"
+      }
+    },
+    {
+      "id": 97,
+      "type": "multiple_choice",
+      "question": "1990s – onwards",
+      "options": [
+        {
+          "key": "A",
+          "text": "Pre-colonial Era"
+        },
+        {
+          "key": "B",
+          "text": "Sustainable Development \u0026 Gender Development"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Sustainable Development \u0026 Gender Development"
+      }
+    },
+    {
+      "id": 98,
+      "type": "multiple_choice",
+      "question": "The single national agency for social welfare during 1950s – 1960s",
+      "options": [
+        {
+          "key": "A",
+          "text": "SWA"
+        },
+        {
+          "key": "B",
+          "text": "SWC"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "SWA"
+      }
+    },
+    {
+      "id": 99,
+      "type": "multiple_choice",
+      "question": "Community chest of Manila",
+      "options": [
+        {
+          "key": "A",
+          "text": "December 20, 1949"
+        },
+        {
+          "key": "B",
+          "text": "December 21, 1959"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "December 21, 1959"
+      }
+    },
+    {
+      "id": 100,
+      "type": "multiple_choice",
+      "question": "It is a church-based organization whose main concern is to develop local organizers through training \u0026 education.",
+      "options": [
+        {
+          "key": "A",
+          "text": "PECCO – Philippine Ecumenical Center for Community Organization (Saul Alinsky)"
+        },
+        {
+          "key": "B",
+          "text": "ZOTO"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "PECCO – Philippine Ecumenical Center for Community Organization (Saul Alinsky)"
+      }
+    },
+    {
+      "id": 101,
+      "type": "multiple_choice",
+      "question": "Occur within the borders of the same country, or cross international borders.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Migration"
+        },
+        {
+          "key": "B",
+          "text": "Immigration"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Migration"
+      }
+    },
+    {
+      "id": 102,
+      "type": "multiple_choice",
+      "question": "Occurs when a person crosses an international border and becomes a permanent resident in another country.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Migration"
+        },
+        {
+          "key": "B",
+          "text": "Immigration"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Immigration"
+      }
+    },
+    {
+      "id": 103,
+      "type": "multiple_choice",
+      "question": "Types of recording",
+      "options": [
+        {
+          "key": "A",
+          "text": "Summary"
+        },
+        {
+          "key": "B",
+          "text": "Narrative"
+        },
+        {
+          "key": "C",
+          "text": "Condensed"
+        },
+        {
+          "key": "D",
+          "text": "Process"
+        },
+        {
+          "key": "E",
+          "text": "All"
+        }
+      ],
+      "answer": {
+        "key": "E",
+        "text": "All"
+      }
+    },
+    {
+      "id": 104,
+      "type": "multiple_choice",
+      "question": "This recording style is concerned with reporting the facts; may be condensed or process.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Summary"
+        },
+        {
+          "key": "B",
+          "text": "Narrative"
+        },
+        {
+          "key": "C",
+          "text": "Condensed"
+        },
+        {
+          "key": "D",
+          "text": "Process"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Narrative"
+      }
+    },
+    {
+      "id": 105,
+      "type": "multiple_choice",
+      "question": "Abridged, compact version which may have been reduced from its former site. It is generally useful for all types of cases, of clients, whether individual, family, group, or community, and is used practically is all types of social welfare agencies. It is used for reporting acts of practical helpfulness, events, and most collateral visits or case conferences. It may be used to show the contents of the interview of family or small group discussion in all instances except when the process itself and the use of relationships have special significance.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Summary"
+        },
+        {
+          "key": "B",
+          "text": "Narrative"
+        },
+        {
+          "key": "C",
+          "text": "Condensed"
+        },
+        {
+          "key": "D",
+          "text": "Process"
+        }
+      ],
+      "answer": {
+        "key": "C",
+        "text": "Condensed"
+      }
+    },
+    {
+      "id": 106,
+      "type": "multiple_choice",
+      "question": "A written description of the dynamic interaction that has taken place in an interview. It should contain the purpose of the interview, worker\u0027s observations, and description of the intentions, impressions, worker\u0027s roles, and plan.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Process Recording"
+        },
+        {
+          "key": "B",
+          "text": "Narrative Process Recording"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Process Recording"
+      }
+    },
+    {
+      "id": 107,
+      "type": "multiple_choice",
+      "question": "Used to show the process and the interaction within the interview or to show group interaction. It may be a step-by-step account of the proceedings.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Process Recording"
+        },
+        {
+          "key": "B",
+          "text": "Narrative Process Recording"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Narrative Process Recording"
+      }
+    },
+    {
+      "id": 108,
+      "type": "multiple_choice",
+      "question": "It is a review or recapitulation of material",
+      "options": [
+        {
+          "key": "A",
+          "text": "Summary"
+        },
+        {
+          "key": "B",
+          "text": "History"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Summary"
+      }
+    },
+    {
+      "id": 109,
+      "type": "multiple_choice",
+      "question": "Are made to cover a certain period of time during which the case is under the care of or is being handled by the worker. This is applicable to long-term case work, group work with groups, and with community work. In the Philippines the latter may take years to realize the goal of building self reliant communities.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Transfer Summaries"
+        },
+        {
+          "key": "B",
+          "text": "Periodic Summaries"
+        },
+        {
+          "key": "C",
+          "text": "The Closing Entry/Summary"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Periodic Summaries"
+      }
+    },
+    {
+      "id": 110,
+      "type": "multiple_choice",
+      "question": "Refers to the summary made when the case is to be transferred to another worker or is being referred to another agency. It may contain a brief statement of the problem, the treatment plan and what has been accomplished so far.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Transfer Summaries"
+        },
+        {
+          "key": "B",
+          "text": "Periodic Summaries"
+        },
+        {
+          "key": "C",
+          "text": "The Closing Entry/Summary"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Transfer Summaries"
+      }
+    },
+    {
+      "id": 111,
+      "type": "multiple_choice",
+      "question": "Focuses on the causes and results of the treatment or intervention. It covers the situation at intake and the reasons involved the problem that emerged, the treatment given, services extended, or intervention made.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Transfer Summaries"
+        },
+        {
+          "key": "B",
+          "text": "Periodic Summaries"
+        },
+        {
+          "key": "C",
+          "text": "The Closing Entry/Summary"
+        }
+      ],
+      "answer": {
+        "key": "C",
+        "text": "The Closing Entry/Summary"
+      }
+    },
+    {
+      "id": 112,
+      "type": "multiple_choice",
+      "question": "This skill refers to the ability of the worker to understand the uniqueness of the person in his situation and to adapt his techniques to him.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Individualization"
+        },
+        {
+          "key": "B",
+          "text": "Differential Diagnosis"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Individualization"
+      }
+    },
+    {
+      "id": 113,
+      "type": "multiple_choice",
+      "question": "Worker\u0027s own tempo or pace",
+      "options": [
+        {
+          "key": "A",
+          "text": "Timing"
+        },
+        {
+          "key": "B",
+          "text": "Space"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Timing"
+      }
+    },
+    {
+      "id": 114,
+      "type": "multiple_choice",
+      "question": "Ability of the worker to concentrate both his and the client to significant aspect of the situation",
+      "options": [
+        {
+          "key": "A",
+          "text": "Focusing"
+        },
+        {
+          "key": "B",
+          "text": "Partialization"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Focusing"
+      }
+    },
+    {
+      "id": 115,
+      "type": "multiple_choice",
+      "question": "Breaking down into manageable parts, helping the client to think about and decide where to start.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Focusing"
+        },
+        {
+          "key": "B",
+          "text": "Partialization"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Partialization"
+      }
+    },
+    {
+      "id": 116,
+      "type": "multiple_choice",
+      "question": "Worker\u0027s ability to determine the setting \u0026 the boundaries that will be most conducive to the work to be done. It includes the choice of physical setting, etc.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Community Organizing"
+        },
+        {
+          "key": "B",
+          "text": "Structuring"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Structuring"
+      }
+    },
+    {
+      "id": 117,
+      "type": "multiple_choice",
+      "question": "Manner \u0026 timing in the delivery of social services.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Case Management"
+        },
+        {
+          "key": "B",
+          "text": "Engagement"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Case Management"
+      }
+    },
+    {
+      "id": 118,
+      "type": "multiple_choice",
+      "question": "In 1989, Morales and Sheafer wrote skills in establishing partnership; engagement, empathy, communication, and ____.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Observation"
+        },
+        {
+          "key": "B",
+          "text": "Understanding"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Understanding"
+      }
+    },
+    {
+      "id": 119,
+      "type": "multiple_choice",
+      "question": "Period in which the worker begins to relate himself to the task at hand.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Empathy"
+        },
+        {
+          "key": "B",
+          "text": "Engagement"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Engagement"
+      }
+    },
+    {
+      "id": 120,
+      "type": "multiple_choice",
+      "question": "Understanding so intimate that the feelings, thoughts, and motives of one are readily comprehended by another",
+      "options": [
+        {
+          "key": "A",
+          "text": "Empathy"
+        },
+        {
+          "key": "B",
+          "text": "Engagement"
+        },
+        {
+          "key": "C",
+          "text": "Communication"
+        },
+        {
+          "key": "D",
+          "text": "Observation"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Empathy"
+      }
+    },
+    {
+      "id": 121,
+      "type": "multiple_choice",
+      "question": "Sharing or exchange of thoughts between 2 or more persons.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Empathy"
+        },
+        {
+          "key": "B",
+          "text": "Engagement"
+        },
+        {
+          "key": "C",
+          "text": "Communication"
+        },
+        {
+          "key": "D",
+          "text": "Observation"
+        }
+      ],
+      "answer": {
+        "key": "C",
+        "text": "Communication"
+      }
+    },
+    {
+      "id": 122,
+      "type": "multiple_choice",
+      "question": "Paying attention to what is being verbally said and nonverbally communicated; involves a choice of what to see.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Empathy"
+        },
+        {
+          "key": "B",
+          "text": "Engagement"
+        },
+        {
+          "key": "C",
+          "text": "Communication"
+        },
+        {
+          "key": "D",
+          "text": "Observation"
+        }
+      ],
+      "answer": {
+        "key": "D",
+        "text": "Observation"
+      }
+    },
+    {
+      "id": 123,
+      "type": "multiple_choice",
+      "question": "A systematic procedure by which a complex of scientific tasks is accomplished",
+      "options": [
+        {
+          "key": "A",
+          "text": "Strategy"
+        },
+        {
+          "key": "B",
+          "text": "Technique"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Technique"
+      }
+    },
+    {
+      "id": 124,
+      "type": "multiple_choice",
+      "question": "Refers to inconsequential conversation; advisable only when there is no urgent matters.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Small Talk"
+        },
+        {
+          "key": "B",
+          "text": "Focus Group Discussion"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Small Talk"
+      }
+    },
+    {
+      "id": 125,
+      "type": "multiple_choice",
+      "question": "To ____ another person is to encourage, to uphold, to sustain some aspect of the client\u0027s functioning - his strength, his attitude, his eagerness to do something about his problem.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Motivate"
+        },
+        {
+          "key": "B",
+          "text": "Support"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Support"
+      }
+    },
+    {
+      "id": 126,
+      "type": "multiple_choice",
+      "question": "Bringing to the surface the feelings and attitudes that needs to be brought out",
+      "options": [
+        {
+          "key": "A",
+          "text": "Catharsis"
+        },
+        {
+          "key": "B",
+          "text": "Ventilation"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Ventilation"
+      }
+    },
+    {
+      "id": 127,
+      "type": "multiple_choice",
+      "question": "The purification and purgation of emotions through dramatic art, or it may be any extreme emotional state that results in renewal and restoration. In its literal medical sense, it refers to the evacuation of the catamenia—the menstrual fluid or other reproductive material from the patient.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Catharsis"
+        },
+        {
+          "key": "B",
+          "text": "Ventilation"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Catharsis"
+      }
+    },
+    {
+      "id": 128,
+      "type": "multiple_choice",
+      "question": "It is used to elicit necessary information; to bring out details about experiences and relationships as the client perceives them; and to examine the feelings connected to the relationships and experiences.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Evaluation / Assessment"
+        },
+        {
+          "key": "B",
+          "text": "Exploration"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Exploration"
+      }
+    },
+    {
+      "id": 129,
+      "type": "multiple_choice",
+      "question": "According to Reid and Shyne, exploration may be divided in two types; exploration about the client situation and his relation to it; ____.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Exploration into the client\u0027s own behavior"
+        },
+        {
+          "key": "B",
+          "text": "Exploration into the client\u0027s own personality"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Exploration into the client\u0027s own behavior"
+      }
+    },
+    {
+      "id": 130,
+      "type": "multiple_choice",
+      "question": "To make understandable a point or two.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Clarification"
+        },
+        {
+          "key": "B",
+          "text": "Questioning"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Clarification"
+      }
+    },
+    {
+      "id": 131,
+      "type": "multiple_choice",
+      "question": "Formerly known as advice-giving \u0026 counseling.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Education \u0026 Advice"
+        },
+        {
+          "key": "B",
+          "text": "Group Sessions"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Education \u0026 Advice"
+      }
+    },
+    {
+      "id": 132,
+      "type": "multiple_choice",
+      "question": "It is the utilization of a commonality of human experiences and strengths of others to cope with situations similar to those which are troubling the client.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Universalize"
+        },
+        {
+          "key": "B",
+          "text": "Universalization"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Universalization"
+      }
+    },
+    {
+      "id": 133,
+      "type": "multiple_choice",
+      "question": "To ____ is to pick up or choose a certain trait or pattern of behavior characteristic of all the members of a particular culture or of all human beings.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Universalize"
+        },
+        {
+          "key": "B",
+          "text": "Universalization"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Universalize"
+      }
+    },
+    {
+      "id": 134,
+      "type": "multiple_choice",
+      "question": "It may be used extensively when learning new ways of behavior is required.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Socialization"
+        },
+        {
+          "key": "B",
+          "text": "Role Rehearsal \u0026 Demonstration"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Role Rehearsal \u0026 Demonstration"
+      }
+    },
+    {
+      "id": 135,
+      "type": "multiple_choice",
+      "question": "To come face-to-face with the hard facts of the situation - with reality.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Confrontation"
+        },
+        {
+          "key": "B",
+          "text": "Integrity"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Confrontation"
+      }
+    },
+    {
+      "id": 136,
+      "type": "multiple_choice",
+      "question": "A rule of a thumb would be for confrontation to be focused on specifics rather than generalities.",
+      "options": [
+        {
+          "key": "A",
+          "text": "True"
+        },
+        {
+          "key": "B",
+          "text": "False"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "False"
+      }
+    },
+    {
+      "id": 137,
+      "type": "multiple_choice",
+      "question": "A type of stress produced when a person is motivated by two or more needs in such a manner that the satisfaction of need may mean the dissatisfaction of another one.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Ambivalence"
+        },
+        {
+          "key": "B",
+          "text": "Conflict"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Conflict"
+      }
+    },
+    {
+      "id": 138,
+      "type": "multiple_choice",
+      "question": "It means skillful management of events.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Sensitivity"
+        },
+        {
+          "key": "B",
+          "text": "Manipulation"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Manipulation"
+      }
+    },
+    {
+      "id": 139,
+      "type": "multiple_choice",
+      "question": "Malcolm Knowles, an authority on adult learning describes ____ as the art of helping adults to learn.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Gestalt"
+        },
+        {
+          "key": "B",
+          "text": "Geriatric"
+        },
+        {
+          "key": "C",
+          "text": "Andragogy"
+        }
+      ],
+      "answer": {
+        "key": "C",
+        "text": "Andragogy"
+      }
+    },
+    {
+      "id": 140,
+      "type": "multiple_choice",
+      "question": "It means the arousing of man’s positive self-concept in relation to the environment and society through a liberating education which treats learners as active agents rather than passive recipient of learning.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Conscious-raising"
+        },
+        {
+          "key": "B",
+          "text": "Conscientization"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Conscientization"
+      }
+    },
+    {
+      "id": 141,
+      "type": "multiple_choice",
+      "question": "Praxis means",
+      "options": [
+        {
+          "key": "A",
+          "text": "Reflection-action-reflection"
+        },
+        {
+          "key": "B",
+          "text": "Action-reflection"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Action-reflection"
+      }
+    },
+    {
+      "id": 142,
+      "type": "multiple_choice",
+      "question": "It is derived from the social and behavioral sciences",
+      "options": [
+        {
+          "key": "A",
+          "text": "Assumptive knowledge"
+        },
+        {
+          "key": "B",
+          "text": "Tested knowledge"
+        },
+        {
+          "key": "C",
+          "text": "Hypothetical knowledge"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Tested knowledge"
+      }
+    },
+    {
+      "id": 143,
+      "type": "multiple_choice",
+      "question": "A proposition still subject to verification or proof; it is suppositional, conjectural and uncertain.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Assumptive knowledge"
+        },
+        {
+          "key": "B",
+          "text": "Tested knowledge"
+        },
+        {
+          "key": "C",
+          "text": "Hypothetical knowledge"
+        }
+      ],
+      "answer": {
+        "key": "C",
+        "text": "Hypothetical knowledge"
+      }
+    },
+    {
+      "id": 144,
+      "type": "multiple_choice",
+      "question": "May be drawn from the practitioner\u0027s experiences and observations in the field. It has to be transformed first into a hypothesis and then tested to be certain that it is valid and applicable.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Assumptive knowledge"
+        },
+        {
+          "key": "B",
+          "text": "Tested knowledge"
+        },
+        {
+          "key": "C",
+          "text": "Hypothetical knowledge"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Assumptive knowledge"
+      }
+    },
+    {
+      "id": 145,
+      "type": "multiple_choice",
+      "question": "May be defined as the “acquaintance” with or theoretical or practical understanding of some branch of science, art, learning, and other areas involving study, research or practice, and the acquisition of skills.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Wisdom"
+        },
+        {
+          "key": "B",
+          "text": "Research"
+        },
+        {
+          "key": "C",
+          "text": "Knowledge"
+        }
+      ],
+      "answer": {
+        "key": "C",
+        "text": "Knowledge"
+      }
+    },
+    {
+      "id": 146,
+      "type": "multiple_choice",
+      "question": "He came up with three types of knowledge",
+      "options": [
+        {
+          "key": "A",
+          "text": "Wernes Boehm"
+        },
+        {
+          "key": "B",
+          "text": "Werner Boehm"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Werner Boehm"
+      }
+    },
+    {
+      "id": 147,
+      "type": "multiple_choice",
+      "question": "Traditional and widely accepted way of behaving or doing something that is specific to a particular society, place, or time.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Folkways"
+        },
+        {
+          "key": "B",
+          "text": "Customs"
+        },
+        {
+          "key": "C",
+          "text": "Mores"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Customs"
+      }
+    },
+    {
+      "id": 148,
+      "type": "multiple_choice",
+      "question": "The principal method of human communication consisting of words",
+      "options": [
+        {
+          "key": "A",
+          "text": "Parts of Speech"
+        },
+        {
+          "key": "B",
+          "text": "Dialect"
+        },
+        {
+          "key": "C",
+          "text": "Language"
+        }
+      ],
+      "answer": {
+        "key": "C",
+        "text": "Language"
+      }
+    },
+    {
+      "id": 149,
+      "type": "multiple_choice",
+      "question": "The standard of discerning what is good and just in society and are deeply embedded and critical for transmitting and teaching a culture’s beliefs.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Behavior"
+        },
+        {
+          "key": "B",
+          "text": "Norms"
+        },
+        {
+          "key": "C",
+          "text": "Values"
+        }
+      ],
+      "answer": {
+        "key": "C",
+        "text": "Values"
+      }
+    },
+    {
+      "id": 150,
+      "type": "multiple_choice",
+      "question": "The increase in the number of individuals in a population",
+      "options": [
+        {
+          "key": "A",
+          "text": "Population growth"
+        },
+        {
+          "key": "B",
+          "text": "Population density"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Population growth"
+      }
+    },
+    {
+      "id": 151,
+      "type": "multiple_choice",
+      "question": "____ is the use of any chemical substance, licit or illicit, which results in the individual\u0027s physical, mental, or social impairment.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Drug abuse"
+        },
+        {
+          "key": "B",
+          "text": "Drug addict"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Drug abuse"
+      }
+    },
+    {
+      "id": 152,
+      "type": "multiple_choice",
+      "question": "A ____ is a chemical substance that brings about physical, emotional, or behavioral change in a person taking it",
+      "options": [
+        {
+          "key": "A",
+          "text": "Drug"
+        },
+        {
+          "key": "B",
+          "text": "Pills"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Drug"
+      }
+    },
+    {
+      "id": 153,
+      "type": "multiple_choice",
+      "question": "Drugs which increase alertness and physical disposition. Examples: amphetamine, cocaine, caffeine and nicotine.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Stimulants"
+        },
+        {
+          "key": "B",
+          "text": "Hallucinogens (also called psychedelics)"
+        },
+        {
+          "key": "C",
+          "text": "Sedatives"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Stimulants"
+      }
+    },
+    {
+      "id": 154,
+      "type": "multiple_choice",
+      "question": "(also called psychedelics) - drugs which affect sensation, thinking, self-awareness, and emotion. Changes in time and space perception, delusions and hallucinations that may be mild or overwhelming, depending on dose and quality of the drug. Examples: LSD, mescaline and marijuana.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Stimulants"
+        },
+        {
+          "key": "B",
+          "text": "Hallucinogens"
+        },
+        {
+          "key": "C",
+          "text": "Sedatives"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Hallucinogens"
+      }
+    },
+    {
+      "id": 155,
+      "type": "multiple_choice",
+      "question": "Drugs which may reduce anxiety and excitement. Examples: barbiturates, nonbarbiturates, tranquilizers and alcohol.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Stimulants"
+        },
+        {
+          "key": "B",
+          "text": "Hallucinogens"
+        },
+        {
+          "key": "C",
+          "text": "Sedatives"
+        }
+      ],
+      "answer": {
+        "key": "C",
+        "text": "Sedatives"
+      }
+    },
+    {
+      "id": 156,
+      "type": "multiple_choice",
+      "question": "Drugs that relieve pain and often induce sleep. Examples: opium and its derivatives such as morphine, codeine and heroin.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Narcotics"
+        },
+        {
+          "key": "B",
+          "text": "Heroine"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Narcotics"
+      }
+    },
+    {
+      "id": 157,
+      "type": "multiple_choice",
+      "question": "____ includes a wide variety of breathable substances that produce mind-altering results and effects. Examples include Toluene, plastic cement, paint, gasoline, paint thinners, hair sprays, and various anesthetic gases.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Inhalants"
+        },
+        {
+          "key": "B",
+          "text": "Cannabis"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Inhalants"
+      }
+    },
+    {
+      "id": 158,
+      "type": "multiple_choice",
+      "question": "The scientific name for marijuana.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Inhalants"
+        },
+        {
+          "key": "B",
+          "text": "Cannabis"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Cannabis"
+      }
+    },
+    {
+      "id": 159,
+      "type": "multiple_choice",
+      "question": "____ include drugs that inhibit pain by cutting off or dissociating the brain\u0027s perception of the pain. (PCP, its analogs, and dextromethoraphan)",
+      "options": [
+        {
+          "key": "A",
+          "text": "Dissociative anesthetics"
+        },
+        {
+          "key": "B",
+          "text": "Narcotics"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Dissociative anesthetics"
+      }
+    },
+    {
+      "id": 160,
+      "type": "multiple_choice",
+      "question": "CNS depressants slow down the operations of the brain and the body. Examples of CNS depressants include alcohol, barbiturates, anti-anxiety tranquilizers (e.g., Valium, Librium, Xanax, Prozac, and Thorazine), GHB (gamma hydroxybutyrate), Rohypnol, and many other anti-depressants (e.g., Zoloft, Paxil). CNS means____",
+      "options": [
+        {
+          "key": "A",
+          "text": "Central Nervous System"
+        },
+        {
+          "key": "B",
+          "text": "Central Nerve System"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Central Nervous System"
+      }
+    },
+    {
+      "id": 161,
+      "type": "multiple_choice",
+      "question": "____ is an infectious disease caused by the SARS-CoV-2 virus.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Coronavirus disease (COVID-19)"
+        },
+        {
+          "key": "B",
+          "text": "H1N1 (A/H1N1)"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Coronavirus disease (COVID-19)"
+      }
+    },
+    {
+      "id": 162,
+      "type": "multiple_choice",
+      "question": "Enuresis means",
+      "options": [
+        {
+          "key": "A",
+          "text": "Involuntary urination, especially by children at night (bed-wetting)"
+        },
+        {
+          "key": "B",
+          "text": "(Other unlisted choice)"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Involuntary urination, especially by children at night (bed-wetting)"
+      }
+    },
+    {
+      "id": 163,
+      "type": "multiple_choice",
+      "question": "Sleepwalking at night",
+      "options": [
+        {
+          "key": "A",
+          "text": "Somnambulism"
+        },
+        {
+          "key": "B",
+          "text": "Sleepwalking"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Somnambulism"
+      }
+    },
+    {
+      "id": 164,
+      "type": "multiple_choice",
+      "question": "AN ____ is a disease that affects a large number of people within a community, population, or region. A ____ is an epidemic that’s spread over multiple countries or continents. ____ is something that belongs to a particular people or country.",
+      "options": [
+        {
+          "key": "A",
+          "text": "EPIDEMIC; PANDEMIC; ENDEMIC"
+        },
+        {
+          "key": "B",
+          "text": "PANDEMIC; EPIDEMIC; ENDEMIC"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "EPIDEMIC; PANDEMIC; ENDEMIC"
+      }
+    },
+    {
+      "id": 165,
+      "type": "multiple_choice",
+      "question": "____ is a term often used to describe emotionally charged behavior that seems excessive and out of control.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Hysteria"
+        },
+        {
+          "key": "B",
+          "text": "Hysterical"
+        },
+        {
+          "key": "C",
+          "text": "Bipolar"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Hysteria"
+      }
+    },
+    {
+      "id": 166,
+      "type": "multiple_choice",
+      "question": "Is a long amnesic state in which one wanders from his home or usual surroundings and suddenly \"comes to\" in some strange place with no recollection as how he came to be here.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Fugue"
+        },
+        {
+          "key": "B",
+          "text": "Insomnia"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Fugue"
+      }
+    },
+    {
+      "id": 167,
+      "type": "multiple_choice",
+      "question": "____ are unwanted, intrusive thoughts, images, or urges that trigger intensely distressing feelings.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Obsessions"
+        },
+        {
+          "key": "B",
+          "text": "Compulsions"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Obsessions"
+      }
+    },
+    {
+      "id": 168,
+      "type": "multiple_choice",
+      "question": "____ are behaviors an individual engages in to attempt to get rid of the obsessions and/or decrease distress.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Obsessions"
+        },
+        {
+          "key": "B",
+          "text": "Compulsions"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Compulsions"
+      }
+    },
+    {
+      "id": 169,
+      "type": "multiple_choice",
+      "question": "To be diagnosed as having ____, a person must have an I.Q. below 70-75, i.e. significantly below average.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Mental retardation"
+        },
+        {
+          "key": "B",
+          "text": "Normal condition"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Mental retardation"
+      }
+    },
+    {
+      "id": 170,
+      "type": "multiple_choice",
+      "question": "Also called a reading disability",
+      "options": [
+        {
+          "key": "A",
+          "text": "Hematoma"
+        },
+        {
+          "key": "B",
+          "text": "Dyslexia"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Dyslexia"
+      }
+    },
+    {
+      "id": 171,
+      "type": "multiple_choice",
+      "question": "A condition of the nervous system; sudden twitches, movements, or sounds that people do repeatedly; cannot stop their body from doing these things.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Tic"
+        },
+        {
+          "key": "B",
+          "text": "Toe"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Tic"
+      }
+    },
+    {
+      "id": 172,
+      "type": "multiple_choice",
+      "question": "The action of setting fire to oneself, especially as a form of protest or sacrifice.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Pyromania"
+        },
+        {
+          "key": "B",
+          "text": "Self-immolation"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Self-immolation"
+      }
+    },
+    {
+      "id": 173,
+      "type": "multiple_choice",
+      "question": "____ is a type of impulse control disorder that is characterized by being unable to resist starting fires. People with ____ know that setting fires is harmful. But setting fires is the only way they can relieve their built-up tension, anxiety, or arousal.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Pyromania"
+        },
+        {
+          "key": "B",
+          "text": "Self-immolation"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Pyromania"
+      }
+    },
+    {
+      "id": 174,
+      "type": "multiple_choice",
+      "question": "____ is an eating disorder in which people compulsively eat one or more nonfood items, such as ice, clay, paper, ash, or dirt. Pagophagia is a subtype of it.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Pica"
+        },
+        {
+          "key": "B",
+          "text": "Binge eating"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Pica"
+      }
+    },
+    {
+      "id": 175,
+      "type": "multiple_choice",
+      "question": "____ is a process of social, psychological, and cultural change that stems from the balancing of two cultures while adapting to the prevailing culture of the society.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Acculturation"
+        },
+        {
+          "key": "B",
+          "text": "Enculturation"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Acculturation"
+      }
+    },
+    {
+      "id": 176,
+      "type": "multiple_choice",
+      "question": "The gradual acquisition of the characteristics and norms of a culture or group by a person, another culture, etc.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Acculturation"
+        },
+        {
+          "key": "B",
+          "text": "Enculturation"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Enculturation"
+      }
+    },
+    {
+      "id": 177,
+      "type": "multiple_choice",
+      "question": "The persons, groups, or institutions that teach us what we need to know in order to participate in society.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Agents of change"
+        },
+        {
+          "key": "B",
+          "text": "Agents of socialization"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Agents of socialization"
+      }
+    },
+    {
+      "id": 178,
+      "type": "multiple_choice",
+      "question": "____ is a form of government and a political system that prohibits all opposition parties, outlaws individual and group opposition to the state and its claims, and exercises an extremely high degree of control and regulation over public and private life.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Totalitarianism"
+        },
+        {
+          "key": "B",
+          "text": "Utilitarianism"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Totalitarianism"
+      }
+    },
+    {
+      "id": 179,
+      "type": "multiple_choice",
+      "question": "____ is an ethical theory that determines right from wrong by focusing on outcomes. It is a form of consequentialism. ____ holds that the most ethical choice is the one that will produce the greatest good for the greatest number.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Totalitarianism"
+        },
+        {
+          "key": "B",
+          "text": "Utilitarianism"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Utilitarianism"
+      }
+    },
+    {
+      "id": 180,
+      "type": "multiple_choice",
+      "question": "____ (\"apartness\" in the language of Afrikaans) was a system of legislation that upheld segregationist policies against non-white citizens of South Africa.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Apartheid"
+        },
+        {
+          "key": "B",
+          "text": "Space"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Apartheid"
+      }
+    },
+    {
+      "id": 181,
+      "type": "multiple_choice",
+      "question": "____ is a term describing any relationship or interaction between two dissimilar organisms.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Symbiosis"
+        },
+        {
+          "key": "B",
+          "text": "Clash"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Symbiosis"
+      }
+    },
+    {
+      "id": 182,
+      "type": "multiple_choice",
+      "question": "An ____ is a geographic area where plants, animals, and other organisms, as well as weather and landscape, work together to form a bubble of life.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Ecology"
+        },
+        {
+          "key": "B",
+          "text": "Ecosystem"
+        }
+      ],
+      "answer": {
+        "key": "B",
+        "text": "Ecosystem"
+      }
+    },
+    {
+      "id": 183,
+      "type": "multiple_choice",
+      "question": "____ is defined as the psychology rooted on the experience, ideas, and cultural orientation of the Filipinos. It is regulated by the Pambansang Samahan sa Sikolohiyang Pilipino, (National Organization of Filipino Psychology), in English, which was established on 1975 by Virgilio Enriquez, regarded by many as the Father of Filipino Psychology.",
+      "options": [
+        {
+          "key": "A",
+          "text": "Filipino psychology"
+        },
+        {
+          "key": "B",
+          "text": "Filipino psychopathology"
+        }
+      ],
+      "answer": {
+        "key": "A",
+        "text": "Filipino psychology"
+      }
+    }
+  ]
+}
