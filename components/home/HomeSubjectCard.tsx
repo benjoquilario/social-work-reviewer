@@ -1,9 +1,11 @@
 import { memo } from "react"
-import { View } from "react-native"
 import { BookOpenText } from "lucide-react-native"
-import type { LearningSubject } from "@/lib/learning-content"
-import type { ThemePalette } from "@/lib/home-types"
+import { View } from "react-native"
+
 import { getSubjectCardPresentation } from "@/lib/home-presentation"
+import type { ThemePalette } from "@/lib/home-types"
+import type { LearningSubject } from "@/lib/learning-content"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { MotionPressable } from "@/components/ui/motion"
 import { Text } from "@/components/ui/text"
@@ -53,17 +55,11 @@ export const HomeSubjectCard = memo(function HomeSubjectCard({
                 >
                   {subject.name}
                 </Text>
-                <View
-                  className="rounded-full px-2.5 py-1"
-                  style={{ backgroundColor: cardPresentation.badgeBg }}
-                >
-                  <Text
-                    className="text-[10px] font-black uppercase tracking-[0.7px]"
-                    style={{ color: cardPresentation.badgeText }}
-                  >
+                <Badge variant={subject.isLocked ? "accent" : "secondary"}>
+                  <Text className="text-[10px] font-black uppercase tracking-[0.7px]">
                     {cardPresentation.statusLabel}
                   </Text>
-                </View>
+                </Badge>
               </View>
 
               <Text className="text-[12px] text-muted-foreground">

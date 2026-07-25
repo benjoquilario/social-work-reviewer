@@ -13,7 +13,9 @@ import {
 } from "@/lib/board-exams"
 import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 
@@ -47,24 +49,11 @@ function BoardExamCategoryCard({
                 <Text className="text-[16px] font-black text-card-foreground">
                   {category.title}
                 </Text>
-                <View
-                  className="rounded-full px-2.5 py-1"
-                  style={{
-                    backgroundColor: withOpacity(
-                      category.isLocked ? theme.accent : theme.primary,
-                      0.14
-                    ),
-                  }}
-                >
-                  <Text
-                    className="text-[10px] font-black uppercase tracking-[1.1px]"
-                    style={{
-                      color: category.isLocked ? theme.accent : theme.primary,
-                    }}
-                  >
+                <Badge variant={category.isLocked ? "accent" : "default"}>
+                  <Text className="text-[10px] font-black uppercase tracking-[1.1px]">
                     {category.code ?? "Category"}
                   </Text>
-                </View>
+                </Badge>
               </View>
               <Text className="text-[12px] leading-5 text-muted-foreground">
                 {category.description ||
@@ -158,7 +147,10 @@ export default function BoardExamCategoriesScreen() {
   )
 
   return (
-    <SafeAreaView edges={["left", "right", "bottom"]} className="flex-1 bg-background">
+    <SafeAreaView
+      edges={["left", "right", "bottom"]}
+      className="flex-1 bg-background"
+    >
       <Stack.Screen options={{ title: "Board Exams" }} />
       <FlashList
         data={categories}
@@ -179,33 +171,21 @@ export default function BoardExamCategoriesScreen() {
 
             {errorMessage ? (
               <View className="px-4">
-                <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-                  <CardContent className="gap-1.5 px-4 py-3.5">
-                    <Text className="text-[13px] font-black text-destructive">
-                      Board exam categories unavailable
-                    </Text>
-                    <Text className="text-[12px] leading-5 text-muted-foreground">
-                      {errorMessage}
-                    </Text>
-                  </CardContent>
-                </Card>
+                <EmptyState
+                  tone="destructive"
+                  title="Board exam categories unavailable"
+                  description={errorMessage}
+                />
               </View>
             ) : null}
           </View>
         }
         ListEmptyComponent={
           !categoriesQuery.isLoading && !errorMessage ? (
-            <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-              <CardContent className="gap-1.5 px-4 py-4">
-                <Text className="text-[14px] font-black text-card-foreground">
-                  No board exam categories yet
-                </Text>
-                <Text className="text-[12px] leading-5 text-muted-foreground">
-                  No board exam categories are available right now. Check back
-                  later for updates.
-                </Text>
-              </CardContent>
-            </Card>
+            <EmptyState
+              title="No board exam categories yet"
+              description="No board exam categories are available right now. Check back later for updates."
+            />
           ) : null
         }
       />

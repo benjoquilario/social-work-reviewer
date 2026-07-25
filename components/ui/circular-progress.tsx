@@ -2,6 +2,7 @@ import { memo } from "react"
 import { View } from "react-native"
 import Svg, { Circle } from "react-native-svg"
 
+import { useThemePalette } from "@/hooks/use-theme"
 import { Text } from "@/components/ui/text"
 
 type CircularProgressProps = {
@@ -23,7 +24,7 @@ type CircularProgressProps = {
 
 function parseSvgColor(colorStr: string | undefined): string | undefined {
   if (!colorStr) return colorStr
-  
+
   // Convert modern hsl "hsl(H S% L% / A)" to legacy "hsla(H, S%, L%, A)"
   // because react-native-svg color parser does not fully support CSS Color Level 4
   const match = colorStr.match(
@@ -40,21 +41,32 @@ export const CircularProgress = memo(function CircularProgress({
   percent,
   size = 140,
   strokeWidth = 10,
-  trackColor = "hsl(0 0% 90%)",
-  color = "hsl(151 55% 41%)",
+  trackColor,
+  color,
   label = "CORRECT",
   labelColor,
 }: CircularProgressProps) {
+  const palette = useThemePalette()
+  const resolvedTrackColor = trackColor ?? palette.muted
+  const resolvedColor = color ?? palette.success
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
   const clampedPercent = Math.min(Math.max(percent, 0), 100)
-  const strokeDashoffset = circumference - (clampedPercent / 100) * circumference
+  const strokeDashoffset =
+    circumference - (clampedPercent / 100) * circumference
 
-  const parsedTrackColor = parseSvgColor(trackColor)
-  const parsedColor = parseSvgColor(color)
+  const parsedTrackColor = parseSvgColor(resolvedTrackColor)
+  const parsedColor = parseSvgColor(resolvedColor)
 
   return (
-    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+    <View
+      style={{
+        width: size,
+        height: size,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
       <Svg width={size} height={size} style={{ position: "absolute" }}>
         {/* Track ring */}
         <Circle
@@ -87,7 +99,7 @@ export const CircularProgress = memo(function CircularProgress({
           style={{
             fontSize: size * 0.24,
             fontWeight: "900",
-            color,
+            color: resolvedColor,
           }}
         >
           {clampedPercent}%
@@ -97,7 +109,7 @@ export const CircularProgress = memo(function CircularProgress({
             fontSize: size * 0.075,
             fontWeight: "800",
             letterSpacing: 1.5,
-            color: labelColor ?? color,
+            color: labelColor ?? resolvedColor,
             textTransform: "uppercase",
           }}
         >

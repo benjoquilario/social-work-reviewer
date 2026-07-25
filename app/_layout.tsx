@@ -56,6 +56,9 @@ function RootNavigator() {
     PlusJakartaSans_800ExtraBold: require("../assets/fonts/PlusJakartaSans_800ExtraBold.ttf"),
   })
   const isReady = useAppPreferences((state) => state.isReady)
+  const hasCompletedOnboarding = useAppPreferences(
+    (state) => state.preferences.hasCompletedOnboarding
+  )
   const authState = useAuth((state) => state.authState)
   const colorScheme = useColorScheme()
   const navTheme = colorScheme === "dark" ? NAV_THEME.dark : NAV_THEME.light
@@ -99,22 +102,34 @@ function RootNavigator() {
     }
 
     const inAuthGroup = segments[0] === "(auth)"
+    const inOnboarding = segments[0] === "onboarding"
     const isPublicRoute =
       segments[0] === "verify-email" || segments[0] === "verify-email-bridge"
 
     if (
       authState.status === "unauthenticated" &&
       !inAuthGroup &&
+      !inOnboarding &&
       !isPublicRoute
     ) {
-      router.replace("/(auth)/login")
+      router.replace(hasCompletedOnboarding ? "/(auth)/login" : "/onboarding")
       return
     }
 
-    if (authState.status === "authenticated" && inAuthGroup) {
+    if (
+      authState.status === "authenticated" &&
+      (inAuthGroup || inOnboarding)
+    ) {
       router.replace("/(tabs)")
     }
-  }, [authState.status, fontsLoaded, isReady, router, segments])
+  }, [
+    authState.status,
+    fontsLoaded,
+    hasCompletedOnboarding,
+    isReady,
+    router,
+    segments,
+  ])
 
   if (!fontsLoaded || !isReady || authState.status === "loading") {
     return null
@@ -127,6 +142,7 @@ function RootNavigator() {
           <Stack screenOptions={screenOptions}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="onboarding" options={{ headerShown: false }} />
             <Stack.Screen name="diagnostics" options={{ headerShown: false }} />
             <Stack.Screen name="settings" options={{ headerShown: false }} />
             <Stack.Screen

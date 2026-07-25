@@ -2,68 +2,86 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design tokens — KEEP IN SYNC with lib/theme.ts (the runtime source of truth).
+ *
+ * Derived from the "Social Work Sure Win!" logo:
+ *   teal  #03979d  primary
+ *   navy  #02275c  ink / dark surfaces
+ *   blue  #226dc3  supporting / charts
+ *   sky   #2892be  soft supporting
+ *   amber #f8a716  accent
+ *
+ * At runtime the root layout injects NATIVEWIND_THEME_VARIABLES from
+ * lib/theme.ts via nativewind's vars(), which overrides these values.
+ * These CSS declarations exist so that web builds, tooling, and anything
+ * rendered outside the themed root View resolve to the same palette.
+ * If you change a color, change it in lib/theme.ts first, then mirror it here.
+ */
 @layer base {
   :root {
-    --background: 42 45% 98%;
-    --foreground: 220 30% 14%;
+    --background: 204 46% 97%;
+    --foreground: 215 48% 15%;
     --card: 0 0% 100%;
-    --card-foreground: 220 30% 14%;
+    --card-foreground: 215 48% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 30% 14%;
-    --primary: 199 89% 48%;
+    --popover-foreground: 215 48% 15%;
+    --primary: 183 95% 26%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 190 46% 94%;
-    --secondary-foreground: 198 65% 24%;
-    --muted: 210 33% 95%;
-    --muted-foreground: 220 14% 44%;
-    --accent: 18 94% 62%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 205 32% 88%;
-    --input: 205 32% 91%;
-    --ring: 199 89% 48%;
-    --success: 151 55% 41%;
+    --secondary: 200 46% 92%;
+    --secondary-foreground: 215 52% 24%;
+    --muted: 204 40% 94%;
+    --muted-foreground: 210 18% 42%;
+    --accent: 38 94% 53%;
+    --accent-foreground: 215 60% 13%;
+    --accent-text: 30 88% 36%;
+    --destructive: 0 72% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 205 32% 87%;
+    --input: 205 34% 91%;
+    --ring: 183 95% 26%;
+    --success: 162 82% 27%;
     --success-foreground: 0 0% 100%;
-    --warning: 42 94% 57%;
-    --warning-foreground: 220 30% 14%;
-    --chart-1: 199 89% 48%;
-    --chart-2: 165 62% 43%;
-    --chart-3: 18 94% 62%;
-    --chart-4: 272 74% 66%;
-    --chart-5: 338 78% 61%;
+    --warning: 38 94% 53%;
+    --warning-foreground: 215 60% 13%;
+    --chart-1: 183 95% 30%;
+    --chart-2: 212 70% 45%;
+    --chart-3: 38 94% 53%;
+    --chart-4: 262 62% 56%;
+    --chart-5: 344 72% 52%;
     --radius: 0.875rem;
   }
 
   .dark {
-    --background: 224 29% 10%;
-    --foreground: 210 40% 98%;
-    --card: 223 27% 14%;
-    --card-foreground: 210 40% 98%;
-    --popover: 223 27% 14%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 196 95% 72%;
-    --primary-foreground: 224 29% 10%;
-    --secondary: 214 20% 22%;
-    --secondary-foreground: 210 32% 94%;
-    --muted: 218 19% 20%;
-    --muted-foreground: 214 20% 70%;
-    --accent: 20 96% 68%;
-    --accent-foreground: 224 29% 10%;
-    --destructive: 0 70.9% 59.4%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 216 18% 24%;
-    --input: 216 18% 20%;
-    --ring: 196 95% 72%;
-    --success: 151 61% 55%;
-    --success-foreground: 224 29% 10%;
-    --warning: 42 94% 62%;
-    --warning-foreground: 224 29% 10%;
-    --chart-1: 196 95% 72%;
-    --chart-2: 166 58% 55%;
-    --chart-3: 20 96% 68%;
-    --chart-4: 272 76% 72%;
-    --chart-5: 338 82% 68%;
+    --background: 215 50% 7%;
+    --foreground: 204 34% 94%;
+    --card: 215 42% 11%;
+    --card-foreground: 204 34% 94%;
+    --popover: 215 42% 11%;
+    --popover-foreground: 204 34% 94%;
+    --primary: 182 72% 46%;
+    --primary-foreground: 215 60% 8%;
+    --secondary: 214 36% 17%;
+    --secondary-foreground: 204 34% 94%;
+    --muted: 214 32% 18%;
+    --muted-foreground: 206 22% 68%;
+    --accent: 38 95% 58%;
+    --accent-foreground: 215 60% 10%;
+    --accent-text: 38 95% 62%;
+    --destructive: 2 76% 62%;
+    --destructive-foreground: 215 60% 8%;
+    --border: 213 28% 22%;
+    --input: 214 30% 16%;
+    --ring: 182 72% 46%;
+    --success: 160 66% 45%;
+    --success-foreground: 215 60% 8%;
+    --warning: 38 95% 58%;
+    --warning-foreground: 215 60% 10%;
+    --chart-1: 182 72% 50%;
+    --chart-2: 212 82% 66%;
+    --chart-3: 38 95% 58%;
+    --chart-4: 262 78% 72%;
+    --chart-5: 344 80% 68%;
     --radius: 0.875rem;
   }
 }

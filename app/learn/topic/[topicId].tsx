@@ -3,7 +3,6 @@ import { useAuth } from "@/contexts/auth-context"
 import { useQuery } from "@tanstack/react-query"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import {
-  ArrowLeft,
   ChevronRight,
   EllipsisVertical,
   LockKeyhole,
@@ -21,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
+import { ScreenHeader } from "@/components/screen-header"
 
 import { getMaterialContentPreview } from "../../../lib/learning-material-content"
 
@@ -133,26 +133,22 @@ export default function TopicDetailScreen() {
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="gap-4 px-4 pb-7 pt-3"
+        contentContainerClassName="gap-4 px-4 pb-7"
       >
-        <View className="flex-row items-center justify-between gap-3">
-          <Pressable
-            className="h-10 w-10 items-center justify-center rounded-2xl"
-            onPress={() => router.back()}
-          >
-            <ArrowLeft size={22} color={primaryColor} strokeWidth={2.5} />
-          </Pressable>
-
-          <View className="flex-row items-center gap-4">
-            <Search size={20} color={primaryColor} strokeWidth={2.2} />
-            <UserCircle2 size={22} color={primaryColor} strokeWidth={2.1} />
-            <EllipsisVertical
-              size={20}
-              color={primaryColor}
-              strokeWidth={2.2}
-            />
-          </View>
-        </View>
+        <ScreenHeader
+          title="Topic"
+          trailing={
+            <View className="flex-row items-center gap-4">
+              <Search size={20} color={primaryColor} strokeWidth={2.2} />
+              <UserCircle2 size={22} color={primaryColor} strokeWidth={2.1} />
+              <EllipsisVertical
+                size={20}
+                color={primaryColor}
+                strokeWidth={2.2}
+              />
+            </View>
+          }
+        />
 
         <View className="gap-2 px-1">
           <Text className="text-[12px] font-black uppercase tracking-[1.5px] text-primary">

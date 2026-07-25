@@ -1,3 +1,4 @@
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { formatTime } from "@/data/reviewer-data"
 import { FlashList } from "@shopify/flash-list"
@@ -8,33 +9,36 @@ import {
   ArrowRight,
   Check,
   Home,
+  LayoutGrid,
   Timer,
   Trophy,
   X,
 } from "lucide-react-native"
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
+  Alert,
   Animated,
   Easing,
   FlatList,
+  Modal,
   Pressable,
   ScrollView,
   View,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import { AnswerOption } from "@/components/ui/answer-option"
-import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Text } from "@/components/ui/text"
-import { useColorScheme } from "@/hooks/use-color-scheme"
-import { useQuizSession, type UserAnswers } from "@/hooks/use-quiz-session"
 import {
   getBoardExamSetDetail,
   type BoardExamQuestion,
 } from "@/lib/board-exams"
+import { useAppPreferences } from "@/lib/app-preferences"
 import type { QuizQuestion } from "@/lib/quiz-types"
 import { THEME, withOpacity } from "@/lib/theme"
+import { useColorScheme } from "@/hooks/use-color-scheme"
+import { useQuizSession, type UserAnswers } from "@/hooks/use-quiz-session"
+import { AnswerOption } from "@/components/ui/answer-option"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Text } from "@/components/ui/text"
 
 type ThemePalette = (typeof THEME)["light"] | (typeof THEME)["dark"]
 
@@ -49,11 +53,14 @@ function getQuizColors(theme: ThemePalette) {
     faintText: withOpacity(theme.mutedForeground, 0.72),
     track: withOpacity(theme.mutedForeground, 0.22),
     primary: theme.primary,
+    onPrimary: theme.primaryForeground,
     primarySoft: withOpacity(theme.primary, 0.14),
     primaryBorder: withOpacity(theme.primary, 0.55),
     green: theme.success,
+    onGreen: theme.successForeground,
     greenSoft: withOpacity(theme.success, 0.14),
     red: theme.destructive,
+    onRed: theme.destructiveForeground,
     redSoft: withOpacity(theme.destructive, 0.14),
     confetti: [
       theme.primary,
@@ -190,15 +197,8 @@ const QUIZ_RESULTS_CONTENT_STYLE = {
   paddingHorizontal: 16,
   paddingVertical: 16,
 }
-const QUIZ_PAGER_STYLE = { flex: 1 }
-const QUIZ_PAGER_CONTENT_STYLE = { paddingBottom: 8 }
-const QUIZ_QUESTION_SCROLL_CONTENT_STYLE = {
-  flexGrow: 1,
-  paddingHorizontal: 16,
-  paddingBottom: 24,
-}
-const QUIZ_DOT_CONTENT_STYLE = { paddingRight: 2 }
 const QUIZ_CARD_CLASS = "rounded-3xl border border-border bg-card p-5"
+const QUIZ_PASSING_SCORE = 75
 const QUIZ_RESULT_STATS_ROW_STYLE = {
   flexDirection: "row" as const,
   gap: 12,
@@ -301,9 +301,118 @@ function QuizVerticalSeparator() {
   return <View className="h-4" />
 }
 
-function QuizDotSeparator() {
-  return <View style={{ width: 6 }} />
-}
+const QuizQuestionMap = memo(function QuizQuestionMap({
+  visible,
+  onClose,
+  onJump,
+  onSubmitRequest,
+  answers,
+  activeIndex,
+  totalQuestions,
+  answeredCount,
+  theme,
+}: {
+  visible: boolean
+  onClose: () => void
+  onJump: (index: number) => void
+  onSubmitRequest: () => void
+  answers: UserAnswers
+  activeIndex: number
+  totalQuestions: number
+  answeredCount: number
+  theme: ThemePalette
+}) {
+  const unansweredCount = totalQuestions - answeredCount
+
+  const handlePressTile = useCallback(
+    (index: number) => {
+      onJump(index)
+      onClose()
+    },
+    [onClose, onJump]
+  )
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 justify-end">
+        <Pressable
+          className="flex-1"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+          onPress={onClose}
+          accessibilityLabel="Close question map"
+        />
+        <View
+          className="rounded-t-[28px] border-t px-5 pb-10 pt-3"
+          style={{ backgroundColor: theme.background, borderColor: theme.border }}
+        >
+          <View className="mb-4 items-center">
+            <View
+              className="h-1.5 w-12 rounded-full"
+              style={{ backgroundColor: theme.border }}
+            />
+          </View>
+          <Text className="text-lg font-black text-foreground">
+            Question map
+          </Text>
+          <Text className="mt-0.5 text-sm text-muted-foreground">
+            {answeredCount} answered · {unansweredCount} remaining
+          </Text>
+          <ScrollView
+            style={{ maxHeight: 340 }}
+            className="mt-4"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={QUIZ_DRAWER_GRID_STYLE}>
+              {Array.from({ length: totalQuestions }, (_, questionIndex) => (
+                <QuizQuestionDrawerTile
+                  key={questionIndex}
+                  isActive={questionIndex === activeIndex}
+                  isAnswered={typeof answers[questionIndex] === "number"}
+                  isLocked={false}
+                  onPress={handlePressTile}
+                  questionIndex={questionIndex}
+                  theme={theme}
+                />
+              ))}
+            </View>
+          </ScrollView>
+          <View className="mt-4 flex-row items-center justify-center gap-5">
+            {[
+              { label: "Current", color: theme.primary },
+              { label: "Answered", color: withOpacity(theme.primary, 0.35) },
+              { label: "Unanswered", color: theme.border },
+            ].map((item) => (
+              <View key={item.label} className="flex-row items-center gap-1.5">
+                <View
+                  className="h-3 w-3 rounded-full"
+                  style={{ backgroundColor: item.color }}
+                />
+                <Text className="text-xs text-muted-foreground">
+                  {item.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+          <Button
+            size="lg"
+            className="mt-5"
+            onPress={() => {
+              onClose()
+              onSubmitRequest()
+            }}
+          >
+            <Text>Submit exam</Text>
+          </Button>
+        </View>
+      </View>
+    </Modal>
+  )
+})
 
 function getQuizScore(correct: number, total: number) {
   if (total <= 0) {
@@ -380,107 +489,6 @@ const QuizTimerBadge = memo(function QuizTimerBadge({
   )
 })
 
-const QuizNavigatorDot = memo(
-  function QuizNavigatorDot({
-    isActive,
-    isAnswered,
-    onPressDot,
-    questionIndex,
-    theme,
-  }: {
-    isActive: boolean
-    isAnswered: boolean
-    onPressDot: (index: number) => void
-    questionIndex: number
-    theme: ThemePalette
-  }) {
-    return (
-      <Pressable
-        onPress={() => onPressDot(questionIndex)}
-        style={{
-          width: isActive ? 24 : 10,
-          height: 10,
-          borderRadius: 5,
-          backgroundColor: isActive
-            ? theme.primary
-            : isAnswered
-              ? withOpacity(theme.primary, 0.6)
-              : theme.muted,
-        }}
-      />
-    )
-  },
-  (prev, next) =>
-    prev.isActive === next.isActive &&
-    prev.isAnswered === next.isAnswered &&
-    prev.questionIndex === next.questionIndex &&
-    prev.theme === next.theme
-)
-
-const QuizQuestionPage = memo(
-  function QuizQuestionPage({
-    onSelectAnswer,
-    question,
-    questionIndex,
-    screenWidth,
-    selectedChoiceIndex,
-    theme,
-  }: {
-    onSelectAnswer: (questionIndex: number, choiceIndex: number) => void
-    question: QuizQuestion
-    questionIndex: number
-    screenWidth: number
-    selectedChoiceIndex: number | undefined
-    theme: ThemePalette
-  }) {
-    return (
-      <View style={{ width: screenWidth, flex: 1 }}>
-        <ScrollView
-          nestedScrollEnabled
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={QUIZ_QUESTION_SCROLL_CONTENT_STYLE}
-        >
-          <View className={QUIZ_CARD_CLASS}>
-            <View
-              className="mb-4 self-start rounded-full px-3 py-1.5"
-              style={{ backgroundColor: withOpacity(theme.primary, 0.1) }}
-            >
-              <Text className="text-[11px] font-black uppercase tracking-[1.4px] text-primary">
-                Question {questionIndex + 1}
-              </Text>
-            </View>
-            <Text className="text-base font-bold leading-6 text-card-foreground">
-              {question.prompt}
-            </Text>
-            <Text className="mt-2 text-[13px] leading-5 text-muted-foreground">
-              Choose the best answer from the options below.
-            </Text>
-            <View className="mt-5 gap-3">
-              {question.choices.map((choice, choiceIndex) => (
-                <AnswerOption
-                  key={`${question.id}-${choiceIndex}`}
-                  index={choiceIndex}
-                  isSelected={selectedChoiceIndex === choiceIndex}
-                  showPrefix={false}
-                  onPress={() => onSelectAnswer(questionIndex, choiceIndex)}
-                >
-                  {choice}
-                </AnswerOption>
-              ))}
-            </View>
-          </View>
-        </ScrollView>
-      </View>
-    )
-  },
-  (prev, next) =>
-    prev.question.id === next.question.id &&
-    prev.questionIndex === next.questionIndex &&
-    prev.screenWidth === next.screenWidth &&
-    prev.selectedChoiceIndex === next.selectedChoiceIndex &&
-    prev.theme === next.theme
-)
-
 const QuizResultQuestionCard = memo(
   function QuizResultQuestionCard({
     question,
@@ -512,7 +520,6 @@ const QuizResultQuestionCard = memo(
                 isSelected={false}
                 isCorrect={isCorrectChoice}
                 isWrong={isWrongSelection}
-                showPrefix={false}
                 onPress={() => undefined}
               >
                 {choice}
@@ -643,9 +650,13 @@ const QuizFeedbackView = memo(function QuizFeedbackView({
                     }}
                   >
                     {isCorrect ? (
-                      <Check size={52} color="#ffffff" strokeWidth={3.5} />
+                      <Check
+                        size={52}
+                        color={colors.onGreen}
+                        strokeWidth={3.5}
+                      />
                     ) : (
-                      <X size={52} color="#ffffff" strokeWidth={3.5} />
+                      <X size={52} color={colors.onRed} strokeWidth={3.5} />
                     )}
                   </View>
                 </View>
@@ -674,13 +685,13 @@ const QuizFeedbackView = memo(function QuizFeedbackView({
             <View className="flex-row items-center gap-2">
               <Text
                 className="text-[16px] font-bold"
-                style={{ color: "#ffffff" }}
+                style={{ color: colors.onPrimary }}
               >
                 {questionIndex < totalQuestions - 1
                   ? "Next Question"
                   : "View Results"}
               </Text>
-              <ArrowRight size={18} color="#ffffff" />
+              <ArrowRight size={18} color={colors.onPrimary} />
             </View>
           </Pressable>
         </View>
@@ -812,21 +823,30 @@ const QuizResultsView = memo(function QuizResultsView({
 }) {
   const router = useRouter()
   const score = getQuizScore(result.correct, questions.length)
+  const isPassed = score >= QUIZ_PASSING_SCORE
   const [isReviewingAnswers, setIsReviewingAnswers] = useState(false)
+  const [reviewFilter, setReviewFilter] = useState<"all" | "mistakes">("all")
   const colors = useMemo(() => getQuizColors(theme), [theme])
 
+  const mistakesCount = questions.length - result.correct
+  const reviewItems = useMemo(
+    () =>
+      questions
+        .map((question, index) => ({ question, index }))
+        .filter(
+          (item) =>
+            reviewFilter === "all" ||
+            answers[item.index] !== item.question.answerIndex
+        ),
+    [answers, questions, reviewFilter]
+  )
+
   const renderResultQuestion = useCallback(
-    ({
-      item: question,
-      index: questionIndex,
-    }: {
-      item: QuizQuestion
-      index: number
-    }) => (
+    ({ item }: { item: { question: QuizQuestion; index: number } }) => (
       <QuizResultQuestionCard
-        question={question}
-        questionIndex={questionIndex}
-        selectedChoiceIndex={answers[questionIndex]}
+        question={item.question}
+        questionIndex={item.index}
+        selectedChoiceIndex={answers[item.index]}
         theme={theme}
       />
     ),
@@ -847,6 +867,27 @@ const QuizResultsView = memo(function QuizResultsView({
             >
               Quiz Completed
             </Text>
+            <View className="mt-3 items-center">
+              <View
+                className="rounded-full border px-3.5 py-1.5"
+                style={{
+                  backgroundColor: isPassed ? colors.greenSoft : colors.redSoft,
+                  borderColor: withOpacity(
+                    isPassed ? colors.green : colors.red,
+                    0.35
+                  ),
+                }}
+              >
+                <Text
+                  className="text-[11px] font-black uppercase tracking-[1.2px]"
+                  style={{ color: isPassed ? colors.green : colors.red }}
+                >
+                  {isPassed
+                    ? `Passed · ${QUIZ_PASSING_SCORE}% mark`
+                    : `Below ${QUIZ_PASSING_SCORE}% passing mark`}
+                </Text>
+              </View>
+            </View>
 
             <View className="flex-1 items-center justify-center">
               <View className="items-center">
@@ -868,7 +909,9 @@ const QuizResultsView = memo(function QuizResultsView({
                   className="text-center text-[16px] leading-7"
                   style={{ color: colors.mutedText }}
                 >
-                  Great job! You&apos;ve completed the quiz.
+                  {isPassed
+                    ? "Great job! You're hitting the passing mark — keep the momentum going."
+                    : "Keep practicing — review your mistakes below and try this set again."}
                 </Text>
 
                 <View
@@ -942,7 +985,7 @@ const QuizResultsView = memo(function QuizResultsView({
               >
                 <Text
                   className="text-[16px] font-bold"
-                  style={{ color: "#ffffff" }}
+                  style={{ color: colors.onPrimary }}
                 >
                   Review Answers
                 </Text>
@@ -972,31 +1015,74 @@ const QuizResultsView = memo(function QuizResultsView({
   return (
     <SafeAreaView className="flex-1 bg-background">
       <FlashList
-        data={questions}
-        keyExtractor={(item) => item.id}
+        data={reviewItems}
+        keyExtractor={(item) => item.question.id}
         style={{ flex: 1 }}
         contentContainerStyle={QUIZ_RESULTS_CONTENT_STYLE}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={QuizVerticalSeparator}
         ListHeaderComponent={
+          <View className="pb-4">
+            <View className={QUIZ_CARD_CLASS}>
+              <Text className="text-xl font-black text-card-foreground">
+                Answer Review
+              </Text>
+              <Text className="mt-1 text-sm text-muted-foreground">
+                {quizTitle}
+              </Text>
+              <Text className="mt-2 text-sm text-muted-foreground">
+                {result.correct} correct, {result.wrong} incorrect,{" "}
+                {answeredCount} answered
+              </Text>
+              <View className="mt-4 flex-row gap-2">
+                {(
+                  [
+                    { key: "all", label: `All (${questions.length})` },
+                    { key: "mistakes", label: `Mistakes (${mistakesCount})` },
+                  ] as const
+                ).map((chip) => {
+                  const isActiveChip = reviewFilter === chip.key
+                  return (
+                    <Pressable
+                      key={chip.key}
+                      onPress={() => setReviewFilter(chip.key)}
+                      className="rounded-full border px-3.5 py-2"
+                      style={{
+                        backgroundColor: isActiveChip
+                          ? colors.primary
+                          : colors.panel,
+                        borderColor: isActiveChip
+                          ? colors.primary
+                          : colors.panelBorder,
+                      }}
+                    >
+                      <Text
+                        className="text-[12px] font-bold"
+                        style={{
+                          color: isActiveChip ? colors.onPrimary : colors.text,
+                        }}
+                      >
+                        {chip.label}
+                      </Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+              <Button
+                className="mt-4 h-11"
+                variant="outline"
+                onPress={() => setIsReviewingAnswers(false)}
+              >
+                <Text className="font-bold">Back to Summary</Text>
+              </Button>
+            </View>
+          </View>
+        }
+        ListEmptyComponent={
           <View className={QUIZ_CARD_CLASS}>
-            <Text className="text-xl font-black text-card-foreground">
-              Answer Review
+            <Text className="text-center text-sm text-muted-foreground">
+              No mistakes here — perfect run! 🎉
             </Text>
-            <Text className="mt-1 text-sm text-muted-foreground">
-              {quizTitle}
-            </Text>
-            <Text className="mt-2 text-sm text-muted-foreground">
-              {result.correct} correct, {result.wrong} incorrect,{" "}
-              {answeredCount} answered
-            </Text>
-            <Button
-              className="mt-4 h-11"
-              variant="outline"
-              onPress={() => setIsReviewingAnswers(false)}
-            >
-              <Text className="font-bold">Back to Summary</Text>
-            </Button>
           </View>
         }
         renderItem={renderResultQuestion}
@@ -1029,6 +1115,10 @@ export default function QuizScreen() {
   const [feedbackQuestionIndex, setFeedbackQuestionIndex] = useState<
     number | null
   >(null)
+  const [isMapOpen, setIsMapOpen] = useState(false)
+  const showExplanations = useAppPreferences(
+    (state) => state.preferences.showExplanations
+  )
 
   const params = useLocalSearchParams<{
     source?: string
@@ -1117,13 +1207,51 @@ export default function QuizScreen() {
       ? Math.max(answeredCount, activeIndex + 1) / questions.length
       : 0
 
+  const handleSubmitRequest = useCallback(() => {
+    const unansweredCount = questions.length - answeredCount
+
+    Alert.alert(
+      "Submit exam?",
+      unansweredCount > 0
+        ? `You still have ${unansweredCount} unanswered ${
+            unansweredCount === 1 ? "question" : "questions"
+          }. Unanswered questions are marked incorrect.`
+        : "You've answered every question. Ready to see your results?",
+      [
+        { text: "Keep answering", style: "cancel" },
+        {
+          text: "Submit",
+          style: "destructive",
+          onPress: () => void handleSubmit(),
+        },
+      ]
+    )
+  }, [answeredCount, handleSubmit, questions.length])
+
   const handleAdvanceToFeedback = useCallback(() => {
     if (!isCurrentQuestionAnswered) {
       return
     }
 
-    setFeedbackQuestionIndex(activeIndex)
-  }, [activeIndex, isCurrentQuestionAnswered])
+    if (showExplanations) {
+      setFeedbackQuestionIndex(activeIndex)
+      return
+    }
+
+    if (activeIndex >= questions.length - 1) {
+      handleSubmitRequest()
+      return
+    }
+
+    setActiveIndex(activeIndex + 1)
+  }, [
+    activeIndex,
+    handleSubmitRequest,
+    isCurrentQuestionAnswered,
+    questions.length,
+    setActiveIndex,
+    showExplanations,
+  ])
 
   const handleContinueFromFeedback = useCallback(() => {
     if (feedbackQuestionIndex === null) {
@@ -1227,33 +1355,43 @@ export default function QuizScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View className="flex-1">
-              <Text
-                className="text-[12px] font-medium"
-                style={{ color: colors.mutedText }}
-              >
-                Question {activeIndex + 1} of {questions.length}
-              </Text>
+              <View className="flex-row items-center justify-between">
+                <View
+                  className="rounded-full px-3 py-1.5"
+                  style={{ backgroundColor: colors.primarySoft }}
+                >
+                  <Text
+                    className="text-[11px] font-black uppercase tracking-[1.2px]"
+                    style={{ color: colors.primary }}
+                  >
+                    Question {activeIndex + 1} of {questions.length}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => setIsMapOpen(true)}
+                  hitSlop={8}
+                  accessibilityLabel="Open question map"
+                  className="flex-row items-center gap-1.5 rounded-full border px-3 py-1.5"
+                  style={{
+                    backgroundColor: colors.panel,
+                    borderColor: colors.panelBorder,
+                  }}
+                >
+                  <LayoutGrid size={13} color={colors.mutedText} />
+                  <Text
+                    className="text-[11px] font-bold"
+                    style={{ color: colors.mutedText }}
+                  >
+                    {answeredCount}/{questions.length} answered
+                  </Text>
+                </Pressable>
+              </View>
 
               <QuizProgressBar
                 progress={currentProgress}
                 bufferProgress={bufferProgress}
                 colors={colors}
               />
-
-              <View className="mt-3 flex-row items-center justify-between">
-                <Text
-                  className="text-[12px] font-medium"
-                  style={{ color: colors.mutedText }}
-                >
-                  {answeredCount} of {questions.length} answered
-                </Text>
-                <Text
-                  className="text-[12px] font-semibold"
-                  style={{ color: colors.primary }}
-                >
-                  {Math.round(currentProgress * 100)}%
-                </Text>
-              </View>
 
               <Text
                 className="mt-7 text-[18px] font-black leading-8"
@@ -1266,6 +1404,7 @@ export default function QuizScreen() {
                 {activeQuestion?.choices.map((choice, choiceIndex) => (
                   <AnswerOption
                     key={`${activeQuestion.id}-${choiceIndex}`}
+                    index={choiceIndex}
                     isSelected={selectedChoiceIndex === choiceIndex}
                     colors={{
                       baseBorder: colors.subtleBorder,
@@ -1282,7 +1421,7 @@ export default function QuizScreen() {
                     }}
                     onPress={() => handleSelectAnswer(activeIndex, choiceIndex)}
                   >
-                    {`${String.fromCharCode(65 + choiceIndex)}. ${choice}`}
+                    {choice}
                   </AnswerOption>
                 ))}
               </View>
@@ -1324,17 +1463,36 @@ export default function QuizScreen() {
                 >
                   <Text
                     className="text-[16px] font-bold"
-                    style={{ color: "#ffffff" }}
+                    style={{ color: colors.onPrimary }}
                   >
-                    Next
+                    {!isCurrentQuestionAnswered
+                      ? "Select an answer"
+                      : showExplanations
+                        ? "Check Answer"
+                        : activeIndex >= questions.length - 1
+                          ? "Finish"
+                          : "Next"}
                   </Text>
-                  <ArrowRight size={16} color="#ffffff" />
+                  {isCurrentQuestionAnswered ? (
+                    <ArrowRight size={16} color={colors.onPrimary} />
+                  ) : null}
                 </Pressable>
               </View>
             </View>
           </ScrollView>
         </View>
       </QuizAnimatedPanel>
+      <QuizQuestionMap
+        visible={isMapOpen}
+        onClose={() => setIsMapOpen(false)}
+        onJump={setActiveIndex}
+        onSubmitRequest={handleSubmitRequest}
+        answers={answers}
+        activeIndex={activeIndex}
+        totalQuestions={questions.length}
+        answeredCount={answeredCount}
+        theme={theme}
+      />
     </SafeAreaView>
   )
 }

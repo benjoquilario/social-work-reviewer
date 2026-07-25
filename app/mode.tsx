@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router"
-import { ArrowLeft, CalendarDays, FileQuestion } from "lucide-react-native"
-import { Pressable, View } from "react-native"
+import { CalendarDays, FileQuestion } from "lucide-react-native"
+import { View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { THEME, withOpacity } from "@/lib/theme"
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
+import { ScreenHeader } from "@/components/screen-header"
 
 export default function ModeScreen() {
   const router = useRouter()
@@ -19,21 +20,9 @@ export default function ModeScreen() {
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="gap-4 px-4 pb-8 pt-4"
+        contentContainerClassName="gap-4 px-4 pb-8 pt-1"
       >
-        <Pressable
-          className="h-10 flex-row items-center gap-2 rounded-2xl px-3"
-          style={{
-            borderWidth: 1,
-            borderColor: theme.border,
-            backgroundColor: theme.card,
-            alignSelf: "flex-start",
-          }}
-          onPress={() => router.back()}
-        >
-          <ArrowLeft size={15} color={theme.primary} />
-          <Text className="text-[12px] font-bold text-primary">Back</Text>
-        </Pressable>
+        <ScreenHeader title="Question Mode" />
 
         <Card style={{ borderWidth: 1, borderColor: theme.border }}>
           <CardContent className="gap-4 px-4 py-5">
@@ -52,9 +41,9 @@ export default function ModeScreen() {
                 Reviewer quizzes now run from board exam JSON sets
               </Text>
               <Text className="text-[13px] leading-6 text-muted-foreground">
-                The old subject exam mode has been retired. Use board exam categories,
-                set-based drills, progress tracking, achievements, and dashboard
-                reports from the new reviewer flow.
+                The old subject exam mode has been retired. Use board exam
+                categories, set-based drills, progress tracking, achievements,
+                and dashboard reports from the new reviewer flow.
               </Text>
             </View>
 
@@ -70,13 +59,17 @@ export default function ModeScreen() {
                   </Text>
                 </View>
                 <Text className="mt-1 text-[12px] leading-5 text-muted-foreground">
-                  Your application now centers on board exam sets, learning materials,
-                  weekly activity, achievements, and performance reporting instead of
-                  the old `questions`, `exams`, and `exam_attempts` path.
+                  Your application now centers on board exam sets, learning
+                  materials, weekly activity, achievements, and performance
+                  reporting instead of the old `questions`, `exams`, and
+                  `exam_attempts` path.
                 </Text>
               </View>
 
-              <Button className="h-12 rounded-2xl" onPress={() => router.push("/board-exams")}>
+              <Button
+                className="h-12 rounded-2xl"
+                onPress={() => router.push("/board-exams")}
+              >
                 <Text className="font-bold text-primary-foreground">
                   Open Board Exams
                 </Text>

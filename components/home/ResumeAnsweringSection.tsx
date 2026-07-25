@@ -1,9 +1,11 @@
 import { memo } from "react"
-import { View } from "react-native"
 import { Clock3, ListChecks, Play } from "lucide-react-native"
+import { View } from "react-native"
+
 import type { ResumeAttemptCard, ThemePalette } from "@/lib/home-types"
 import { withOpacity } from "@/lib/theme"
 import { Card, CardContent } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { MotionPressable } from "@/components/ui/motion"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
@@ -48,16 +50,11 @@ export const ResumeAnsweringSection = memo(function ResumeAnsweringSection({
             Continue your previous attempts
           </Text>
         </View>
-        <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-          <CardContent className="gap-1.5 px-4 py-4">
-            <Text className="text-[13px] font-bold text-card-foreground">
-              Resume data unavailable
-            </Text>
-            <Text className="text-[12px] leading-5 text-muted-foreground">
-              {errorMessage}
-            </Text>
-          </CardContent>
-        </Card>
+        <EmptyState
+          tone="destructive"
+          title="Resume data unavailable"
+          description={errorMessage}
+        />
       </View>
     )
   }

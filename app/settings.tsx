@@ -1,13 +1,7 @@
 import { useEffect, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "expo-router"
-import {
-  ChevronLeft,
-  KeyRound,
-  MailCheck,
-  Trash2,
-  TriangleAlert,
-} from "lucide-react-native"
+import { KeyRound, MailCheck, Trash2, TriangleAlert } from "lucide-react-native"
 import { Alert, Pressable, TextInput, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
@@ -28,6 +22,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
+import { ScreenHeader } from "@/components/screen-header"
 
 const APPEARANCE_OPTIONS: {
   label: string
@@ -273,29 +268,18 @@ export default function SettingsScreen() {
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="gap-4 px-4 pb-28 pt-5"
+        contentContainerClassName="gap-4 px-4 pb-28 pt-2"
       >
-        <View className="gap-3">
-          <View className="flex-row items-start justify-between gap-3">
-            <Pressable
-              className="h-11 w-11 items-center justify-center rounded-2xl border border-border bg-card"
-              onPress={() => router.back()}
-            >
-              <ChevronLeft size={18} color={theme.primary} strokeWidth={2.5} />
-            </Pressable>
-            <View className="flex-1 gap-1">
-              <Text className="text-[11px] font-black uppercase tracking-[1.8px] text-primary">
-                Preferences & Security
-              </Text>
-              <Text className="text-[24px] font-black leading-tight text-foreground">
-                Settings
-              </Text>
-              <Text className="text-[13px] leading-6 text-muted-foreground">
-                Control app behavior, account security, diagnostics, and
-                danger-zone actions.
-              </Text>
-            </View>
-          </View>
+        <ScreenHeader title="Settings" />
+
+        <View className="gap-1 px-1">
+          <Text className="text-[11px] font-black uppercase tracking-[1.8px] text-primary">
+            Preferences & Security
+          </Text>
+          <Text className="text-[13px] leading-6 text-muted-foreground">
+            Control app behavior, account security, diagnostics, and danger-zone
+            actions.
+          </Text>
         </View>
 
         <Card className="rounded-[28px]">

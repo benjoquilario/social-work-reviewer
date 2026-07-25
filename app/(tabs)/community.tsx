@@ -19,7 +19,7 @@ import {
 import { listLearningSubjects } from "@/lib/learning-content"
 import { THEME } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
-import { Card, CardContent } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 import { CommunityComposerDialog } from "@/components/community/community-composer-dialog"
@@ -333,16 +333,11 @@ export default function CommunityScreen() {
           contentInsetAdjustmentBehavior="automatic"
         >
           {header}
-          <Card>
-            <CardContent className="gap-2 px-4 py-4">
-              <Text className="text-sm font-black text-destructive">
-                Community unavailable
-              </Text>
-              <Text className="text-[13px] leading-5 text-muted-foreground">
-                {error}
-              </Text>
-            </CardContent>
-          </Card>
+          <EmptyState
+            tone="destructive"
+            title="Community unavailable"
+            description={error}
+          />
         </ScrollView>
       ) : (
         <FlashList

@@ -17,6 +17,7 @@ import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
@@ -168,7 +169,6 @@ export default function BoardExamSetDetailScreen() {
       }),
   })
 
-  const category = setDetailQuery.data?.category ?? null
   const set = setDetailQuery.data?.set ?? null
   const questions = useMemo(
     () => setDetailQuery.data?.questions ?? [],
@@ -237,7 +237,10 @@ export default function BoardExamSetDetailScreen() {
   }
 
   return (
-    <SafeAreaView edges={["left", "right", "bottom"]} className="flex-1 bg-background">
+    <SafeAreaView
+      edges={["left", "right", "bottom"]}
+      className="flex-1 bg-background"
+    >
       <Stack.Screen options={{ title: set?.title ?? "Choose Mode" }} />
       <ScrollView
         contentContainerClassName="gap-3 px-4 pb-8 pt-2"
@@ -251,16 +254,11 @@ export default function BoardExamSetDetailScreen() {
         ) : null}
 
         {errorMessage ? (
-          <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-            <CardContent className="gap-1.5 px-4 py-3.5">
-              <Text className="text-[13px] font-black text-destructive">
-                Board exam questions unavailable
-              </Text>
-              <Text className="text-[12px] leading-5 text-muted-foreground">
-                {errorMessage}
-              </Text>
-            </CardContent>
-          </Card>
+          <EmptyState
+            tone="destructive"
+            title="Board exam questions unavailable"
+            description={errorMessage}
+          />
         ) : null}
 
         {hiddenPremiumQuestionCount > 0 ? (

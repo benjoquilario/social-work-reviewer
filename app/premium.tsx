@@ -2,7 +2,6 @@ import { useMemo } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import {
-  ArrowLeft,
   BookOpenCheck,
   Check,
   Crown,
@@ -10,7 +9,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react-native"
-import { Pressable, View } from "react-native"
+import { View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { THEME, withOpacity } from "@/lib/theme"
@@ -19,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
+import { ScreenHeader } from "@/components/screen-header"
 
 function readFirstParam(value?: string | string[]) {
   if (Array.isArray(value)) {
@@ -115,12 +115,7 @@ export default function PremiumSubscriptionScreen() {
         detail: `20% off. Save PHP ${yearlyDiscountPhp} and average PHP ${effectiveMonthlyPhp}/month.`,
       },
     ],
-    [
-      effectiveMonthlyPhp,
-      monthlyPricePhp,
-      yearlyDiscountPhp,
-      yearlyPricePhp,
-    ]
+    [effectiveMonthlyPhp, monthlyPricePhp, yearlyDiscountPhp, yearlyPricePhp]
   )
 
   function handleBackToContext() {
@@ -149,22 +144,18 @@ export default function PremiumSubscriptionScreen() {
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="gap-4 px-4 pb-8 pt-3"
+        contentContainerClassName="gap-4 px-4 pb-8"
       >
-        <View className="flex-row items-center justify-between gap-3">
-          <Pressable
-            className="h-10 w-10 items-center justify-center rounded-2xl"
-            onPress={() => router.back()}
-          >
-            <ArrowLeft size={22} color={theme.primary} strokeWidth={2.5} />
-          </Pressable>
-
-          <View className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5">
-            <Text className="text-[10px] font-black uppercase tracking-[1.2px] text-primary">
-              Premium Access
-            </Text>
-          </View>
-        </View>
+        <ScreenHeader
+          title="Premium"
+          trailing={
+            <View className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5">
+              <Text className="text-[10px] font-black uppercase tracking-[1.2px] text-primary">
+                Premium Access
+              </Text>
+            </View>
+          }
+        />
 
         <Card className="overflow-hidden rounded-[24px] border-0">
           <CardContent
@@ -226,7 +217,9 @@ export default function PremiumSubscriptionScreen() {
                         className="text-[10px] font-black uppercase tracking-[1px]"
                         style={{
                           color:
-                            option.id === "yearly" ? theme.primary : theme.accent,
+                            option.id === "yearly"
+                              ? theme.primary
+                              : theme.accent,
                         }}
                       >
                         {option.badge}

@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { openBrowserAsync, WebBrowserPresentationStyle } from "expo-web-browser"
 import {
-  ArrowLeft,
   ArrowRight,
   ArrowUpRight,
   CirclePlay,
@@ -38,10 +37,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { IconButton } from "@/components/ui/icon-button"
 import { MarkdownContent } from "@/components/ui/markdown-content"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
+import { ScreenHeader } from "@/components/screen-header"
 
 import { normalizeMaterialContentToMarkdown } from "../../lib/learning-material-content"
 
@@ -118,7 +119,11 @@ export default function LessonDetailScreen() {
     enabled: Boolean(user?.$id) && Boolean(lessonId),
     staleTime: 0,
     refetchOnMount: "always",
-    queryFn: () => getLearningMaterialStatus({ userId: user?.$id ?? "", learningMaterialId: lessonId }),
+    queryFn: () =>
+      getLearningMaterialStatus({
+        userId: user?.$id ?? "",
+        learningMaterialId: lessonId,
+      }),
   })
 
   const materialDetail = materialQuery.data ?? null
@@ -420,23 +425,21 @@ export default function LessonDetailScreen() {
       <SafeAreaView className="flex-1 bg-background">
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
-          contentContainerClassName="gap-4 px-4 pb-7 pt-3"
+          contentContainerClassName="gap-4 px-4 pb-7"
         >
-          <View className="flex-row items-center justify-between gap-3">
-            <Pressable
-              className="h-10 w-10 items-center justify-center rounded-2xl"
-              onPress={() => router.back()}
-            >
-              <ArrowLeft size={22} color={primaryColor} strokeWidth={2.5} />
-            </Pressable>
-
-            <Pressable
-              className="h-10 w-10 items-center justify-center rounded-2xl border border-border bg-card"
-              onPress={() => setIsDetailsOpen(true)}
-            >
-              <Info size={18} color={primaryColor} strokeWidth={2.3} />
-            </Pressable>
-          </View>
+          <ScreenHeader
+            title="Lesson"
+            trailing={
+              <IconButton
+                label="Material details"
+                size="sm"
+                variant="outline"
+                onPress={() => setIsDetailsOpen(true)}
+              >
+                <Info size={18} color={primaryColor} strokeWidth={2.3} />
+              </IconButton>
+            }
+          />
 
           <Card>
             <CardContent className="gap-3 px-3.5 py-4">
@@ -489,41 +492,39 @@ export default function LessonDetailScreen() {
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="gap-4 px-3 pb-7 pt-3"
+        contentContainerClassName="gap-4 px-3 pb-7"
       >
-        <View className="flex-row items-center justify-between gap-3">
-          <Pressable
-            className="h-10 w-10 items-center justify-center rounded-2xl"
-            onPress={() => router.back()}
-          >
-            <ArrowLeft size={22} color={primaryColor} strokeWidth={2.5} />
-          </Pressable>
-
-          <View className="flex-row items-center gap-2">
-            {hasExternalResource ? (
-              <Button
-                variant="outline"
+        <ScreenHeader
+          title="Lesson"
+          trailing={
+            <View className="flex-row items-center gap-2">
+              {hasExternalResource ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-10 rounded-2xl px-3"
+                  onPress={() => void handleOpenResource()}
+                >
+                  {getMaterialActionIcon(
+                    materialDetail.material.type,
+                    primaryColor
+                  )}
+                  <Text className="text-xs font-bold">
+                    {getMaterialActionLabel(materialDetail.material.type)}
+                  </Text>
+                </Button>
+              ) : null}
+              <IconButton
+                label="Material details"
                 size="sm"
-                className="h-10 rounded-2xl px-3"
-                onPress={() => void handleOpenResource()}
+                variant="outline"
+                onPress={() => setIsDetailsOpen(true)}
               >
-                {getMaterialActionIcon(
-                  materialDetail.material.type,
-                  primaryColor
-                )}
-                <Text className="text-xs font-bold">
-                  {getMaterialActionLabel(materialDetail.material.type)}
-                </Text>
-              </Button>
-            ) : null}
-            <Pressable
-              className="h-10 w-10 items-center justify-center rounded-2xl border border-border bg-card"
-              onPress={() => setIsDetailsOpen(true)}
-            >
-              <Info size={18} color={primaryColor} strokeWidth={2.3} />
-            </Pressable>
-          </View>
-        </View>
+                <Info size={18} color={primaryColor} strokeWidth={2.3} />
+              </IconButton>
+            </View>
+          }
+        />
 
         <View className="gap-3 px-1">
           <Text className="text-[13px] font-black uppercase tracking-[1.4px] text-primary">
@@ -576,7 +577,7 @@ export default function LessonDetailScreen() {
               >
                 <ArrowUpRight
                   size={16}
-                  color={THEME.light.primaryForeground}
+                  color={activeTheme.primaryForeground}
                   strokeWidth={2.2}
                 />
                 <Text className="font-bold text-primary-foreground">
@@ -685,7 +686,7 @@ export default function LessonDetailScreen() {
               >
                 <ArrowUpRight
                   size={16}
-                  color={THEME.light.primaryForeground}
+                  color={activeTheme.primaryForeground}
                   strokeWidth={2.2}
                 />
                 <Text className="font-bold text-primary-foreground">

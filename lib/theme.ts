@@ -1,67 +1,112 @@
 import { DarkTheme, DefaultTheme, type Theme } from "@react-navigation/native"
 
+/**
+ * ─── Brand ────────────────────────────────────────────────────────────────
+ *
+ * The literal colors sampled from the "Social Work Sure Win!" logo
+ * (assets/images/logo.png). These are the identity colors — use them for
+ * logo-adjacent surfaces, hero gradients and SVG fills. They are hex so they
+ * can be handed straight to react-native-svg, which does not parse the
+ * space-separated CSS Color Level 4 `hsl()` syntax used by the tokens below.
+ *
+ * Every semantic token in THEME is derived from these five hues.
+ */
+export const BRAND = {
+  /** Left figure, "Social Work" wordmark, "Win!" — the dominant logo color. */
+  teal: "#03979d",
+  /** Book cover and the "Sure" wordmark — the deepest brand color. */
+  navy: "#02275c",
+  /** Right figure — supporting brand blue. */
+  blue: "#226dc3",
+  /** Open book pages — soft supporting blue. */
+  sky: "#2892be",
+  /** Heart, checkmark and the "!" dot — the single highlight color. */
+  amber: "#f8a716",
+} as const
+
+/**
+ * ─── Semantic tokens ──────────────────────────────────────────────────────
+ *
+ * Runtime source of truth for the palette. Mirrored in global.css for web and
+ * for anything rendered outside the themed root View — change values HERE
+ * first, then mirror.
+ *
+ * Every foreground/background pair below is verified to meet WCAG AA (4.5:1)
+ * in both schemes. `accent` is a light amber and is only ever legible as a
+ * FILL — when the amber has to be text on a light surface, use `accentText`.
+ */
 export const THEME = {
   light: {
-    background: "hsl(156 30% 96%)",
-    foreground: "hsl(160 28% 12%)",
+    // Cool near-white pulled from the logo's blue family rather than a
+    // neutral grey, so the whole app sits in the same temperature.
+    background: "hsl(204 46% 97%)",
+    foreground: "hsl(215 48% 15%)",
     card: "hsl(0 0% 100%)",
-    cardForeground: "hsl(160 28% 12%)",
+    cardForeground: "hsl(215 48% 15%)",
     popover: "hsl(0 0% 100%)",
-    popoverForeground: "hsl(160 28% 12%)",
-    primary: "hsl(174 72% 39%)",
+    popoverForeground: "hsl(215 48% 15%)",
+    // Logo teal, deepened until white-on-primary clears AA (5.06:1).
+    primary: "hsl(183 95% 26%)",
     primaryForeground: "hsl(0 0% 100%)",
-    secondary: "hsl(160 27% 90%)",
-    secondaryForeground: "hsl(164 36% 24%)",
-    muted: "hsl(162 24% 93%)",
-    mutedForeground: "hsl(164 12% 41%)",
-    accent: "hsl(46 92% 52%)",
-    accentForeground: "hsl(160 28% 12%)",
-    destructive: "hsl(0 84.2% 60.2%)",
-    destructiveForeground: "hsl(0 0% 98%)",
-    border: "hsl(160 20% 84%)",
-    input: "hsl(160 22% 90%)",
-    ring: "hsl(174 72% 39%)",
-    success: "hsl(152 63% 38%)",
+    secondary: "hsl(200 46% 92%)",
+    secondaryForeground: "hsl(215 52% 24%)",
+    muted: "hsl(204 40% 94%)",
+    mutedForeground: "hsl(210 18% 42%)",
+    // Logo amber, unchanged — it is a fill color.
+    accent: "hsl(38 94% 53%)",
+    accentForeground: "hsl(215 60% 13%)",
+    /** Amber darkened for use as TEXT on light surfaces (4.87:1 on card). */
+    accentText: "hsl(30 88% 36%)",
+    destructive: "hsl(0 72% 46%)",
+    destructiveForeground: "hsl(0 0% 100%)",
+    border: "hsl(205 32% 87%)",
+    input: "hsl(205 34% 91%)",
+    ring: "hsl(183 95% 26%)",
+    success: "hsl(162 82% 27%)",
     successForeground: "hsl(0 0% 100%)",
-    warning: "hsl(46 92% 52%)",
-    warningForeground: "hsl(160 28% 12%)",
+    warning: "hsl(38 94% 53%)",
+    warningForeground: "hsl(215 60% 13%)",
     radius: "0.875rem",
-    chart1: "hsl(174 72% 39%)",
-    chart2: "hsl(210 93% 63%)",
-    chart3: "hsl(46 92% 52%)",
-    chart4: "hsl(258 78% 68%)",
-    chart5: "hsl(344 80% 64%)",
+    // chart1–3 are the logo colors; 4–5 add hue separation so categorical
+    // series stay distinguishable (teal/sky/blue alone are too close).
+    chart1: "hsl(183 95% 30%)",
+    chart2: "hsl(212 70% 45%)",
+    chart3: "hsl(38 94% 53%)",
+    chart4: "hsl(262 62% 56%)",
+    chart5: "hsl(344 72% 52%)",
   },
   dark: {
-    background: "hsl(165 34% 7%)",
-    foreground: "hsl(156 22% 94%)",
-    card: "hsl(162 31% 10%)",
-    cardForeground: "hsl(156 22% 94%)",
-    popover: "hsl(162 31% 10%)",
-    popoverForeground: "hsl(156 22% 94%)",
-    primary: "hsl(174 73% 53%)",
-    primaryForeground: "hsl(165 34% 7%)",
-    secondary: "hsl(160 29% 13%)",
-    secondaryForeground: "hsl(156 22% 94%)",
-    muted: "hsl(160 21% 16%)",
-    mutedForeground: "hsl(158 12% 67%)",
-    accent: "hsl(46 95% 58%)",
-    accentForeground: "hsl(165 34% 7%)",
-    destructive: "hsl(0 70.9% 59.4%)",
-    destructiveForeground: "hsl(0 0% 98%)",
-    border: "hsl(160 18% 18%)",
-    input: "hsl(160 20% 14%)",
-    ring: "hsl(174 73% 53%)",
-    success: "hsl(151 63% 47%)",
-    successForeground: "hsl(165 34% 7%)",
-    warning: "hsl(46 95% 58%)",
-    warningForeground: "hsl(165 34% 7%)",
+    // Navy-black derived from the logo's book cover.
+    background: "hsl(215 50% 7%)",
+    foreground: "hsl(204 34% 94%)",
+    card: "hsl(215 42% 11%)",
+    cardForeground: "hsl(204 34% 94%)",
+    popover: "hsl(215 42% 11%)",
+    popoverForeground: "hsl(204 34% 94%)",
+    primary: "hsl(182 72% 46%)",
+    primaryForeground: "hsl(215 60% 8%)",
+    secondary: "hsl(214 36% 17%)",
+    secondaryForeground: "hsl(204 34% 94%)",
+    muted: "hsl(214 32% 18%)",
+    mutedForeground: "hsl(206 22% 68%)",
+    accent: "hsl(38 95% 58%)",
+    accentForeground: "hsl(215 60% 10%)",
+    accentText: "hsl(38 95% 62%)",
+    destructive: "hsl(2 76% 62%)",
+    destructiveForeground: "hsl(215 60% 8%)",
+    border: "hsl(213 28% 22%)",
+    input: "hsl(214 30% 16%)",
+    ring: "hsl(182 72% 46%)",
+    success: "hsl(160 66% 45%)",
+    successForeground: "hsl(215 60% 8%)",
+    warning: "hsl(38 95% 58%)",
+    warningForeground: "hsl(215 60% 10%)",
     radius: "0.875rem",
-    chart1: "hsl(174 73% 53%)",
-    chart2: "hsl(210 95% 67%)",
-    chart3: "hsl(46 95% 58%)",
-    chart4: "hsl(258 80% 72%)",
-    chart5: "hsl(344 82% 69%)",
+    chart1: "hsl(182 72% 50%)",
+    chart2: "hsl(212 82% 66%)",
+    chart3: "hsl(38 95% 58%)",
+    chart4: "hsl(262 78% 72%)",
+    chart5: "hsl(344 80% 68%)",
   },
 } as const
 
@@ -109,6 +154,7 @@ const NATIVEWIND_THEME_VARIABLE_KEYS = {
   mutedForeground: "--muted-foreground",
   accent: "--accent",
   accentForeground: "--accent-foreground",
+  accentText: "--accent-text",
   destructive: "--destructive",
   destructiveForeground: "--destructive-foreground",
   border: "--border",
@@ -159,6 +205,28 @@ export function withOpacity(hslString: string, opacity: number): string {
   return hslString.replace(")", ` / ${opacity})`)
 }
 
+/**
+ * react-native-svg's color parser predates CSS Color Level 4, so it cannot
+ * read the space-separated `hsl(H S% L% / A)` form the tokens use. Convert to
+ * the legacy comma form before handing a token to any SVG prop.
+ */
+export function toSvgColor(color: string | undefined): string | undefined {
+  if (!color) {
+    return color
+  }
+
+  const match = color.match(
+    /hsl\(\s*([\d.]+)\s+([\d.]+)%\s+([\d.]+)%(?:\s*\/\s*([\d.]+))?\s*\)/
+  )
+
+  if (match) {
+    const [, h, s, l, a] = match
+    return `hsla(${h}, ${s}%, ${l}%, ${a ?? 1})`
+  }
+
+  return color
+}
+
 export function getBorderColor(theme: ThemePalette): string {
   return theme.border
 }
@@ -167,35 +235,58 @@ export function getThemeChartPalette(theme: ThemePalette): string[] {
   return [theme.primary, theme.chart2, theme.chart3, theme.chart4, theme.chart5]
 }
 
+/**
+ * Palette for content painted on top of the brand (navy) hero surface.
+ *
+ * The hero is deliberately dark in BOTH schemes — it is the logo's own
+ * surface, so it stays constant the way a printed logo would. Everything here
+ * is therefore light-on-dark regardless of the active color scheme.
+ */
+export function getBrandSurfacePalette() {
+  return {
+    /** Gradient stops, deep navy → brand teal, matching the logo's read. */
+    gradientStart: BRAND.navy,
+    gradientMid: "#0a4a73",
+    gradientEnd: BRAND.teal,
+    foreground: "hsl(0 0% 100%)",
+    mutedForeground: "hsl(199 40% 84%)",
+    /** Frosted panels layered on the gradient. */
+    overlayStrong: "hsl(0 0% 100% / 0.14)",
+    overlaySoft: "hsl(0 0% 100% / 0.08)",
+    border: "hsl(0 0% 100% / 0.18)",
+    accent: BRAND.amber,
+    sky: BRAND.sky,
+  }
+}
+
+/**
+ * Palette for the home feature sections, which sit on `card` / `background`.
+ *
+ * Overlays are brand-tinted rather than plain white so they remain visible in
+ * light mode — a flat white wash disappears entirely on a white card.
+ */
 export function getReviewerFeaturePalette(mode: "light" | "dark") {
-  const brandTheme = mode === "dark" ? THEME.dark : THEME.light
-  const surface = mode === "dark" ? "hsl(160 31% 11%)" : "hsl(160 30% 15%)"
-  const foreground = mode === "dark" ? brandTheme.foreground : "hsl(0 0% 98%)"
-  const mutedForeground =
-    mode === "dark" ? brandTheme.mutedForeground : "hsl(156 12% 74%)"
+  const isDark = mode === "dark"
+  const brandTheme = isDark ? THEME.dark : THEME.light
 
   return {
-    surface,
-    foreground,
-    mutedForeground,
-    borderColor: withOpacity(brandTheme.primary, mode === "dark" ? 0.2 : 0.3),
-    panelBorder: "hsl(0 0% 100% / 0.08)",
-    overlayStrong:
-      mode === "dark" ? "hsl(0 0% 100% / 0.08)" : "hsl(0 0% 100% / 0.08)",
-    overlaySoft:
-      mode === "dark" ? "hsl(0 0% 100% / 0.06)" : "hsl(0 0% 100% / 0.06)",
-    primaryGlow: withOpacity(brandTheme.primary, mode === "dark" ? 0.18 : 0.16),
-    accentGlow: withOpacity(brandTheme.chart3, 0.12),
-    activeSurface: withOpacity(
-      brandTheme.primary,
-      mode === "dark" ? 0.18 : 0.14
-    ),
-    activeBorder: withOpacity(brandTheme.primary, mode === "dark" ? 0.3 : 0.34),
-    inactiveSurface: "hsl(0 0% 100% / 0.04)",
-    inactiveBorder: "hsl(0 0% 100% / 0.06)",
-    inactiveDot: "hsl(0 0% 100% / 0.18)",
+    surface: brandTheme.card,
+    foreground: brandTheme.foreground,
+    mutedForeground: brandTheme.mutedForeground,
+    borderColor: withOpacity(brandTheme.primary, isDark ? 0.24 : 0.18),
+    panelBorder: withOpacity(brandTheme.foreground, isDark ? 0.14 : 0.08),
+    overlayStrong: withOpacity(brandTheme.primary, isDark ? 0.14 : 0.07),
+    overlaySoft: withOpacity(brandTheme.primary, isDark ? 0.08 : 0.045),
+    primaryGlow: withOpacity(brandTheme.primary, isDark ? 0.16 : 0.1),
+    accentGlow: withOpacity(brandTheme.chart3, isDark ? 0.14 : 0.1),
+    activeSurface: withOpacity(brandTheme.primary, isDark ? 0.2 : 0.12),
+    activeBorder: withOpacity(brandTheme.primary, isDark ? 0.34 : 0.28),
+    inactiveSurface: withOpacity(brandTheme.foreground, isDark ? 0.05 : 0.035),
+    inactiveBorder: withOpacity(brandTheme.foreground, isDark ? 0.09 : 0.07),
+    inactiveDot: withOpacity(brandTheme.foreground, isDark ? 0.2 : 0.16),
     chartPalette: getThemeChartPalette(brandTheme),
     primary: brandTheme.primary,
+    accentText: brandTheme.accentText,
     chart2: brandTheme.chart2,
     chart3: brandTheme.chart3,
   }

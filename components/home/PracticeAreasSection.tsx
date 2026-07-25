@@ -1,9 +1,11 @@
 import { memo } from "react"
-import { View } from "react-native"
 import { FlashList, type ListRenderItem } from "@shopify/flash-list"
-import type { LearningSubject } from "@/lib/learning-content"
+import { View } from "react-native"
+
 import type { ThemePalette } from "@/lib/home-types"
+import type { LearningSubject } from "@/lib/learning-content"
 import { Card, CardContent } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
@@ -65,16 +67,11 @@ export const PracticeAreasSection = memo(function PracticeAreasSection({
           ))}
         </ScrollView>
       ) : errorMessage ? (
-        <Card className="rounded-[28px]">
-          <CardContent className="gap-2 px-4 py-4">
-            <Text className="text-sm font-black text-destructive">
-              Review subjects unavailable
-            </Text>
-            <Text className="text-[13px] leading-5 text-muted-foreground">
-              {errorMessage}
-            </Text>
-          </CardContent>
-        </Card>
+        <EmptyState
+          tone="destructive"
+          title="Review subjects unavailable"
+          description={errorMessage}
+        />
       ) : (
         <FlashList
           data={reviewSubjects}
@@ -87,17 +84,11 @@ export const PracticeAreasSection = memo(function PracticeAreasSection({
           renderItem={renderSubjectCard}
           ItemSeparatorComponent={SubjectCardSeparator}
           ListEmptyComponent={
-            <Card className="w-[300px]">
-              <CardContent className="gap-2 px-4 py-4">
-                <Text className="text-sm font-black text-card-foreground">
-                  No review subjects yet
-                </Text>
-                <Text className="text-[13px] leading-5 text-muted-foreground">
-                  Add Appwrite subject and topic records to populate this
-                  section.
-                </Text>
-              </CardContent>
-            </Card>
+            <EmptyState
+              className="w-[300px]"
+              title="No review subjects yet"
+              description="Add Appwrite subject and topic records to populate this section."
+            />
           }
         />
       )}

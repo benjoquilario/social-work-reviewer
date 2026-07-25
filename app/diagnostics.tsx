@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
-import { useRouter } from "expo-router"
-import { ArrowLeft, RefreshCcw } from "lucide-react-native"
-import { Pressable, View } from "react-native"
+import { RefreshCcw } from "lucide-react-native"
+import { View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import {
@@ -11,19 +10,21 @@ import {
 import { THEME } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Card, CardContent } from "@/components/ui/card"
+import { IconButton } from "@/components/ui/icon-button"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
+import { ScreenHeader } from "@/components/screen-header"
 
 const STATUS_STYLES = {
   success: {
     label: "OK",
-    className: "text-green-700",
-    backgroundClassName: "bg-green-500/10",
+    className: "text-success",
+    backgroundClassName: "bg-success/10",
   },
   warning: {
     label: "WARN",
-    className: "text-amber-700",
-    backgroundClassName: "bg-amber-500/10",
+    className: "text-foreground dark:text-warning",
+    backgroundClassName: "bg-warning/15",
   },
   error: {
     label: "FAIL",
@@ -33,7 +34,6 @@ const STATUS_STYLES = {
 } as const
 
 export default function DiagnosticsScreen() {
-  const router = useRouter()
   const colorScheme = useColorScheme()
   const primaryColor =
     colorScheme === "dark" ? THEME.dark.primary : THEME.light.primary
@@ -67,23 +67,21 @@ export default function DiagnosticsScreen() {
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="gap-4 px-4 pb-7 pt-3"
+        contentContainerClassName="gap-4 px-4 pb-7"
       >
-        <View className="flex-row items-center justify-between gap-3">
-          <Pressable
-            className="h-10 w-10 items-center justify-center rounded-2xl"
-            onPress={() => router.back()}
-          >
-            <ArrowLeft size={22} color={primaryColor} strokeWidth={2.5} />
-          </Pressable>
-
-          <Pressable
-            className="h-10 w-10 items-center justify-center rounded-2xl"
-            onPress={() => void loadDiagnostics()}
-          >
-            <RefreshCcw size={20} color={primaryColor} strokeWidth={2.2} />
-          </Pressable>
-        </View>
+        <ScreenHeader
+          title="Diagnostics"
+          trailing={
+            <IconButton
+              label="Rerun diagnostics"
+              size="sm"
+              variant="ghost"
+              onPress={() => void loadDiagnostics()}
+            >
+              <RefreshCcw size={20} color={primaryColor} strokeWidth={2.2} />
+            </IconButton>
+          }
+        />
 
         <View className="gap-2 px-1">
           <Text className="text-[11px] font-black uppercase tracking-[1.6px] text-primary">

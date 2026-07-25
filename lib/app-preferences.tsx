@@ -17,6 +17,7 @@ export type AppPreferences = {
   animationsEnabled: boolean
   dailyReminder: boolean
   strictMode: boolean
+  hasCompletedOnboarding: boolean
 }
 
 const STORAGE_KEY = "@reviewer/app-preferences"
@@ -29,6 +30,7 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   animationsEnabled: true,
   dailyReminder: true,
   strictMode: false,
+  hasCompletedOnboarding: false,
 }
 
 type StorageLike = {

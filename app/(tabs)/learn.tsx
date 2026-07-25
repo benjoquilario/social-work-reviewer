@@ -11,6 +11,7 @@ import { getStaggerDelay } from "@/lib/motion"
 import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Card, CardContent } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { FadeInView, MotionPressable } from "@/components/ui/motion"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
@@ -40,28 +41,6 @@ export default function LearningCenterScreen() {
   })
 
   const subjects = useMemo(() => subjectsQuery.data ?? [], [subjectsQuery.data])
-
-  const totals = useMemo(
-    () => ({
-      totalTopics: subjects.reduce(
-        (sum, subject) => sum + subject.topicCount,
-        0
-      ),
-      totalMaterials: subjects.reduce(
-        (sum, subject) => sum + subject.materialCount,
-        0
-      ),
-    }),
-    [subjects]
-  )
-  const headerStats = useMemo(
-    () => [
-      { label: "Subjects", value: String(subjects.length) },
-      { label: "Topics", value: String(totals.totalTopics) },
-      { label: "Materials", value: String(totals.totalMaterials) },
-    ],
-    [subjects.length, totals.totalMaterials, totals.totalTopics]
-  )
 
   const renderSubjectItem = useCallback(
     ({ item: subject }: ListRenderItemInfo<(typeof subjects)[number]>) => (
@@ -129,7 +108,7 @@ export default function LearningCenterScreen() {
                   {!subject.isLocked &&
                   subject.hasPremiumContent &&
                   !isPremiumUser ? (
-                    <View className="bg-primary/8 rounded-full px-2 py-0.5">
+                    <View className="rounded-full bg-primary/10 px-2 py-0.5">
                       <Text className="text-[10px] font-semibold text-primary">
                         {subject.freeMaterialCount} free ·{" "}
                         {subject.premiumMaterialCount} premium
@@ -179,10 +158,6 @@ export default function LearningCenterScreen() {
                 eyebrow="Review Content"
                 title="Learning Material Library"
                 subtitle="Browse a cleaner, subject-first library, open topic clusters, and move directly into the linked learning materials."
-                avatarLabel="LC"
-                badgeLabel="Access"
-                badgeValue={isPremiumUser ? "Premium plan" : "Free plan"}
-                stats={headerStats}
               />
             </View>
           </FadeInView>
@@ -201,18 +176,15 @@ export default function LearningCenterScreen() {
             ) : null}
 
             {!subjectsQuery.isLoading && subjectsQuery.error ? (
-              <Card>
-                <CardContent className="gap-2 px-3.5 py-4">
-                  <Text className="text-sm font-black text-destructive">
-                    Content unavailable
-                  </Text>
-                  <Text className="text-[13px] leading-5 text-muted-foreground">
-                    {subjectsQuery.error instanceof Error
-                      ? subjectsQuery.error.message
-                      : "Unable to load learning subjects from Appwrite."}
-                  </Text>
-                </CardContent>
-              </Card>
+              <EmptyState
+                tone="destructive"
+                title="Content unavailable"
+                description={
+                  subjectsQuery.error instanceof Error
+                    ? subjectsQuery.error.message
+                    : "Unable to load learning subjects from Appwrite."
+                }
+              />
             ) : null}
 
             {!subjectsQuery.isLoading && !subjectsQuery.error ? (

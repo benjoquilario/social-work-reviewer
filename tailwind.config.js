@@ -36,6 +36,18 @@ module.exports = {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+          // Amber darkened for use as text on light surfaces. `accent` itself
+          // is a fill color and fails contrast as text in light mode.
+          text: "hsl(var(--accent-text))",
+        },
+        // Literal logo colors — for brand surfaces and illustration only.
+        // Prefer the semantic tokens above for anything functional.
+        brand: {
+          teal: "#03979d",
+          navy: "#02275c",
+          blue: "#226dc3",
+          sky: "#2892be",
+          amber: "#f8a716",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
@@ -44,6 +56,21 @@ module.exports = {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        chart: {
+          1: "hsl(var(--chart-1))",
+          2: "hsl(var(--chart-2))",
+          3: "hsl(var(--chart-3))",
+          4: "hsl(var(--chart-4))",
+          5: "hsl(var(--chart-5))",
         },
       },
       borderRadius: {
@@ -54,4 +81,4 @@ module.exports = {
     },
   },
   plugins: [require("tailwindcss-animate")],
-};
+}

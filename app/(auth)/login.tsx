@@ -1,6 +1,5 @@
 import { useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { Image } from "expo-image"
 import { useRouter } from "expo-router"
 import { BookOpenText, Eye, EyeOff, Lock, Mail } from "lucide-react-native"
 import {
@@ -8,13 +7,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  TextInput,
   View,
 } from "react-native"
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { THEME } from "@/lib/theme"
-import { useColorScheme } from "@/hooks/use-color-scheme"
+import { useTheme } from "@/hooks/use-theme"
+import { Button } from "@/components/ui/button"
+import { IconButton } from "@/components/ui/icon-button"
+import { FormField, Input } from "@/components/ui/input"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 
@@ -22,9 +22,7 @@ export default function LoginScreen() {
   const router = useRouter()
   const login = useAuth((state) => state.login)
   const insets = useSafeAreaInsets()
-  const colorScheme = useColorScheme()
-  const isDark = colorScheme === "dark"
-  const theme = isDark ? THEME.dark : THEME.light
+  const { theme } = useTheme()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -53,10 +51,6 @@ export default function LoginScreen() {
     }
   }
 
-  const inputBg = theme.input
-  const borderColor = theme.border
-  const iconColor = theme.mutedForeground
-
   return (
     <SafeAreaView className="flex-1 bg-background">
       <KeyboardAvoidingView
@@ -77,51 +71,29 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
         >
-          {/* Logo + branding */}
-          <View
-            className="overflow-hidden rounded-[30px] border px-5 py-5"
-            style={{
-              borderColor: borderColor,
-              backgroundColor: theme.card,
-            }}
-          >
-            <View className="items-center gap-4">
-              <Image
-                source={require("@/assets/images/happy-graduation.png")}
-                style={{ width: 150, height: 150 }}
-                contentFit="contain"
+          {/* Brand + heading */}
+          <View className="gap-5">
+            <View
+              className="h-16 w-16 items-center justify-center rounded-[22px]"
+              style={{ backgroundColor: theme.primary }}
+            >
+              <BookOpenText
+                size={28}
+                color={theme.primaryForeground}
+                strokeWidth={2.5}
               />
-              <View className="items-center gap-1.5">
-                <Text className="text-center text-2xl font-black text-foreground">
-                  Welcome back to Reviewer
-                </Text>
-                <Text className="text-center text-sm leading-6 text-muted-foreground">
-                  Continue your drills, revisit quick access, and keep your
-                  study streak moving.
-                </Text>
-              </View>
-              <View
-                className="w-full flex-row items-center gap-2 rounded-2xl px-3.5 py-3"
-                style={{
-                  backgroundColor: theme.secondary,
-                }}
-              >
-                <View
-                  className="h-10 w-10 items-center justify-center rounded-2xl"
-                  style={{ backgroundColor: theme.primary }}
-                >
-                  <BookOpenText size={18} color={theme.primaryForeground} />
-                </View>
-                <View className="flex-1 gap-0.5">
-                  <Text className="text-[13px] font-black text-foreground">
-                    Pick up where you left off
-                  </Text>
-                  <Text className="text-[12px] leading-5 text-muted-foreground">
-                    Resume your review and jump straight into today’s study
-                    plan.
-                  </Text>
-                </View>
-              </View>
+            </View>
+            <View className="gap-1.5">
+              <Text className="text-[12px] font-black uppercase tracking-[2px] text-primary">
+                Reviewer
+              </Text>
+              <Text className="text-[30px] font-black leading-10 text-foreground">
+                Welcome back
+              </Text>
+              <Text className="text-[15px] leading-6 text-muted-foreground">
+                Sign in to continue your drills and keep your study streak
+                moving.
+              </Text>
             </View>
           </View>
 
@@ -134,99 +106,58 @@ export default function LoginScreen() {
             ) : null}
 
             {/* Email field */}
-            <View className="gap-1.5">
-              <Text className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Email
-              </Text>
-              <View
-                className="flex-row items-center gap-3 rounded-2xl border px-4"
-                style={{
-                  borderColor,
-                  backgroundColor: inputBg,
-                  height: 52,
-                }}
-              >
-                <Mail size={16} color={iconColor} />
-                <TextInput
-                  className="flex-1 text-sm font-medium text-foreground"
-                  placeholder="your@email.com"
-                  placeholderTextColor={theme.mutedForeground}
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  returnKeyType="next"
-                  style={{
-                    fontFamily: "PlusJakartaSans_500Medium",
-                    color: theme.foreground,
-                  }}
-                />
-              </View>
-            </View>
+            <FormField label="Email">
+              <Input
+                leading={<Mail size={16} color={theme.mutedForeground} />}
+                placeholder="your@email.com"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                returnKeyType="next"
+              />
+            </FormField>
 
             {/* Password field */}
-            <View className="gap-1.5">
-              <Text className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Password
-              </Text>
-              <View
-                className="flex-row items-center gap-3 rounded-2xl border px-4"
-                style={{
-                  borderColor,
-                  backgroundColor: inputBg,
-                  height: 52,
-                }}
-              >
-                <Lock size={16} color={iconColor} />
-                <TextInput
-                  className="flex-1 text-sm font-medium"
-                  placeholder="Enter your password"
-                  placeholderTextColor={theme.mutedForeground}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                  returnKeyType="done"
-                  onSubmitEditing={handleLogin}
-                  style={{
-                    fontFamily: "PlusJakartaSans_500Medium",
-                    color: theme.foreground,
-                  }}
-                />
-                <Pressable
-                  onPress={() => setShowPassword((prev) => !prev)}
-                  hitSlop={8}
-                >
-                  {showPassword ? (
-                    <EyeOff size={16} color={iconColor} />
-                  ) : (
-                    <Eye size={16} color={iconColor} />
-                  )}
-                </Pressable>
-              </View>
-            </View>
+            <FormField label="Password">
+              <Input
+                leading={<Lock size={16} color={theme.mutedForeground} />}
+                trailing={
+                  <IconButton
+                    label={showPassword ? "Hide password" : "Show password"}
+                    size="sm"
+                    className="-mr-2 h-9 w-9"
+                    onPress={() => setShowPassword((prev) => !prev)}
+                  >
+                    {showPassword ? (
+                      <EyeOff size={16} color={theme.mutedForeground} />
+                    ) : (
+                      <Eye size={16} color={theme.mutedForeground} />
+                    )}
+                  </IconButton>
+                }
+                placeholder="Enter your password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                returnKeyType="done"
+                onSubmitEditing={handleLogin}
+              />
+            </FormField>
 
             {/* Sign in button */}
-            <Pressable
+            <Button
+              size="lg"
+              className="mt-1"
               onPress={handleLogin}
               disabled={isLoading}
-              className="mt-1 items-center justify-center rounded-2xl"
-              style={{
-                height: 52,
-                backgroundColor: theme.primary,
-                opacity: isLoading ? 0.7 : 1,
-              }}
             >
               {isLoading ? (
                 <ActivityIndicator color={theme.primaryForeground} />
               ) : (
-                <Text
-                  className="text-sm font-black uppercase tracking-wider"
-                  style={{ color: theme.primaryForeground }}
-                >
-                  Sign In
-                </Text>
+                <Text>Sign In</Text>
               )}
-            </Pressable>
+            </Button>
           </View>
 
           {/* Register link */}
@@ -235,12 +166,7 @@ export default function LoginScreen() {
               Don&apos;t have an account?
             </Text>
             <Pressable onPress={() => router.push("/(auth)/register")}>
-              <Text
-                className="text-sm font-bold"
-                style={{ color: theme.primary }}
-              >
-                Create one
-              </Text>
+              <Text className="text-sm font-bold text-primary">Create one</Text>
             </Pressable>
           </View>
 
@@ -248,10 +174,7 @@ export default function LoginScreen() {
             onPress={() => router.push("/diagnostics")}
             className="items-center"
           >
-            <Text
-              className="text-sm font-bold"
-              style={{ color: theme.primary }}
-            >
+            <Text className="text-sm font-bold text-primary">
               Open diagnostics
             </Text>
           </Pressable>

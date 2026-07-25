@@ -2,14 +2,8 @@ import { memo, useCallback, useMemo, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useCommunity } from "@/contexts/community-context"
 import { Image } from "expo-image"
-import { useLocalSearchParams, useRouter } from "expo-router"
-import {
-  ArrowLeft,
-  Heart,
-  MessageSquare,
-  Send,
-  Share2,
-} from "lucide-react-native"
+import { useLocalSearchParams } from "expo-router"
+import { Heart, MessageSquare, Send, Share2 } from "lucide-react-native"
 import {
   KeyboardAvoidingView,
   Platform,
@@ -23,12 +17,13 @@ import {
   type CommunityCommentItem,
   type CommunityReplyItem,
 } from "@/lib/community"
-import { THEME, getCommunityCategoryColor, withOpacity } from "@/lib/theme"
-import { useKeyboardInset } from "@/hooks/use-keyboard-inset"
+import { getCommunityCategoryColor, THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
+import { useKeyboardInset } from "@/hooks/use-keyboard-inset"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 import { CommunityAvatar } from "@/components/community/avatar"
+import { ScreenHeader } from "@/components/screen-header"
 
 type ThemePalette = (typeof THEME)["light"] | (typeof THEME)["dark"]
 
@@ -177,7 +172,6 @@ const CommentRow = memo(function CommentRow({
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function CommunityDiscussionScreen() {
-  const router = useRouter()
   const insets = useSafeAreaInsets()
   const keyboardInset = useKeyboardInset()
   const colorScheme = useColorScheme()
@@ -257,16 +251,8 @@ export default function CommunityDiscussionScreen() {
   if (!post) {
     return (
       <SafeAreaView className="flex-1 bg-background">
-        <View className="flex-row items-center gap-3 px-4 pb-3 pt-2">
-          <Pressable
-            onPress={() => router.back()}
-            className="h-10 w-10 items-center justify-center rounded-full bg-muted/60"
-          >
-            <ArrowLeft size={20} color={theme.foreground} />
-          </Pressable>
-          <Text className="text-base font-bold text-foreground">
-            Discussion
-          </Text>
+        <View className="px-4">
+          <ScreenHeader title="Discussion" />
         </View>
         <View className="flex-1 items-center justify-center px-8">
           <Text className="text-center text-muted-foreground">
@@ -285,21 +271,8 @@ export default function CommunityDiscussionScreen() {
         keyboardVerticalOffset={Math.max(insets.top, 12)}
       >
         {/* Header */}
-        <View className="flex-row items-center gap-3 border-b border-border/50 px-4 pb-3 pt-2">
-          <Pressable
-            onPress={() => router.back()}
-            className="h-10 w-10 items-center justify-center rounded-full bg-muted/60"
-          >
-            <ArrowLeft size={20} color={theme.foreground} />
-          </Pressable>
-          <View className="flex-1">
-            <Text className="text-[15px] font-bold text-foreground">
-              {post.author.name}&apos;s Post
-            </Text>
-            <Text className="text-[11px] text-muted-foreground">
-              {post.category} · {post.createdAtLabel}
-            </Text>
-          </View>
+        <View className="border-b border-border/50 px-4">
+          <ScreenHeader title={`${post.author.name}'s Post`} />
         </View>
 
         <ScrollView

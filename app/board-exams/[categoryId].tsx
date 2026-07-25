@@ -11,9 +11,11 @@ import {
   listBoardExamSetsByCategoryId,
   type BoardExamSetSummary,
 } from "@/lib/board-exams"
-import { THEME, withOpacity } from "@/lib/theme"
+import { THEME } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 
@@ -51,14 +53,11 @@ function BoardExamSetCard({
                 {set.description || "Board exam set"}
               </Text>
             </View>
-            <View
-              className="rounded-full px-2 py-0.5"
-              style={{ backgroundColor: withOpacity(theme.primary, 0.12) }}
-            >
-              <Text className="text-[10px] font-black uppercase tracking-[1px] text-primary">
+            <Badge variant="default" size="sm">
+              <Text className="text-[10px] font-black uppercase tracking-[1px]">
                 {set.setCode}
               </Text>
-            </View>
+            </Badge>
           </View>
 
           <View className="flex-row flex-wrap items-center gap-3">
@@ -137,7 +136,10 @@ export default function BoardExamSetsScreen() {
   )
 
   return (
-    <SafeAreaView edges={["left", "right", "bottom"]} className="flex-1 bg-background">
+    <SafeAreaView
+      edges={["left", "right", "bottom"]}
+      className="flex-1 bg-background"
+    >
       <Stack.Screen options={{ title: category?.title ?? "Board Exams" }} />
       <FlashList
         data={sets}
@@ -158,33 +160,21 @@ export default function BoardExamSetsScreen() {
 
             {errorMessage ? (
               <View className="px-4">
-                <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-                  <CardContent className="gap-1.5 px-4 py-3.5">
-                    <Text className="text-[13px] font-black text-destructive">
-                      Board exam sets unavailable
-                    </Text>
-                    <Text className="text-[12px] leading-5 text-muted-foreground">
-                      {errorMessage}
-                    </Text>
-                  </CardContent>
-                </Card>
+                <EmptyState
+                  tone="destructive"
+                  title="Board exam sets unavailable"
+                  description={errorMessage}
+                />
               </View>
             ) : null}
           </View>
         }
         ListEmptyComponent={
           !setsQuery.isLoading && !errorMessage ? (
-            <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-              <CardContent className="gap-1.5 px-4 py-4">
-                <Text className="text-[14px] font-black text-card-foreground">
-                  No sets yet for this category
-                </Text>
-                <Text className="text-[12px] leading-5 text-muted-foreground">
-                  No sets are available for this category yet. Check back later
-                  for updates.
-                </Text>
-              </CardContent>
-            </Card>
+            <EmptyState
+              title="No sets yet for this category"
+              description="No sets are available for this category yet. Check back later for updates."
+            />
           ) : null
         }
       />
