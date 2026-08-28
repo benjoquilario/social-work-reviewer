@@ -43,3 +43,13 @@ app-example
 # generated native folders
 /ios
 /android
+
+# large media / recordings (never commit these)
+*.webm
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# office temp lock files
+~$*
