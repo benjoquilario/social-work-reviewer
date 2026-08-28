@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context"
 
 import { useAppPreferences } from "@/lib/app-preferences"
 import { useTheme } from "@/hooks/use-theme"
+import { BrandLogo } from "@/components/ui/brand-logo"
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
 
@@ -92,13 +93,10 @@ export default function OnboardingScreen() {
       {/* Skip */}
       <View className="flex-row items-center justify-between px-6 pt-2">
         <View className="flex-row items-center gap-2">
-          <View
-            className="h-8 w-8 items-center justify-center rounded-xl"
-            style={{ backgroundColor: theme.primary }}
-          >
-            <BookOpenText size={16} color={theme.primaryForeground} strokeWidth={2.5} />
-          </View>
-          <Text className="text-sm font-black text-foreground">Reviewer</Text>
+          <BrandLogo size="sm" className="h-8 w-8 rounded-xs" />
+          <Text className="text-sm font-black text-foreground">
+            Social Work Sure Win
+          </Text>
         </View>
         <Pressable onPress={() => finish("/(auth)/login")} hitSlop={12}>
           <Text className="text-sm font-bold text-muted-foreground">Skip</Text>
@@ -129,11 +127,11 @@ export default function OnboardingScreen() {
               className="items-center justify-center gap-8 px-8"
             >
               <View
-                className="h-40 w-40 items-center justify-center rounded-[44px]"
+                className="h-40 w-40 items-center justify-center rounded-3xl"
                 style={{ backgroundColor: theme.secondary }}
               >
                 <View
-                  className="h-24 w-24 items-center justify-center rounded-[30px]"
+                  className="h-24 w-24 items-center justify-center rounded-2xl"
                   style={{ backgroundColor: theme.primary }}
                 >
                   <Icon size={44} color={theme.primaryForeground} strokeWidth={2.25} />
@@ -144,14 +142,14 @@ export default function OnboardingScreen() {
                   className="rounded-full px-3.5 py-1.5"
                   style={{ backgroundColor: theme.secondary }}
                 >
-                  <Text className="text-[11px] font-black uppercase tracking-[1.4px] text-primary">
+                  <Text variant="eyebrow">
                     {item.badge}
                   </Text>
                 </View>
-                <Text className="text-center text-[28px] font-black leading-9 text-foreground">
+                <Text className="text-center text-3xl font-black leading-9 text-foreground">
                   {item.title}
                 </Text>
-                <Text className="text-center text-[15px] leading-7 text-muted-foreground">
+                <Text className="text-center text-sm leading-7 text-muted-foreground">
                   {item.description}
                 </Text>
               </View>

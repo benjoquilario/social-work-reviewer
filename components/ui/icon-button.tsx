@@ -4,14 +4,18 @@ import { Pressable, type PressableProps } from "react-native"
 import { cn } from "@/lib/utils"
 
 const iconButtonVariants = cva(
-  "items-center justify-center rounded-2xl active:opacity-80",
+  "items-center justify-center rounded-lg active:opacity-80",
   {
+    // Variant names mirror `Button` so the two share one vocabulary —
+    // `soft` and `muted` are the icon-only additions Button has no use for.
     variants: {
       variant: {
+        default: "bg-primary active:opacity-90",
         ghost: "bg-transparent active:bg-muted/70",
         soft: "bg-primary/10 active:bg-primary/15",
         outline: "border border-border bg-card active:bg-muted/70",
         muted: "bg-muted/60 active:bg-muted",
+        destructive: "bg-destructive/10 active:bg-destructive/15",
       },
       size: {
         // 44px — minimum comfortable touch target.

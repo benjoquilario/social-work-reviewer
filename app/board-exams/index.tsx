@@ -33,7 +33,7 @@ function BoardExamCategoryCard({
   return (
     <Pressable onPress={onPress}>
       <Card
-        className="rounded-[24px]"
+        className="rounded-xl"
         style={{
           borderWidth: 1,
           borderColor: theme.border,
@@ -42,20 +42,20 @@ function BoardExamCategoryCard({
             : theme.card,
         }}
       >
-        <CardContent className="gap-2.5 px-4 py-4">
+        <CardContent className="gap-2.5">
           <View className="flex-row items-start justify-between gap-3">
             <View className="flex-1 gap-1.5">
               <View className="flex-row flex-wrap items-center gap-2">
-                <Text className="text-[16px] font-black text-card-foreground">
+                <Text className="text-base font-black text-card-foreground">
                   {category.title}
                 </Text>
-                <Badge variant={category.isLocked ? "accent" : "default"}>
-                  <Text className="text-[10px] font-black uppercase tracking-[1.1px]">
+                <Badge tone={category.isLocked ? "accent" : "primary"}>
+                  <Text className="text-2xs font-bold uppercase tracking-[1px]">
                     {category.code ?? "Category"}
                   </Text>
                 </Badge>
               </View>
-              <Text className="text-[12px] leading-5 text-muted-foreground">
+              <Text className="text-xs leading-5 text-muted-foreground">
                 {category.description ||
                   "Practice questions and review sets for board exam preparation."}
               </Text>
@@ -67,21 +67,21 @@ function BoardExamCategoryCard({
           <View className="flex-row flex-wrap items-center gap-3">
             <View className="flex-row items-center gap-1.5">
               <ListChecks size={13} color={theme.primary} />
-              <Text className="text-[11px] font-semibold uppercase tracking-[0.9px] text-primary">
+              <Text variant="eyebrow">
                 {category.setCount} sets
               </Text>
             </View>
             <View className="flex-row items-center gap-1.5">
               <FileQuestion size={13} color={theme.accent} />
               <Text
-                className="text-[11px] font-semibold uppercase tracking-[0.9px]"
+                className="text-2xs font-bold uppercase tracking-[1px]"
                 style={{ color: theme.accent }}
               >
                 {category.availableQuestionCount} visible
               </Text>
             </View>
             {category.premiumQuestionCount > 0 ? (
-              <Text className="text-[11px] font-semibold uppercase tracking-[0.9px] text-muted-foreground">
+              <Text variant="label">
                 {category.premiumQuestionCount} premium
               </Text>
             ) : null}
@@ -94,7 +94,7 @@ function BoardExamCategoryCard({
             >
               <LockKeyhole size={12} color={theme.accent} />
               <Text
-                className="text-[10px] font-black uppercase tracking-[1.1px]"
+                className="text-2xs font-bold uppercase tracking-[1px]"
                 style={{ color: theme.accent }}
               >
                 {category.freeQuestionCount} free · {category.premiumQuestionCount} premium
@@ -164,8 +164,8 @@ export default function BoardExamCategoriesScreen() {
           <View className="pb-3">
             {categoriesQuery.isLoading ? (
               <View className="gap-3 px-4">
-                <Skeleton className="h-24 rounded-2xl" />
-                <Skeleton className="h-24 rounded-2xl" />
+                <Skeleton className="h-24 rounded-xl" />
+                <Skeleton className="h-24 rounded-xl" />
               </View>
             ) : null}
 

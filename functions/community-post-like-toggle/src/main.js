@@ -9,7 +9,9 @@ const POSTS_COLLECTION_ID = process.env.POSTS_COLLECTION_ID || "posts"
 const POST_LIKES_COLLECTION_ID =
   process.env.POST_LIKES_COLLECTION_ID || "post_likes"
 
-const LIKE_ROW_ID_PREFIX = "post_like"
+const LIKE_ROW_ID_PREFIX = "like"
+// Must stay byte-identical to buildDeterministicLikeRowId in lib/community.ts.
+const LIKE_HASH_OFFSET_BASES = [0x811c9dc5, 0x01000193, 0x9dc5811c]
 
 function createClient() {
   if (!API_ENDPOINT || !PROJECT_ID || !API_KEY || !DATABASE_ID) {
@@ -40,34 +42,51 @@ function parseJsonBody(rawBody) {
   }
 }
 
-function toLikeRowId(postId, userId) {
-  return `${LIKE_ROW_ID_PREFIX}_${postId}_${userId}`
+function hashLikeKey(input, offsetBasis) {
+  let hash = offsetBasis
+
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+
+  return (hash >>> 0).toString(36).padStart(7, "0")
 }
 
-async function listAllLikesForPost(tablesDB, postId) {
-  const likes = []
-  let offset = 0
-  const limit = 100
+/**
+ * Deterministic like row ID, 26 characters.
+ *
+ * This used to be `post_like_${postId}_${userId}`, which is 51 characters for
+ * Appwrite's 20-character IDs — past the 36-character row ID limit. Every
+ * create returned 400, only 409 was caught, so the function 500'd and the app
+ * silently fell back to writing likes from the client on every tap.
+ *
+ * It also has to match lib/community.ts exactly: two schemes for the same
+ * (post, user) pair means one like stored twice and a doubled count.
+ */
+function toLikeRowId(postId, userId) {
+  const input = `${postId}|${userId}`
+  const digest = LIKE_HASH_OFFSET_BASES.map((basis) =>
+    hashLikeKey(input, basis)
+  ).join("")
 
-  while (true) {
-    const response = await tablesDB.listRows({
-      databaseId: DATABASE_ID,
-      tableId: POST_LIKES_COLLECTION_ID,
-      queries: [
-        sdk.Query.equal("postId", postId),
-        sdk.Query.limit(limit),
-        sdk.Query.offset(offset),
-      ],
-    })
+  return `${LIKE_ROW_ID_PREFIX}_${digest}`
+}
 
-    likes.push(...response.rows)
+/**
+ * Appwrite returns the full match count in `total` regardless of `limit`, so
+ * one row is enough to read the count. The previous version paged through every
+ * like on the post on every single toggle, using offset pagination that Appwrite
+ * caps at 5,000 — so a popular post got slower with each like and then broke.
+ */
+async function countLikesForPost(tablesDB, postId) {
+  const response = await tablesDB.listRows({
+    databaseId: DATABASE_ID,
+    tableId: POST_LIKES_COLLECTION_ID,
+    queries: [sdk.Query.equal("postId", postId), sdk.Query.limit(1)],
+  })
 
-    if (response.rows.length < limit) {
-      return likes
-    }
-
-    offset += limit
-  }
+  return Math.max(0, response.total ?? 0)
 }
 
 async function ensurePostExists(tablesDB, postId) {
@@ -203,9 +222,7 @@ module.exports = async ({ req, res, log, error }) => {
       isLiked = await createLikeIfMissing(tablesDB, postId, userId)
     }
 
-    const likes = await listAllLikesForPost(tablesDB, postId)
-    const uniqueUserIds = new Set(likes.map((like) => like.userId))
-    const likesCount = uniqueUserIds.size
+    const likesCount = await countLikesForPost(tablesDB, postId)
 
     await updatePostLikeSnapshot(tablesDB, postId, likesCount)
 

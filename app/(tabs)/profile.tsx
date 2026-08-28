@@ -1,112 +1,70 @@
-import { useCallback, useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import {
   ProfileProvider,
   useProfileEditState,
-  useProfilePaginationState,
-  useProfileViewState,
 } from "@/contexts/profile-context"
 import { useQuery } from "@tanstack/react-query"
 import * as ImagePicker from "expo-image-picker"
 import { useRouter } from "expo-router"
-import { BookOpen, Calendar, GraduationCap, Star } from "lucide-react-native"
 import { Alert, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
+import { useAppPreferences } from "@/lib/app-preferences"
 import { getAvatarUrl, getInitials } from "@/lib/auth"
+import { buildExamCountdown } from "@/lib/exam-countdown"
 import { getOverallPerformanceStats } from "@/lib/performance-stats"
 import { getUserActivityFeed } from "@/lib/progress"
-import { THEME } from "@/lib/theme"
-import { useColorScheme } from "@/hooks/use-color-scheme"
-import { ScrollView } from "@/components/ui/virtualized-scroll-view"
-import { ProfileEditDialog } from "@/components/profile/profile-edit-dialog"
-import type {
-  ProfileDetailCard,
-  ProfileRecentActivityItem,
-} from "@/components/profile/profile-primitives"
+import { listLearningSubjects } from "@/lib/learning-content"
+import { getStaggerDelay } from "@/lib/motion"
 import {
-  ProfileActivityTab,
-  ProfileDetailsTab,
-  ProfileHeroSection,
-  ProfilePerformanceTab,
-  ProfileTabRail,
-} from "@/components/profile/profile-sections"
+  buildRecentActivityEntries,
+  buildStudyProgressSummary,
+  buildSubjectProgressItems,
+} from "@/lib/study-dashboard"
+import { useThemePalette } from "@/hooks/use-theme"
+import { FadeInView } from "@/components/ui/motion"
+import { Text } from "@/components/ui/text"
+import { ScrollView } from "@/components/ui/virtualized-scroll-view"
+import { RecentActivitySection } from "@/components/study/recent-activity"
+import {
+  SubjectProgressSection,
+  type SubjectRailItem,
+} from "@/components/study/subject-progress-section"
+import {
+  AchievementsSection,
+  ProfileEditDialog,
+  ProfileIdentityCard,
+  ProfileProgressCard,
+  ProfileTopBar,
+  ProfileVerifyEmailCard,
+  getAchievementBadgeMeta,
+  type AchievementCardItem,
+} from "@/components/profile"
 
-const MEMBER_SINCE_FMT = new Intl.DateTimeFormat("en-PH", {
-  year: "numeric",
-  month: "long",
+const SUBJECT_PREVIEW_COUNT = 6
+const ACHIEVEMENT_PREVIEW_COUNT = 6
+const RECENT_ACTIVITY_COUNT = 4
+
+const ACHIEVEMENT_DATE_FMT = new Intl.DateTimeFormat("en-PH", {
+  month: "short",
+  day: "numeric",
 })
-const ACTIVITY_DATE_FMT = new Intl.DateTimeFormat("en-PH", {
-  dateStyle: "medium",
-  timeStyle: "short",
-})
-
-type SortableRecentActivityItem = ProfileRecentActivityItem & {
-  timestamp: string
-}
-
-function formatMemberSince(value: string | undefined) {
-  if (!value) return "Not available"
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return "Not available"
-  return MEMBER_SINCE_FMT.format(parsed)
-}
-
-function formatActivityDate(value: string | null | undefined) {
-  if (!value) {
-    return "Not available"
-  }
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return "Not available"
-  }
-
-  return ACTIVITY_DATE_FMT.format(parsed)
-}
-
-function formatDuration(seconds: number) {
-  const safeSeconds = Math.max(seconds, 0)
-  const minutes = Math.floor(safeSeconds / 60)
-  const remainderSeconds = safeSeconds % 60
-
-  if (minutes === 0) {
-    return `${remainderSeconds}s`
-  }
-
-  if (minutes >= 60) {
-    const hours = Math.floor(minutes / 60)
-    const remainingMinutes = minutes % 60
-    return `${hours}h ${remainingMinutes}m`
-  }
-
-  return `${minutes}m ${remainderSeconds}s`
-}
 
 function ProfileScreenContent() {
   const router = useRouter()
+  const theme = useThemePalette()
   const user = useAuth((state) => state.user)
   const profile = useAuth((state) => state.profile)
   const refreshProfile = useAuth((state) => state.refreshProfile)
   const uploadProfilePhoto = useAuth((state) => state.uploadProfilePhoto)
   const updateProfile = useAuth((state) => state.updateProfile)
   const sendVerificationEmail = useAuth((state) => state.sendVerificationEmail)
-  const colorScheme = useColorScheme()
-  const isDark = colorScheme === "dark"
-  const theme = isDark ? THEME.dark : THEME.light
-  const surfaceBorderColor = theme.border
-  const nestedBorderColor = theme.border
-  const elevatedSurfaceColor = theme.card
-  const nestedSurfaceColor = theme.secondary
-  const {
-    activeTab,
-    setActiveTab,
-    imageFailed,
-    setImageFailed,
-    resetImageFailure,
-    isSendingVerification,
-    setIsSendingVerification,
-  } = useProfileViewState()
+
+  const examDate = useAppPreferences((state) => state.preferences.examDate)
+  const [isSendingVerification, setIsSendingVerification] = useState(false)
+  const isPremiumUser = profile?.isPremium === true
+
   const {
     isEditOpen,
     setIsEditOpen,
@@ -125,109 +83,40 @@ function ProfileScreenContent() {
     setAvatarUrl,
     clearAvatarUrl,
   } = useProfileEditState()
-  const {
-    quizAttemptsLimit,
-    learningHistoryLimit,
-    achievementsLimit,
-    incrementQuizAttemptsLimit,
-    incrementLearningHistoryLimit,
-    incrementAchievementsLimit,
-    resetPagination,
-  } = useProfilePaginationState()
 
   useEffect(() => {
     if (!profile) void refreshProfile()
   }, [profile, refreshProfile])
 
-  useEffect(() => {
-    resetImageFailure()
-  }, [profile?.avatarUrl, resetImageFailure, user?.name])
-
-  useEffect(() => {
-    resetPagination()
-  }, [resetPagination, user?.$id])
+  // ─── Identity ───────────────────────────────────────────────────
 
   const displayName = profile?.fullName ?? user?.name ?? "Reviewer"
   const email = profile?.email ?? user?.email ?? ""
   const emailVerified = user?.emailVerification === true
+  const initials = getInitials(displayName)
   const avatarSource = useMemo(
     () => profile?.avatarUrl?.trim() || getAvatarUrl(displayName),
     [displayName, profile?.avatarUrl]
   )
-  const memberSince = formatMemberSince(profile?.createdAt)
-  const initials = getInitials(displayName)
-  const username = useMemo(
-    () => (email ? `@${email.split("@")[0]}` : "@reviewer"),
-    [email]
-  )
-  const profileCompletion = useMemo(() => {
-    let completed = 0
-    if (profile?.fullName ?? user?.name) completed += 1
-    if (email) completed += 1
-    if (profile?.schoolName) completed += 1
-    if (profile?.reviewType) completed += 1
-    if (profile?.avatarUrl) completed += 1
-    return Math.round((completed / 5) * 100)
-  }, [
-    email,
-    profile?.avatarUrl,
-    profile?.reviewType,
-    profile?.schoolName,
-    profile?.fullName,
-    user?.name,
-  ])
-  const detailCards = useMemo<ProfileDetailCard[]>(
-    () => [
-      {
-        key: "review-focus",
-        icon: <GraduationCap size={16} color={theme.primary} />,
-        label: "Review Focus",
-        value: profile?.reviewType || "Set your board exam or study track",
-      },
-      {
-        key: "school",
-        icon: <BookOpen size={16} color={theme.primary} />,
-        label: "School / Organization",
-        value: profile?.schoolName || "Add your school or review center",
-      },
-      {
-        key: "joined",
-        icon: <Calendar size={16} color={theme.primary} />,
-        label: "Member Since",
-        value: memberSince,
-      },
-      {
-        key: "plan",
-        icon: <Star size={16} color={theme.primary} />,
-        label: "Current Plan",
-        value: profile?.isPremium
-          ? "Premium Reviewer Access"
-          : "Free Reviewer Plan",
-      },
-    ],
-    [
-      memberSince,
-      profile?.isPremium,
-      profile?.reviewType,
-      profile?.schoolName,
-      theme.primary,
-    ]
-  )
+
+  const roleLabel = profile?.reviewType?.trim() || "Board Exam Reviewer"
+  const school = profile?.schoolName?.trim()
+
+  // ─── Data ───────────────────────────────────────────────────────
+
   const activityQuery = useQuery({
-    queryKey: [
-      "profile-activity",
-      user?.$id,
-      quizAttemptsLimit,
-      learningHistoryLimit,
-      achievementsLimit,
-    ],
+    queryKey: ["profile-activity", user?.$id],
     enabled: Boolean(user?.$id),
     queryFn: () =>
-      getUserActivityFeed({ userId: user?.$id ?? "" }, {
-        quizAttemptsLimit,
-        learningHistoryLimit,
-        achievementsLimit,
-      }),
+      getUserActivityFeed(
+        { userId: user?.$id ?? "" },
+        {
+          quizAttemptsLimit: 80,
+          learningHistoryLimit: 80,
+          achievementsLimit: 12,
+        }
+      ),
+    staleTime: 1000 * 20,
   })
 
   const performanceQuery = useQuery({
@@ -236,76 +125,90 @@ function ProfileScreenContent() {
     queryFn: () => getOverallPerformanceStats(user?.$id ?? ""),
     staleTime: 1000 * 15,
   })
+
+  const subjectsQuery = useQuery({
+    queryKey: ["profile-review-subjects", isPremiumUser],
+    queryFn: () => listLearningSubjects({ viewerIsPremium: isPremiumUser }),
+  })
+
+  // ─── Derived ────────────────────────────────────────────────────
+
   const activityFeed = activityQuery.data ?? null
-  const recentActivityItems = useMemo<ProfileRecentActivityItem[]>(() => {
-    if (!activityFeed) {
-      return []
-    }
+  const countdown = useMemo(() => buildExamCountdown(examDate), [examDate])
 
-    const quizItems: SortableRecentActivityItem[] =
-      activityFeed.quizAttempts.map((attempt) => {
-        const timestamp = attempt.finishedAt ?? attempt.startedAt
-        const metric = `${attempt.percent}% • ${formatDuration(attempt.timeTaken)}`
-        const statusText =
-          attempt.status === "done"
-            ? `Finished ${formatActivityDate(attempt.finishedAt)}`
-            : `Paused at question ${attempt.currentQuestionIndex + 1}`
+  const allSubjectItems = useMemo(
+    () =>
+      buildSubjectProgressItems(subjectsQuery.data ?? [], activityFeed, theme),
+    [activityFeed, subjectsQuery.data, theme]
+  )
 
-        return {
-          id: `quiz-${attempt.id}`,
-          title: attempt.examTitle,
-          kindLabel: "Quiz",
-          metric,
-          statusText,
-          timestamp,
-          tone: theme.primary,
-        }
-      })
+  const subjectItems = useMemo(
+    () => allSubjectItems.slice(0, SUBJECT_PREVIEW_COUNT),
+    [allSubjectItems]
+  )
 
-    const learningItems: SortableRecentActivityItem[] =
-      activityFeed.learningHistory.map((entry) => ({
-        id: `learn-${entry.id}`,
-        title: entry.materialTitle,
-        kindLabel: "Learning",
-        metric: `${Math.round(entry.progressPercent)}% complete`,
-        statusText: `Last opened ${formatActivityDate(entry.lastAccessedAt)}`,
-        timestamp: entry.lastAccessedAt,
-        tone:
-          entry.status === "completed"
-            ? theme.success
-            : entry.status === "paused"
-              ? theme.warning
-              : theme.primary,
-      }))
+  const progressSummary = useMemo(
+    () => buildStudyProgressSummary(allSubjectItems, activityFeed),
+    [activityFeed, allSubjectItems]
+  )
 
-    return [...quizItems, ...learningItems]
-      .sort(
-        (left, right) =>
-          new Date(right.timestamp).getTime() -
-          new Date(left.timestamp).getTime()
-      )
-      .slice(0, 10)
-      .map((item) => ({
-        id: item.id,
-        title: item.title,
-        kindLabel: item.kindLabel,
-        metric: item.metric,
-        statusText: item.statusText,
-        tone: item.tone,
-      }))
-  }, [activityFeed, theme.primary, theme.success, theme.warning])
+  const achievementItems = useMemo<AchievementCardItem[]>(
+    () =>
+      (activityFeed?.achievements ?? [])
+        .slice(0, ACHIEVEMENT_PREVIEW_COUNT)
+        .map((achievement) => {
+          const badge = getAchievementBadgeMeta(achievement)
 
-  const handleImageError = useCallback(() => {
-    setImageFailed(true)
-  }, [setImageFailed])
+          return {
+            id: achievement.id,
+            badge,
+            title: badge.badgeName,
+            caption:
+              achievement.description?.trim() ||
+              `Earned ${ACHIEVEMENT_DATE_FMT.format(new Date(achievement.earnedAt))}`,
+            tone: badge.tone,
+          }
+        }),
+    [activityFeed]
+  )
 
-  const handleOpenSettings = useCallback(() => {
-    router.push("/settings")
-  }, [router])
+  const recentActivityItems = useMemo(
+    () =>
+      buildRecentActivityEntries(activityFeed, RECENT_ACTIVITY_COUNT).map(
+        (entry) => ({
+          id: entry.id,
+          Icon: entry.Icon,
+          title: entry.title,
+          timeLabel: entry.timeLabel,
+          scoreLabel: entry.scoreLabel,
+          tone: entry.tone,
+          onPress: entry.resumeAttemptId
+            ? () => router.push("/board-exams")
+            : undefined,
+        })
+      ),
+    [activityFeed, router]
+  )
 
-  const handleViewDashboard = useCallback(() => {
-    router.push("/dashboard")
-  }, [router])
+  const activityErrorMessage =
+    activityQuery.error instanceof Error
+      ? activityQuery.error.message
+      : activityQuery.error
+        ? "Unable to load your recent activity right now."
+        : null
+
+  const subjectsErrorMessage =
+    subjectsQuery.error instanceof Error
+      ? subjectsQuery.error.message
+      : subjectsQuery.error
+        ? "Unable to load review subjects from Appwrite."
+        : null
+
+  // ─── Callbacks ──────────────────────────────────────────────────
+
+  const goToSettings = useCallback(() => router.push("/settings"), [router])
+  const goToDashboard = useCallback(() => router.push("/dashboard"), [router])
+  const goToLearn = useCallback(() => router.push("/learn"), [router])
 
   const openEditDialog = useCallback(() => {
     openProfileEditDialog({
@@ -332,6 +235,7 @@ function ProfileScreenContent() {
       )
       return
     }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
@@ -340,12 +244,13 @@ function ProfileScreenContent() {
       selectionLimit: 1,
     })
     if (result.canceled || result.assets.length === 0) return
+
     const asset = result.assets[0]
     const fileSize = asset.fileSize ?? 0
     const fileName =
       asset.fileName ??
       `profile-${Date.now()}.${asset.mimeType?.split("/")[1] ?? "jpg"}`
-    const mimeType = asset.mimeType ?? "image/jpeg"
+
     if (!fileSize) {
       Alert.alert(
         "Upload failed",
@@ -353,16 +258,16 @@ function ProfileScreenContent() {
       )
       return
     }
+
     setIsUploadingAvatar(true)
     try {
       const uploadedAvatarUrl = await uploadProfilePhoto({
         uri: asset.uri,
         name: fileName,
-        type: mimeType,
+        type: asset.mimeType ?? "image/jpeg",
         size: fileSize,
       })
       setAvatarUrl(uploadedAvatarUrl)
-      setImageFailed(false)
       Alert.alert("Photo uploaded", "Your new profile photo is ready to save.")
     } catch (error) {
       Alert.alert(
@@ -374,7 +279,7 @@ function ProfileScreenContent() {
     } finally {
       setIsUploadingAvatar(false)
     }
-  }, [setAvatarUrl, setImageFailed, setIsUploadingAvatar, uploadProfilePhoto])
+  }, [setAvatarUrl, setIsUploadingAvatar, uploadProfilePhoto])
 
   const handleSaveProfile = useCallback(async () => {
     setIsSubmitting(true)
@@ -420,136 +325,145 @@ function ProfileScreenContent() {
     } finally {
       setIsSendingVerification(false)
     }
-  }, [sendVerificationEmail, setIsSendingVerification])
+  }, [sendVerificationEmail])
 
-  const handleSendVerificationPress = useCallback(() => {
-    void handleSendVerification()
-  }, [handleSendVerification])
+  const handlePressSubject = useCallback(
+    (item: SubjectRailItem) => {
+      if (item.isLocked) {
+        router.push({
+          pathname: "/premium",
+          params: { source: "subject", title: item.title, categoryId: item.id },
+        })
+        return
+      }
 
-  const handlePickPhotoPress = useCallback(() => {
-    void handlePickProfilePhoto()
-  }, [handlePickProfilePhoto])
+      router.push({
+        pathname: "/review/[categoryId]",
+        params: { categoryId: item.id },
+      })
+    },
+    [router]
+  )
 
-  const handleSaveProfilePress = useCallback(() => {
-    void handleSaveProfile()
-  }, [handleSaveProfile])
-
-  const activityErrorMessage =
-    activityQuery.error instanceof Error
-      ? activityQuery.error.message
-      : activityQuery.error
-        ? "Unable to load your recent activity right now."
-        : null
-  const performanceErrorMessage =
-    performanceQuery.error instanceof Error
-      ? performanceQuery.error.message
-      : performanceQuery.error
-        ? "Unable to load your performance data right now."
-        : null
-  const avatarPreview = avatarUrl || profile?.avatarUrl || avatarSource
+  // ─── Render ─────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
+    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <ScrollView
-        contentContainerClassName="pb-32"
+        contentContainerClassName="gap-6 px-4 pb-6 pt-1"
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
       >
-        <ProfileHeroSection
+        <ProfileTopBar
           theme={theme}
-          isDark={isDark}
-          displayName={displayName}
-          username={username}
-          memberSince={memberSince}
-          initials={initials}
-          avatarSource={avatarSource}
-          imageFailed={imageFailed}
-          profile={profile}
-          profileCompletion={profileCompletion}
-          emailVerified={emailVerified}
-          nestedSurfaceColor={nestedSurfaceColor}
-          nestedBorderColor={nestedBorderColor}
-          surfaceBorderColor={surfaceBorderColor}
-          elevatedSurfaceColor={elevatedSurfaceColor}
-          onImageError={handleImageError}
-          onOpenEdit={openEditDialog}
-          onOpenSettings={handleOpenSettings}
+          onPressMenu={goToSettings}
+          onPressSettings={goToSettings}
         />
 
-        <ProfileTabRail
-          theme={theme}
-          activeTab={activeTab}
-          tabRailColor={elevatedSurfaceColor}
-          nestedBorderColor={nestedBorderColor}
-          onChangeTab={setActiveTab}
-        />
+        <FadeInView delay={getStaggerDelay(0)}>
+          <View className="gap-1">
+            <Text
+              role="heading"
+              aria-level="1"
+              className="text-3xl font-extrabold leading-10 text-foreground"
+            >
+              My Profile
+            </Text>
+            <Text variant="callout" className="text-muted-foreground">
+              Stay consistent. Your future self will thank you.
+            </Text>
+          </View>
+        </FadeInView>
 
-        <View className="gap-3 px-4 pt-4">
-          {activeTab === "details" ? (
-            <ProfileDetailsTab
-              theme={theme}
-              detailCards={detailCards}
-              emailVerified={emailVerified}
-              isSendingVerification={isSendingVerification}
-              surfaceBorderColor={surfaceBorderColor}
-              elevatedSurfaceColor={elevatedSurfaceColor}
-              nestedBorderColor={nestedBorderColor}
-              nestedSurfaceColor={nestedSurfaceColor}
-              onSendVerification={handleSendVerificationPress}
-            />
-          ) : activeTab === "activity" ? (
-            <ProfileActivityTab
-              theme={theme}
-              activityFeed={activityFeed}
-              recentActivityItems={recentActivityItems}
-              isLoading={activityQuery.isLoading}
-              errorMessage={activityErrorMessage}
-              surfaceBorderColor={surfaceBorderColor}
-              elevatedSurfaceColor={elevatedSurfaceColor}
-              nestedBorderColor={nestedBorderColor}
-              nestedSurfaceColor={nestedSurfaceColor}
-              onLoadMoreAchievements={incrementAchievementsLimit}
-              onLoadMoreQuizData={incrementQuizAttemptsLimit}
-              onLoadMoreLearningData={incrementLearningHistoryLimit}
-              onViewDashboard={handleViewDashboard}
-              formatActivityDate={formatActivityDate}
-            />
-          ) : activeTab === "performance" ? (
-            <ProfilePerformanceTab
-              theme={theme}
-              stats={performanceQuery.data}
-              isLoading={performanceQuery.isLoading}
-              errorMessage={performanceErrorMessage}
-              surfaceBorderColor={surfaceBorderColor}
-              elevatedSurfaceColor={elevatedSurfaceColor}
-              nestedBorderColor={nestedBorderColor}
-              onViewDashboard={handleViewDashboard}
-            />
-          ) : null}
-        </View>
+        {!emailVerified ? (
+          <ProfileVerifyEmailCard
+            theme={theme}
+            email={email}
+            isSending={isSendingVerification}
+            onSendVerification={() => void handleSendVerification()}
+          />
+        ) : null}
+
+        <FadeInView delay={getStaggerDelay(1)}>
+          <ProfileIdentityCard
+            theme={theme}
+            displayName={displayName}
+            initials={initials}
+            avatarUrl={avatarSource}
+            roleLabel={roleLabel}
+            subtitle={school || "Add your school or review centre"}
+            isSubtitlePlaceholder={!school}
+            isVerified={emailVerified}
+            daysLeftLabel={countdown ? countdown.daysLabel : "—"}
+            questionsSolved={progressSummary.questionsSolved}
+            averageScore={progressSummary.averageScore}
+            dayStreak={progressSummary.dayStreak}
+            onPressEdit={openEditDialog}
+          />
+        </FadeInView>
+
+        <FadeInView delay={getStaggerDelay(2)}>
+          <ProfileProgressCard
+            theme={theme}
+            isLoading={activityQuery.isLoading || subjectsQuery.isLoading}
+            progressPercent={progressSummary.progressPercent}
+            topicsStudied={progressSummary.topicsStudied}
+            topicsTotal={progressSummary.topicsTotal}
+            hoursStudied={progressSummary.hoursStudied}
+            accuracyRate={performanceQuery.data?.correctPercent ?? 0}
+            onPressViewDetails={goToDashboard}
+          />
+        </FadeInView>
+
+        <FadeInView delay={getStaggerDelay(3)}>
+          <AchievementsSection
+            theme={theme}
+            items={achievementItems}
+            isLoading={activityQuery.isLoading}
+            onPressSeeAll={goToDashboard}
+          />
+        </FadeInView>
+
+        <FadeInView delay={getStaggerDelay(4)}>
+          <SubjectProgressSection
+            theme={theme}
+            title="Subjects Progress"
+            items={subjectItems}
+            isLoading={subjectsQuery.isLoading}
+            errorMessage={subjectsErrorMessage}
+            onPressItem={handlePressSubject}
+            onPressSeeAll={goToLearn}
+          />
+        </FadeInView>
+
+        <FadeInView delay={getStaggerDelay(5)}>
+          <RecentActivitySection
+            theme={theme}
+            items={recentActivityItems}
+            isLoading={activityQuery.isLoading}
+            errorMessage={activityErrorMessage}
+            onPressSeeAll={goToDashboard}
+          />
+        </FadeInView>
       </ScrollView>
 
       <ProfileEditDialog
         open={isEditOpen}
         theme={theme}
-        nestedBorderColor={nestedBorderColor}
-        nestedSurfaceColor={nestedSurfaceColor}
         initials={initials}
-        imageFailed={imageFailed}
-        avatarPreview={avatarPreview}
+        avatarPreview={avatarUrl || profile?.avatarUrl || avatarSource}
         fullName={fullName}
         schoolName={schoolName}
         reviewType={reviewType}
         isUploadingAvatar={isUploadingAvatar}
         isSubmitting={isSubmitting}
         onOpenChange={setIsEditOpen}
-        onImageError={handleImageError}
-        onPickPhoto={handlePickPhotoPress}
+        onPickPhoto={() => void handlePickProfilePhoto()}
         onClearAvatar={clearAvatarUrl}
         onChangeFullName={setFullName}
         onChangeSchoolName={setSchoolName}
         onChangeReviewType={setReviewType}
-        onSave={handleSaveProfilePress}
+        onSave={() => void handleSaveProfile()}
       />
     </SafeAreaView>
   )

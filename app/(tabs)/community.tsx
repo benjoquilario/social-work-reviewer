@@ -281,7 +281,7 @@ export default function CommunityScreen() {
   const emptyState = useMemo(
     () => (
       <View className="items-center px-8 py-12">
-        <Text className="text-center text-[14px] text-muted-foreground">
+        <Text className="text-center text-sm text-muted-foreground">
           {activeFeedFilter === "all"
             ? "No discussions yet. Start the first thread!"
             : `No ${activeFeedFilter} posts yet.`}
@@ -307,7 +307,7 @@ export default function CommunityScreen() {
     if (hasMoreFeed) {
       return (
         <View className="items-center py-4">
-          <Text className="text-[12px] text-muted-foreground">
+          <Text className="text-xs text-muted-foreground">
             Scroll for more discussions
           </Text>
         </View>

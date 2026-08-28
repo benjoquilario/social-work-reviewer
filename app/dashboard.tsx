@@ -35,11 +35,11 @@ const DashboardUnauthenticatedState = memo(
           className="mx-4"
           style={{ borderWidth: 1, borderColor: theme.border }}
         >
-          <CardContent className="gap-1.5 px-4 py-4">
-            <Text className="text-[14px] font-bold text-card-foreground">
+          <CardContent className="gap-1.5">
+            <Text className="text-sm font-bold text-card-foreground">
               Sign in to view performance
             </Text>
-            <Text className="text-[12px] leading-5 text-muted-foreground">
+            <Text className="text-xs leading-5 text-muted-foreground">
               Your quiz performance and progress data appear after login.
             </Text>
           </CardContent>
@@ -52,12 +52,12 @@ const DashboardUnauthenticatedState = memo(
 const DashboardLoadingState = memo(function DashboardLoadingState() {
   return (
     <View className="gap-3 px-4">
-      <Skeleton className="h-56 rounded-2xl" />
+      <Skeleton className="h-56 rounded-xl" />
       <View className="flex-row gap-2.5">
-        <Skeleton className="h-24 flex-1 rounded-2xl" />
-        <Skeleton className="h-24 flex-1 rounded-2xl" />
+        <Skeleton className="h-24 flex-1 rounded-xl" />
+        <Skeleton className="h-24 flex-1 rounded-xl" />
       </View>
-      <Skeleton className="h-64 rounded-2xl" />
+      <Skeleton className="h-64 rounded-xl" />
     </View>
   )
 })
@@ -181,8 +181,8 @@ export default function DashboardScreen() {
             <FadeInView delay={getStaggerDelay(1)}>
               {performanceQuery.isLoading ? (
                 <View className="gap-3">
-                  <Skeleton className="h-40 rounded-2xl" />
-                  <Skeleton className="h-32 rounded-2xl" />
+                  <Skeleton className="h-40 rounded-xl" />
+                  <Skeleton className="h-32 rounded-xl" />
                 </View>
               ) : performanceStats ? (
                 <OverallPerformanceSection
@@ -195,8 +195,8 @@ export default function DashboardScreen() {
             <FadeInView delay={getStaggerDelay(2)}>
               {insightsQuery.isLoading ? (
                 <View className="gap-3">
-                  <Skeleton className="h-32 rounded-2xl" />
-                  <Skeleton className="h-40 rounded-2xl" />
+                  <Skeleton className="h-32 rounded-xl" />
+                  <Skeleton className="h-40 rounded-xl" />
                 </View>
               ) : insights ? (
                 <ProgressInsightsSection insights={insights} theme={theme} />

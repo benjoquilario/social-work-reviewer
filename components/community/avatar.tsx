@@ -10,23 +10,34 @@ type ThemePalette = (typeof THEME)["light"] | (typeof THEME)["dark"]
 type CommunityAvatarProps = {
   label: string
   theme: ThemePalette
-  size?: "sm" | "md" | "lg"
+  size?: "sm" | "md" | "lg" | "xl"
   className?: string
   sourceUri?: string | null
+  /**
+   * `brand` renders for the always-dark brand surface. The default tints the
+   * avatar with `primary`, which in light mode is a deep teal — legible on a
+   * card, invisible on the hero's ink gradient.
+   */
+  tone?: "default" | "brand"
 }
 
 const SIZE_STYLES = {
   sm: {
-    container: "h-9 w-9 rounded-2xl",
-    text: "text-[11px]",
+    container: "h-9 w-9 rounded-md",
+    text: "text-2xs",
   },
   md: {
-    container: "h-11 w-11 rounded-[18px]",
+    container: "h-11 w-11 rounded-lg",
     text: "text-xs",
   },
   lg: {
-    container: "h-12 w-12 rounded-[20px]",
+    container: "h-12 w-12 rounded-lg",
     text: "text-sm",
+  },
+  /** Profile header. Large enough that the corner radius reads as a squircle. */
+  xl: {
+    container: "h-[72px] w-[72px] rounded-2xl",
+    text: "text-xl",
   },
 } as const
 
@@ -36,8 +47,10 @@ export function CommunityAvatar({
   size = "md",
   className,
   sourceUri,
+  tone = "default",
 }: CommunityAvatarProps) {
   const sizeStyle = SIZE_STYLES[size]
+  const isBrand = tone === "brand"
   const [imageFailed, setImageFailed] = useState(false)
   const normalizedSourceUri = useMemo(
     () => sourceUri?.trim() || null,
@@ -57,8 +70,10 @@ export function CommunityAvatar({
         className
       )}
       style={{
-        backgroundColor: withOpacity(theme.primary, 0.12),
-        borderColor: theme.border,
+        backgroundColor: isBrand
+          ? "hsl(0 0% 100% / 0.16)"
+          : withOpacity(theme.primary, 0.12),
+        borderColor: isBrand ? "hsl(0 0% 100% / 0.24)" : theme.border,
       }}
     >
       {shouldRenderImage ? (
@@ -70,8 +85,8 @@ export function CommunityAvatar({
         />
       ) : (
         <Text
-          className={cn("font-black uppercase text-primary", sizeStyle.text)}
-          style={{ color: theme.primary }}
+          className={cn("font-black uppercase", sizeStyle.text)}
+          style={{ color: isBrand ? "#ffffff" : theme.primary }}
         >
           {label}
         </Text>

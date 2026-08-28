@@ -1,31 +1,5 @@
-import { ArrowRight, FolderOpen, LockKeyhole } from "lucide-react-native"
+import type { QuickAccessTone, ThemePalette } from "@/lib/home-types"
 import { withOpacity } from "@/lib/theme"
-import type { ThemePalette, QuickAccessTone } from "@/lib/home-types"
-
-export function getSubjectCardPresentation(
-  theme: ThemePalette,
-  isLocked: boolean
-) {
-  const tone = isLocked ? theme.accent : theme.primary
-  const primaryCtaText = isLocked
-    ? theme.secondaryForeground
-    : theme.primaryForeground
-
-  return {
-    tone,
-    statusIconBg: isLocked
-      ? withOpacity(theme.accent, 0.14)
-      : withOpacity(theme.primary, 0.12),
-    statusIcon: isLocked ? LockKeyhole : FolderOpen,
-    badgeBg: isLocked ? withOpacity(theme.accent, 0.14) : theme.secondary,
-    badgeText: isLocked ? theme.accent : theme.secondaryForeground,
-    statusLabel: isLocked ? "Premium" : "Open",
-    primaryIcon: isLocked ? LockKeyhole : ArrowRight,
-    primaryLabel: isLocked ? "Unlock" : "Board Exams",
-    primaryCtaBg: isLocked ? theme.secondary : tone,
-    primaryCtaText,
-  }
-}
 
 export function getQuickAccessCardPresentation(
   theme: ThemePalette,

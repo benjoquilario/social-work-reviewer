@@ -32,7 +32,7 @@ export function Skeleton({ className, ...props }: ViewProps) {
   return (
     <AnimatedView
       style={pulse}
-      className={cn("rounded-[20px] bg-muted/80", className)}
+      className={cn("rounded-lg bg-muted/80", className)}
       {...props}
     />
   )

@@ -40,7 +40,7 @@ const WindowToggle = memo(function WindowToggle({
 }) {
   return (
     <View
-      className="flex-row overflow-hidden rounded-2xl"
+      className="flex-row overflow-hidden rounded-xl"
       style={{ backgroundColor: withOpacity(theme.primary, 0.08) }}
     >
       {WINDOWS.map((w) => {
@@ -161,10 +161,10 @@ export const ActivityMetricsSection = memo(function ActivityMetricsSection({
   return (
     <View className="gap-3">
       <View className="gap-0.5">
-        <Text className="text-[11px] font-black uppercase tracking-[1.4px] text-primary">
+        <Text variant="eyebrow">
           Activity Metrics
         </Text>
-        <Text className="text-[17px] font-extrabold text-foreground">
+        <Text className="text-base font-extrabold text-foreground">
           Questions Answered
         </Text>
       </View>
@@ -174,10 +174,10 @@ export const ActivityMetricsSection = memo(function ActivityMetricsSection({
       </View>
 
       {isLoading ? (
-        <Skeleton className="h-36 rounded-2xl" />
+        <Skeleton className="h-36 rounded-xl" />
       ) : timeline ? (
         <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-          <CardContent className="gap-4 px-4 py-4">
+          <CardContent className="gap-4">
             <BarChart
               timeline={timeline}
               theme={theme}
@@ -198,31 +198,31 @@ export const ActivityMetricsSection = memo(function ActivityMetricsSection({
       {timeline ? (
         <View className="flex-row gap-2.5">
           <Card className="flex-1" style={{ borderWidth: 1, borderColor: theme.border }}>
-            <CardContent className="gap-1.5 px-3.5 py-3">
+            <CardContent size="compact" className="gap-1.5">
               <View className="flex-row items-center gap-1.5">
                 <BarChart3 size={13} color={theme.primary} />
-                <Text className="text-[10px] font-bold uppercase tracking-[1.1px] text-primary">
+                <Text variant="eyebrow">
                   {periodLabel}
                 </Text>
               </View>
               <Text style={{ fontSize: 20, fontWeight: "900", color: theme.foreground }}>
                 {timeline.questionsThisPeriod}
               </Text>
-              <Text className="text-[11px] text-muted-foreground">questions answered</Text>
+              <Text className="text-2xs text-muted-foreground">questions answered</Text>
             </CardContent>
           </Card>
           <Card className="flex-1" style={{ borderWidth: 1, borderColor: theme.border }}>
-            <CardContent className="gap-1.5 px-3.5 py-3">
+            <CardContent size="compact" className="gap-1.5">
               <View className="flex-row items-center gap-1.5">
                 <Trophy size={13} color={theme.accent} />
-                <Text className="text-[10px] font-bold uppercase tracking-[1.1px] text-accent">
+                <Text className="text-2xs font-bold uppercase tracking-[1px] text-accent-text">
                   Best Day
                 </Text>
               </View>
               <Text style={{ fontSize: 20, fontWeight: "900", color: theme.foreground }}>
                 {timeline.mostAnsweredInOneDay}
               </Text>
-              <Text className="text-[11px] text-muted-foreground" numberOfLines={1}>
+              <Text className="text-2xs text-muted-foreground" numberOfLines={1}>
                 {timeline.mostAnsweredDate}
               </Text>
             </CardContent>
@@ -233,10 +233,10 @@ export const ActivityMetricsSection = memo(function ActivityMetricsSection({
       {reportMetrics ? (
         <View className="gap-2.5">
           <View className="gap-0.5">
-            <Text className="text-[11px] font-black uppercase tracking-[1.4px] text-primary">
+            <Text variant="eyebrow">
               Report Snapshots
             </Text>
-            <Text className="text-[17px] font-extrabold text-foreground">
+            <Text className="text-base font-extrabold text-foreground">
               Daily to Yearly Progress
             </Text>
           </View>
@@ -248,8 +248,8 @@ export const ActivityMetricsSection = memo(function ActivityMetricsSection({
                 className="min-w-[47%] flex-1"
                 style={{ borderWidth: 1, borderColor: theme.border }}
               >
-                <CardContent className="gap-2 px-3.5 py-3.5">
-                  <Text className="text-[10px] font-black uppercase tracking-[1.1px] text-primary">
+                <CardContent size="compact" className="gap-2">
+                  <Text variant="eyebrow">
                     {snapshot.label}
                   </Text>
                   <Text
@@ -261,14 +261,14 @@ export const ActivityMetricsSection = memo(function ActivityMetricsSection({
                   >
                     {snapshot.answeredCount}
                   </Text>
-                  <Text className="text-[11px] text-muted-foreground">
+                  <Text className="text-2xs text-muted-foreground">
                     answered · {snapshot.accuracyRate}% accuracy
                   </Text>
-                  <Text className="text-[11px] text-muted-foreground">
+                  <Text className="text-2xs text-muted-foreground">
                     {snapshot.studyMinutes} min · {snapshot.activeDaysCount} active
                     day{snapshot.activeDaysCount === 1 ? "" : "s"}
                   </Text>
-                  <Text className="text-[11px] text-muted-foreground">
+                  <Text className="text-2xs text-muted-foreground">
                     {snapshot.earnedAchievementsCount} achievements earned
                   </Text>
                 </CardContent>
@@ -277,13 +277,13 @@ export const ActivityMetricsSection = memo(function ActivityMetricsSection({
           </View>
 
           <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-            <CardContent className="gap-3 px-4 py-4">
+            <CardContent className="gap-3">
               <View className="flex-row items-center justify-between gap-3">
                 <View>
-                  <Text className="text-[11px] font-black uppercase tracking-[1.1px] text-primary">
+                  <Text variant="eyebrow">
                     Lifetime Summary
                   </Text>
-                  <Text className="text-[16px] font-extrabold text-foreground">
+                  <Text className="text-base font-extrabold text-foreground">
                     Long-term reviewer momentum
                   </Text>
                 </View>
@@ -291,37 +291,37 @@ export const ActivityMetricsSection = memo(function ActivityMetricsSection({
                   className="rounded-full px-3 py-1"
                   style={{ backgroundColor: withOpacity(theme.primary, 0.12) }}
                 >
-                  <Text className="text-[10px] font-black uppercase tracking-[1px] text-primary">
+                  <Text variant="eyebrow">
                     {reportMetrics.lifetime.achievementsCount} badges
                   </Text>
                 </View>
               </View>
 
               <View className="flex-row flex-wrap gap-2.5">
-                <View className="min-w-[47%] flex-1 rounded-2xl p-3" style={{ backgroundColor: withOpacity(theme.primary, 0.08) }}>
+                <View className="min-w-[47%] flex-1 rounded-xl p-3" style={{ backgroundColor: withOpacity(theme.primary, 0.08) }}>
                   <View className="flex-row items-center gap-1.5">
                     <Flame size={13} color={theme.accent} />
-                    <Text className="text-[10px] font-black uppercase tracking-[1px]" style={{ color: theme.accent }}>
+                    <Text className="text-2xs font-bold uppercase tracking-[1px]" style={{ color: theme.accent }}>
                       Current Streak
                     </Text>
                   </View>
                   <Text style={{ fontSize: 20, fontWeight: "900", color: theme.foreground }}>
                     {reportMetrics.lifetime.dayStreak}
                   </Text>
-                  <Text className="text-[11px] text-muted-foreground">consecutive days</Text>
+                  <Text className="text-2xs text-muted-foreground">consecutive days</Text>
                 </View>
 
-                <View className="min-w-[47%] flex-1 rounded-2xl p-3" style={{ backgroundColor: withOpacity(theme.primary, 0.08) }}>
+                <View className="min-w-[47%] flex-1 rounded-xl p-3" style={{ backgroundColor: withOpacity(theme.primary, 0.08) }}>
                   <View className="flex-row items-center gap-1.5">
                     <Clock3 size={13} color={theme.primary} />
-                    <Text className="text-[10px] font-black uppercase tracking-[1px] text-primary">
+                    <Text variant="eyebrow">
                       Study Time
                     </Text>
                   </View>
                   <Text style={{ fontSize: 20, fontWeight: "900", color: theme.foreground }}>
                     {reportMetrics.lifetime.totalStudyMinutes}
                   </Text>
-                  <Text className="text-[11px] text-muted-foreground">minutes tracked</Text>
+                  <Text className="text-2xs text-muted-foreground">minutes tracked</Text>
                 </View>
               </View>
             </CardContent>

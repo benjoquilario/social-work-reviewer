@@ -40,12 +40,7 @@ export function ScreenHeader({ title, trailing, onBack }: ScreenHeaderProps) {
           className="flex-1"
           contentContainerStyle={{ paddingRight: 16 }}
         >
-          <Text
-            role="heading"
-            aria-level={1}
-            className="text-[17px] font-black text-foreground"
-            numberOfLines={1}
-          >
+          <Text variant="title" numberOfLines={1}>
             {title}
           </Text>
         </ScrollView>

@@ -1,4 +1,5 @@
 import { useEffect, type PropsWithChildren } from "react"
+import { AppState } from "react-native"
 import { create } from "zustand"
 
 import {
@@ -26,12 +27,20 @@ import {
 type AuthState =
   | { status: "loading" }
   | { status: "unauthenticated" }
+  /**
+   * The session check could not complete — Appwrite was unreachable, not the
+   * user signed out. Kept separate because collapsing the two sent anyone on a
+   * flaky connection to the login screen, where `createEmailPasswordSession`
+   * then failed against the session they still had.
+   */
+  | { status: "unreachable"; error: string }
   | { status: "authenticated"; user: AuthUser; profile: UserProfile | null }
 
 type AuthStore = {
   authState: AuthState
   isLoading: boolean
   isAuthenticated: boolean
+  isUnreachable: boolean
   user: AuthUser | null
   profile: UserProfile | null
   initialize: () => Promise<void>
@@ -56,6 +65,7 @@ function toAuthSnapshot(authState: AuthState) {
     authState,
     isLoading: authState.status === "loading",
     isAuthenticated: authState.status === "authenticated",
+    isUnreachable: authState.status === "unreachable",
     user: authState.status === "authenticated" ? authState.user : null,
     profile: authState.status === "authenticated" ? authState.profile : null,
   }
@@ -86,7 +96,10 @@ const MAX_INIT_RETRIES = 2
 export const useAuthStore = create<AuthStore>((set, get) => ({
   ...toAuthSnapshot({ status: "loading" }),
   initialize: async () => {
-    if (get().authState.status !== "loading") {
+    const currentStatus = get().authState.status
+
+    // Re-runnable from "unreachable" so a reconnect can recover the session.
+    if (currentStatus !== "loading" && currentStatus !== "unreachable") {
       return
     }
 
@@ -127,7 +140,15 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       }
 
       console.warn("[Auth] Session check failed after retries:", lastError)
-      set(toAuthSnapshot({ status: "unauthenticated" }))
+      set(
+        toAuthSnapshot({
+          status: "unreachable",
+          error:
+            lastError instanceof Error
+              ? lastError.message
+              : "Could not reach Appwrite to verify your session.",
+        })
+      )
     })()
 
     return initializePromise.finally(() => {
@@ -244,10 +265,28 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const initialize = useAuthStore((state) => state.initialize)
+  const isUnreachable = useAuthStore((state) => state.isUnreachable)
 
   useEffect(() => {
     void initialize()
   }, [initialize])
+
+  // A failed session check leaves the app in "unreachable" rather than signing
+  // the user out, so it needs a way back: retry whenever the app is brought to
+  // the foreground, which is when connectivity has usually returned.
+  useEffect(() => {
+    if (!isUnreachable) {
+      return
+    }
+
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        void initialize()
+      }
+    })
+
+    return () => subscription.remove()
+  }, [initialize, isUnreachable])
 
   return <>{children}</>
 }

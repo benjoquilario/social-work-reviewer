@@ -23,14 +23,15 @@ import {
   computeNextDayStreak,
   buildDeterministicRowId,
   fetchEntityTitleMap,
+  getUserOwnedPermissions,
   fallbackEntityLabel,
   getWeekEndDateKey,
   getWeekStartDateKey,
-  getRowByIdSafe,
   isSameUtcDay,
   isAppwriteConflictError,
   listFirstRow,
   resolveAverageScoreValues,
+  resolveDeterministicRow,
   sumNumbers,
   toIsoDateKey,
   uniqueStrings,
@@ -42,38 +43,18 @@ export async function findUserProgressRow(
   subjectId: string,
   topicId: string
 ) {
-  const rowId = buildUserProgressRowId({
-    userId,
-    subjectId,
-    topicId,
-    questionnaireKey: null,
-    completedMaterials: 0,
-    averageScore: 0,
-    lastStudied: "",
-    lastQuestionId: null,
-    lastQuestionIndex: 0,
-    score: 0,
-    answeredCount: 0,
-    correctCount: 0,
-    incorrectCount: 0,
-    accuracyRate: 0,
-    lastSourceQuestionId: null,
-    answeredQuestionIds: [],
-    setName: "Set A",
-    dayStreak: 0,
-    weeklyAverageScore: 0,
-    lastActiveAt: "",
-    totalStudyMinutes: 0,
-    activeDaysCount: 0,
-    achievementsCount: 0,
-  })
-  const directRow = await getRowByIdSafe<UserProgressDocument>(
+  // Checks the current row ID, then the pre-widening one, then falls back to a
+  // query. The query fallback is what keeps rows written before deterministic
+  // IDs existed reachable at all.
+  const { row } = await resolveDeterministicRow<UserProgressDocument>(
     COLLECTIONS.USER_PROGRESS,
-    rowId
+    "progress",
+    [userId, subjectId, topicId],
+    userId
   )
 
-  if (directRow) {
-    return directRow
+  if (row) {
+    return row
   }
 
   return listFirstRow<UserProgressDocument>(COLLECTIONS.USER_PROGRESS, [
@@ -200,6 +181,7 @@ export async function createUserProgressRow(progressData: UserProgressUpsertData
     tableId: COLLECTIONS.USER_PROGRESS,
     rowId,
     data: progressData,
+    permissions: getUserOwnedPermissions(progressData.userId),
   })
 
   return {
@@ -296,18 +278,27 @@ export async function touchGlobalActivity(params: {
   }
 }
 
-function buildUserDailyActivityRowId(userId: string, activityDate: string) {
-  return buildDeterministicRowId("daily", [userId, activityDate])
-}
-
-function buildUserWeeklyReportRowId(userId: string, weekStartDate: string) {
-  return buildDeterministicRowId("weekly", [userId, weekStartDate])
-}
-
-async function findUserDailyActivityRow(userId: string, activityDate: string) {
-  return getRowByIdSafe<UserDailyActivityDocument>(
+async function resolveUserDailyActivityRow(
+  userId: string,
+  activityDate: string
+) {
+  return resolveDeterministicRow<UserDailyActivityDocument>(
     COLLECTIONS.USER_DAILY_ACTIVITY,
-    buildUserDailyActivityRowId(userId, activityDate)
+    "daily",
+    [userId, activityDate],
+    userId
+  )
+}
+
+async function resolveUserWeeklyReportRow(
+  userId: string,
+  weekStartDate: string
+) {
+  return resolveDeterministicRow<UserWeeklyReportDocument>(
+    COLLECTIONS.USER_WEEKLY_REPORTS,
+    "weekly",
+    [userId, weekStartDate],
+    userId
   )
 }
 
@@ -317,7 +308,8 @@ async function upsertUserDailyActivity(
   const nowIso = params.nowIso ?? new Date().toISOString()
   const activityDate = toIsoDateKey(nowIso)
   const weekStartDate = getWeekStartDateKey(nowIso)
-  const existing = await findUserDailyActivityRow(params.userId, activityDate)
+  const { row: existing, rowId: dailyRowId } =
+    await resolveUserDailyActivityRow(params.userId, activityDate)
   const answeredCount = Math.max(
     0,
     (existing?.answeredCount ?? 0) + params.counters.answeredCount
@@ -388,16 +380,16 @@ async function upsertUserDailyActivity(
     }
   }
 
-  const rowId = buildUserDailyActivityRowId(params.userId, activityDate)
   await tablesDB.createRow({
     databaseId: DB_ID,
     tableId: COLLECTIONS.USER_DAILY_ACTIVITY,
-    rowId,
+    rowId: dailyRowId,
     data,
+    permissions: getUserOwnedPermissions(params.userId),
   })
 
   return {
-    $id: rowId,
+    $id: dailyRowId,
     $createdAt: nowIso,
     $updatedAt: nowIso,
     ...data,
@@ -467,10 +459,9 @@ export async function rebuildUserWeeklyReport(params: {
     generatedAt: nowIso,
   }
 
-  const rowId = buildUserWeeklyReportRowId(params.userId, weekStartDate)
-  const existing = await getRowByIdSafe<UserWeeklyReportDocument>(
-    COLLECTIONS.USER_WEEKLY_REPORTS,
-    rowId
+  const { row: existing, rowId } = await resolveUserWeeklyReportRow(
+    params.userId,
+    weekStartDate
   )
 
   if (existing) {
@@ -491,6 +482,7 @@ export async function rebuildUserWeeklyReport(params: {
     databaseId: DB_ID,
     tableId: COLLECTIONS.USER_WEEKLY_REPORTS,
     rowId,
+    permissions: getUserOwnedPermissions(params.userId),
     data,
   })
 
@@ -579,7 +571,7 @@ export async function getUserActivityFeed(
         queries: [
           Query.equal("userId", userId),
           Query.orderDesc("lastAccessedAt"),
-          Query.limit(Math.min(learningHistoryLimit + 1, HISTORY_QUERY_LIMIT)),
+          Query.limit(Math.min(learningHistoryLimit, HISTORY_QUERY_LIMIT)),
         ],
       }),
       tablesDB.listRows({
@@ -588,7 +580,7 @@ export async function getUserActivityFeed(
         queries: [
           Query.equal("userId", userId),
           Query.orderDesc("earnedAt"),
-          Query.limit(Math.min(achievementsLimit + 1, ACTIVITY_QUERY_LIMIT)),
+          Query.limit(Math.min(achievementsLimit, ACTIVITY_QUERY_LIMIT)),
         ],
       }),
     ])
@@ -596,15 +588,40 @@ export async function getUserActivityFeed(
   const progressRows = progressRowsResult.rows as unknown as UserProgressDocument[]
   const historyRows = historyResult.rows as unknown as LearningHistoryDocument[]
   const achievements = achievementsResult.rows as unknown as LearningAchievementDocument[]
-  
+
   const displayAttempts = quizSessions.slice(0, quizAttemptsLimit)
   const displayHistory = historyRows.slice(0, learningHistoryLimit)
   const displayAchievements = achievements.slice(0, achievementsLimit)
-  
+
+  // `hasMore` comes from the server's `total`, not from the page length.
+  // Fetching `limit + 1` and testing `rows.length > limit` dead-ended as soon
+  // as the +1 was clipped by the per-collection ceiling: at 30 achievements the
+  // query returned exactly 30, `30 > 30` was false, and "Load more" vanished
+  // with rows still unread. `total` ignores limit/offset, so it stays honest —
+  // and it now also reports more rows than the ceiling can serve, which the
+  // truncation warning below makes visible.
+  const learningHistoryTotal = historyResult.total ?? historyRows.length
+  const achievementsTotal = achievementsResult.total ?? achievements.length
+
   const quizAttemptsHasMore = quizSessions.length > quizAttemptsLimit
-  const learningHistoryHasMore = historyRows.length > learningHistoryLimit
-  const achievementsHasMore = achievements.length > achievementsLimit
-  
+  const learningHistoryHasMore = learningHistoryTotal > displayHistory.length
+  const achievementsHasMore = achievementsTotal > displayAchievements.length
+
+  if (__DEV__) {
+    if (learningHistoryLimit > HISTORY_QUERY_LIMIT) {
+      console.warn(
+        `[progress] getUserActivityFeed: learning history is capped at HISTORY_QUERY_LIMIT=${HISTORY_QUERY_LIMIT} but ${learningHistoryLimit} was requested (${learningHistoryTotal} exist). Raise the cap or switch this list to cursor pagination.`
+      )
+    }
+
+    if (achievementsLimit > ACTIVITY_QUERY_LIMIT) {
+      console.warn(
+        `[progress] getUserActivityFeed: achievements are capped at ACTIVITY_QUERY_LIMIT=${ACTIVITY_QUERY_LIMIT} but ${achievementsLimit} was requested (${achievementsTotal} exist). Raise the cap or switch this list to cursor pagination.`
+      )
+    }
+  }
+
+
   const globalProgress = progressRows.find(
     (row) =>
       row.subjectId === GLOBAL_PROGRESS_SUBJECT_ID &&

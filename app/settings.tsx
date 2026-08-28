@@ -91,7 +91,7 @@ function SettingsInput({
 
   return (
     <View className="gap-1.5">
-      <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-muted-foreground">
+      <Text variant="label">
         {label}
       </Text>
       <TextInput
@@ -101,7 +101,7 @@ function SettingsInput({
         placeholderTextColor={theme.mutedForeground}
         secureTextEntry={secureTextEntry}
         autoCapitalize={autoCapitalize}
-        className="rounded-2xl border px-4 py-3 text-sm text-foreground"
+        className="rounded-xl border px-4 py-3 text-sm text-foreground"
         style={{
           minHeight: 52,
           borderColor: theme.border,
@@ -273,23 +273,23 @@ export default function SettingsScreen() {
         <ScreenHeader title="Settings" />
 
         <View className="gap-1 px-1">
-          <Text className="text-[11px] font-black uppercase tracking-[1.8px] text-primary">
+          <Text variant="eyebrow">
             Preferences & Security
           </Text>
-          <Text className="text-[13px] leading-6 text-muted-foreground">
+          <Text className="text-sm leading-6 text-muted-foreground">
             Control app behavior, account security, diagnostics, and danger-zone
             actions.
           </Text>
         </View>
 
-        <Card className="rounded-[28px]">
-          <CardContent className="gap-3 px-4 py-4">
+        <Card className="rounded-2xl">
+          <CardContent className="gap-3">
             <Text className="text-base font-black text-card-foreground">
               Account Security
             </Text>
             <Button
               variant="outline"
-              className="h-11 justify-start rounded-2xl px-4"
+              className="h-11 justify-start rounded-md px-4"
               onPress={() => setIsEmailDialogOpen(true)}
             >
               <MailCheck size={16} color={theme.primary} strokeWidth={2.2} />
@@ -297,7 +297,7 @@ export default function SettingsScreen() {
             </Button>
             <Button
               variant="outline"
-              className="h-11 justify-start rounded-2xl px-4"
+              className="h-11 justify-start rounded-md px-4"
               onPress={() => setIsPasswordDialogOpen(true)}
             >
               <KeyRound size={16} color={theme.primary} strokeWidth={2.2} />
@@ -306,7 +306,7 @@ export default function SettingsScreen() {
             {!user?.emailVerification ? (
               <Button
                 variant="outline"
-                className="h-11 justify-start rounded-2xl px-4"
+                className="h-11 justify-start rounded-md px-4"
                 onPress={() => void handleSendVerification()}
               >
                 <MailCheck size={16} color={theme.primary} strokeWidth={2.2} />
@@ -316,8 +316,8 @@ export default function SettingsScreen() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[28px]">
-          <CardContent className="gap-3 px-4 py-4">
+        <Card className="rounded-2xl">
+          <CardContent className="gap-3">
             <Text className="text-base font-black text-card-foreground">
               Appearance
             </Text>
@@ -330,7 +330,7 @@ export default function SettingsScreen() {
                 return (
                   <Pressable
                     key={option.value}
-                    className="rounded-2xl border p-3"
+                    className="rounded-xl border p-3"
                     style={{
                       borderColor: isActive ? theme.primary : theme.border,
                       backgroundColor: isActive
@@ -354,7 +354,7 @@ export default function SettingsScreen() {
                           style={{ backgroundColor: theme.primary }}
                         >
                           <Text
-                            className="text-[10px] font-bold uppercase tracking-wide"
+                            className="text-2xs font-bold uppercase tracking-[1px]"
                             style={{ color: theme.primaryForeground }}
                           >
                             Active
@@ -369,8 +369,8 @@ export default function SettingsScreen() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[28px]">
-          <CardContent className="gap-3 px-4 py-4">
+        <Card className="rounded-2xl">
+          <CardContent className="gap-3">
             <Text className="text-base font-black text-card-foreground">
               Quiz Experience
             </Text>
@@ -397,8 +397,8 @@ export default function SettingsScreen() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[28px]">
-          <CardContent className="gap-3 px-4 py-4">
+        <Card className="rounded-2xl">
+          <CardContent className="gap-3">
             <Text className="text-base font-black text-card-foreground">
               Accessibility & Focus
             </Text>
@@ -425,28 +425,28 @@ export default function SettingsScreen() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[28px]">
-          <CardContent className="gap-3 px-4 py-4">
+        <Card className="rounded-2xl">
+          <CardContent className="gap-3">
             <Text className="text-base font-black text-card-foreground">
               Data & Diagnostics
             </Text>
             <Button
               variant="outline"
-              className="h-11 rounded-2xl"
+              className="h-11 rounded-md"
               onPress={() => router.push("/diagnostics")}
             >
               <Text className="font-bold">Run Appwrite diagnostics</Text>
             </Button>
             <Button
               variant="outline"
-              className="h-11 rounded-2xl"
+              className="h-11 rounded-md"
               onPress={() => resetPreferences()}
             >
               <Text className="font-bold">Restore defaults</Text>
             </Button>
             <Button
               variant="outline"
-              className="h-11 rounded-2xl"
+              className="h-11 rounded-md"
               onPress={() =>
                 Alert.alert(
                   "Reset Progress",
@@ -459,8 +459,8 @@ export default function SettingsScreen() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[28px] border-destructive/20 bg-destructive/5">
-          <CardContent className="gap-3 px-4 py-4">
+        <Card className="rounded-2xl border-destructive/20 bg-destructive/5">
+          <CardContent className="gap-3">
             <View className="flex-row items-start gap-3">
               <TriangleAlert
                 size={18}
@@ -471,7 +471,7 @@ export default function SettingsScreen() {
                 <Text className="text-base font-black text-card-foreground">
                   Danger Zone
                 </Text>
-                <Text className="text-[13px] leading-6 text-muted-foreground">
+                <Text className="text-sm leading-6 text-muted-foreground">
                   Sign out safely or permanently remove your account.
                 </Text>
               </View>
@@ -479,7 +479,7 @@ export default function SettingsScreen() {
 
             <Button
               variant="outline"
-              className="h-11 rounded-2xl"
+              className="h-11 rounded-md"
               onPress={() => void handleLogout()}
               disabled={isLoggingOut}
               style={
@@ -496,7 +496,7 @@ export default function SettingsScreen() {
 
             <Button
               variant="destructive"
-              className="h-11 rounded-2xl"
+              className="h-11 rounded-md"
               onPress={() => setIsDeleteDialogOpen(true)}
             >
               <Trash2
@@ -510,7 +510,7 @@ export default function SettingsScreen() {
             </Button>
 
             {!APPWRITE_CONFIG.accountDeleteFunctionId ? (
-              <Text className="text-[12px] leading-6 text-muted-foreground">
+              <Text className="text-xs leading-6 text-muted-foreground">
                 Deploy the account deletion Appwrite Function and set
                 EXPO_PUBLIC_APPWRITE_ACCOUNT_DELETE_FUNCTION_ID before shipping
                 this action.
@@ -549,13 +549,13 @@ export default function SettingsScreen() {
           <DialogFooter>
             <Button
               variant="outline"
-              className="h-11 rounded-2xl"
+              className="h-11 rounded-md"
               onPress={() => setIsEmailDialogOpen(false)}
             >
               <Text className="font-bold">Cancel</Text>
             </Button>
             <Button
-              className="h-11 rounded-2xl"
+              className="h-11 rounded-md"
               onPress={() => void handleChangeEmail()}
               disabled={isSubmittingEmail}
             >
@@ -606,13 +606,13 @@ export default function SettingsScreen() {
           <DialogFooter>
             <Button
               variant="outline"
-              className="h-11 rounded-2xl"
+              className="h-11 rounded-md"
               onPress={() => setIsPasswordDialogOpen(false)}
             >
               <Text className="font-bold">Cancel</Text>
             </Button>
             <Button
-              className="h-11 rounded-2xl"
+              className="h-11 rounded-md"
               onPress={() => void handleChangePassword()}
               disabled={isSubmittingPassword}
             >
@@ -647,14 +647,14 @@ export default function SettingsScreen() {
           <DialogFooter>
             <Button
               variant="outline"
-              className="h-11 rounded-2xl"
+              className="h-11 rounded-md"
               onPress={() => setIsDeleteDialogOpen(false)}
             >
               <Text className="font-bold">Cancel</Text>
             </Button>
             <Button
               variant="destructive"
-              className="h-11 rounded-2xl"
+              className="h-11 rounded-md"
               onPress={() => void handleDeleteAccount()}
               disabled={isDeletingAccount}
             >

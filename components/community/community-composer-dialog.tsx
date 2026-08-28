@@ -84,8 +84,8 @@ export function CommunityComposerDialog({
             style={{ borderColor: theme.border }}
           >
             <View className="flex-1 pr-3">
-              <DialogTitle className="text-[18px]">Start a thread</DialogTitle>
-              <DialogDescription className="mt-0.5 text-[12px] leading-5">
+              <DialogTitle className="text-lg">Start a thread</DialogTitle>
+              <DialogDescription className="mt-0.5 text-xs leading-5">
                 Ask clearly, attach one image if needed, and keep details
                 concise so replies stay useful.
               </DialogDescription>
@@ -121,7 +121,7 @@ export function CommunityComposerDialog({
             showsVerticalScrollIndicator={false}
           >
             <View className="gap-1.5">
-              <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-muted-foreground">
+              <Text variant="label">
                 Thread type
               </Text>
               <View className="flex-row flex-wrap gap-2">
@@ -143,8 +143,8 @@ export function CommunityComposerDialog({
                       <Text
                         className={
                           isActive
-                            ? "text-[11px] font-bold uppercase tracking-wide text-primary-foreground"
-                            : "text-[11px] font-bold uppercase tracking-wide text-muted-foreground"
+                            ? "text-2xs font-bold uppercase tracking-wide text-primary-foreground"
+                            : "text-2xs font-bold uppercase tracking-wide text-muted-foreground"
                         }
                       >
                         {category}
@@ -156,7 +156,7 @@ export function CommunityComposerDialog({
             </View>
 
             <View className="gap-1.5">
-              <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-muted-foreground">
+              <Text variant="label">
                 Subject lane
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -178,8 +178,8 @@ export function CommunityComposerDialog({
                     <Text
                       className={
                         selectedSubjectId === null
-                          ? "text-[11px] font-bold uppercase tracking-wide text-primary-foreground"
-                          : "text-[11px] font-bold uppercase tracking-wide text-muted-foreground"
+                          ? "text-2xs font-bold uppercase tracking-wide text-primary-foreground"
+                          : "text-2xs font-bold uppercase tracking-wide text-muted-foreground"
                       }
                     >
                       General
@@ -203,8 +203,8 @@ export function CommunityComposerDialog({
                         <Text
                           className={
                             isActive
-                              ? "text-[11px] font-bold uppercase tracking-wide text-primary-foreground"
-                              : "text-[11px] font-bold uppercase tracking-wide text-muted-foreground"
+                              ? "text-2xs font-bold uppercase tracking-wide text-primary-foreground"
+                              : "text-2xs font-bold uppercase tracking-wide text-muted-foreground"
                           }
                         >
                           {subject.name}
@@ -216,8 +216,8 @@ export function CommunityComposerDialog({
               </ScrollView>
             </View>
 
-            <View className="gap-1.5 rounded-[18px] border border-border bg-background p-3">
-              <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-muted-foreground">
+            <View className="gap-1.5 rounded-lg border border-border bg-background p-3">
+              <Text variant="label">
                 Title
               </Text>
               <TextInput
@@ -225,7 +225,7 @@ export function CommunityComposerDialog({
                 onChangeText={onChangeTitleDraft}
                 placeholder="Write a clear, searchable thread title"
                 placeholderTextColor={theme.mutedForeground}
-                className="rounded-xl border px-3 py-2.5 text-[14px] text-foreground"
+                className="rounded-sm border px-3 py-2.5 text-sm text-foreground"
                 style={{
                   minHeight: 44,
                   color: theme.foreground,
@@ -236,13 +236,13 @@ export function CommunityComposerDialog({
               />
             </View>
 
-            <View className="gap-1.5 rounded-[18px] border border-border bg-background p-3">
-              <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-muted-foreground">
+            <View className="gap-1.5 rounded-lg border border-border bg-background p-3">
+              <Text variant="label">
                 Image
               </Text>
               <View className="flex-row gap-2">
                 <Pressable
-                  className="h-10 flex-1 flex-row items-center justify-center gap-2 rounded-2xl border"
+                  className="h-10 flex-1 flex-row items-center justify-center gap-2 rounded-md border"
                   style={{
                     borderColor: theme.border,
                     backgroundColor: withOpacity(theme.primary, 0.06),
@@ -252,7 +252,7 @@ export function CommunityComposerDialog({
                 >
                   <ImagePlus size={16} color={theme.primary} />
                   <Text
-                    className="text-[12px] font-bold"
+                    className="text-xs font-bold"
                     style={{ color: theme.primary }}
                   >
                     {photoUrlDraft ? "Replace" : "Upload"}
@@ -260,7 +260,7 @@ export function CommunityComposerDialog({
                 </Pressable>
                 {photoUrlDraft ? (
                   <Pressable
-                    className="h-10 w-10 items-center justify-center rounded-2xl border"
+                    className="h-10 w-10 items-center justify-center rounded-md border"
                     style={{
                       borderColor: theme.border,
                       backgroundColor: theme.background,
@@ -272,7 +272,7 @@ export function CommunityComposerDialog({
                   </Pressable>
                 ) : null}
               </View>
-              <Text className="text-[11px] leading-5 text-muted-foreground">
+              <Text className="text-2xs leading-5 text-muted-foreground">
                 {isUploadingPhoto
                   ? "Uploading image..."
                   : photoUrlDraft
@@ -282,7 +282,7 @@ export function CommunityComposerDialog({
             </View>
 
             {previewUri ? (
-              <View className="overflow-hidden rounded-[20px] border border-border bg-background">
+              <View className="overflow-hidden rounded-lg border border-border bg-background">
                 <Image
                   source={{ uri: previewUri }}
                   style={{
@@ -296,8 +296,8 @@ export function CommunityComposerDialog({
               </View>
             ) : null}
 
-            <View className="gap-1.5 rounded-[18px] border border-border bg-background p-3">
-              <Text className="text-[11px] font-bold uppercase tracking-[1.2px] text-muted-foreground">
+            <View className="gap-1.5 rounded-lg border border-border bg-background p-3">
+              <Text variant="label">
                 Thread body
               </Text>
               <TextInput
@@ -305,7 +305,7 @@ export function CommunityComposerDialog({
                 onChangeText={onChangeContentDraft}
                 placeholder="Add details, what you already checked, and the exact help you need."
                 placeholderTextColor={theme.mutedForeground}
-                className="min-h-[132px] rounded-xl border px-3 py-2.5 text-[14px] leading-6 text-foreground"
+                className="min-h-[132px] rounded-sm border px-3 py-2.5 text-sm leading-6 text-foreground"
                 multiline
                 textAlignVertical="top"
                 style={{
@@ -318,7 +318,7 @@ export function CommunityComposerDialog({
             </View>
 
             <Button
-              className="h-11 rounded-2xl"
+              className="h-11 rounded-md"
               disabled={
                 isPending ||
                 isUploadingPhoto ||

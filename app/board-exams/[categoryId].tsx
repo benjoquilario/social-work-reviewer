@@ -35,7 +35,7 @@ function BoardExamSetCard({
   return (
     <Pressable onPress={onPress} disabled={isUnavailable}>
       <Card
-        className="rounded-[24px]"
+        className="rounded-xl"
         style={{
           borderWidth: 1,
           borderColor: theme.border,
@@ -43,18 +43,18 @@ function BoardExamSetCard({
           backgroundColor: theme.card,
         }}
       >
-        <CardContent className="gap-3 px-4 py-4">
+        <CardContent className="gap-3">
           <View className="flex-row items-start justify-between gap-3">
             <View className="flex-1 gap-0.5">
-              <Text className="text-[15px] font-black text-card-foreground">
+              <Text className="text-sm font-black text-card-foreground">
                 {set.title}
               </Text>
-              <Text className="text-[12px] text-muted-foreground">
+              <Text className="text-xs text-muted-foreground">
                 {set.description || "Board exam set"}
               </Text>
             </View>
-            <Badge variant="default" size="sm">
-              <Text className="text-[10px] font-black uppercase tracking-[1px]">
+            <Badge tone="primary" size="sm">
+              <Text className="text-2xs font-bold uppercase tracking-[1px]">
                 {set.setCode}
               </Text>
             </Badge>
@@ -63,7 +63,7 @@ function BoardExamSetCard({
           <View className="flex-row flex-wrap items-center gap-3">
             <View className="flex-row items-center gap-1.5">
               <FileQuestion size={13} color={theme.primary} />
-              <Text className="text-[11px] font-semibold uppercase tracking-[0.9px] text-primary">
+              <Text variant="eyebrow">
                 {set.totalQuestionCount} questions
               </Text>
             </View>
@@ -71,7 +71,7 @@ function BoardExamSetCard({
               <View className="flex-row items-center gap-1.5">
                 <LockKeyhole size={13} color={theme.accent} />
                 <Text
-                  className="text-[11px] font-semibold uppercase tracking-[0.9px]"
+                  className="text-2xs font-bold uppercase tracking-[1px]"
                   style={{ color: theme.accent }}
                 >
                   {set.freeQuestionCount} free · {set.premiumQuestionCount}{" "}
@@ -80,7 +80,7 @@ function BoardExamSetCard({
               </View>
             ) : null}
             {isUnavailable ? (
-              <Text className="text-[11px] font-semibold uppercase tracking-[0.9px] text-muted-foreground">
+              <Text variant="label">
                 No questions yet
               </Text>
             ) : null}
@@ -153,8 +153,8 @@ export default function BoardExamSetsScreen() {
           <View className="pb-3">
             {setsQuery.isLoading ? (
               <View className="gap-3 px-4">
-                <Skeleton className="h-24 rounded-2xl" />
-                <Skeleton className="h-24 rounded-2xl" />
+                <Skeleton className="h-24 rounded-xl" />
+                <Skeleton className="h-24 rounded-xl" />
               </View>
             ) : null}
 

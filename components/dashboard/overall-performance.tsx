@@ -90,11 +90,11 @@ const SubjectBreakdownRow = memo(function SubjectBreakdownRow({
 const PerformanceHeader = memo(function PerformanceHeader({ theme }: { theme: ThemePalette }) {
   return (
     <View className="gap-0.5">
-      <Text className="text-[11px] font-black uppercase tracking-[1.4px] text-primary">
+      <Text variant="eyebrow">
         Performance Insights
       </Text>
       <View className="flex-row items-center gap-2">
-        <Text className="text-[17px] font-extrabold text-foreground">
+        <Text className="text-base font-extrabold text-foreground">
           Overall Performance
         </Text>
         <Info size={14} color={theme.mutedForeground} />
@@ -111,7 +111,7 @@ const PerformanceRingCard = memo(function PerformanceRingCard({
 }) {
   return (
     <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-      <CardContent className="px-4 py-5">
+      <CardContent size="loose">
         <View className="flex-row items-center gap-5">
           <CircularProgress
             percent={stats.correctPercent}
@@ -130,7 +130,7 @@ const PerformanceRingCard = memo(function PerformanceRingCard({
                   of {stats.totalQuestions}
                 </Text>
               </View>
-              <Text className="text-[11px] text-muted-foreground">Unique Questions Answered</Text>
+              <Text className="text-2xs text-muted-foreground">Unique Questions Answered</Text>
             </View>
             <View>
               <View className="flex-row items-baseline gap-1">
@@ -141,7 +141,7 @@ const PerformanceRingCard = memo(function PerformanceRingCard({
                   of {stats.totalAnswered}
                 </Text>
               </View>
-              <Text className="text-[11px] text-muted-foreground">Correct Answers</Text>
+              <Text className="text-2xs text-muted-foreground">Correct Answers</Text>
             </View>
           </View>
         </View>
@@ -162,9 +162,9 @@ const PerformanceQuickStats = memo(function PerformanceQuickStats({
   return (
     <View className="flex-row gap-2.5">
       <Card className="flex-1" style={{ borderWidth: 1, borderColor: theme.border }}>
-        <CardContent className="items-center gap-1.5 px-3 py-3.5">
+        <CardContent size="compact" className="items-center gap-1.5">
           <View
-            className="h-9 w-9 items-center justify-center rounded-xl"
+            className="h-9 w-9 items-center justify-center rounded-sm"
             style={{ backgroundColor: withOpacity(theme.primary, 0.12) }}
           >
             <Clock size={16} color={theme.primary} />
@@ -172,16 +172,16 @@ const PerformanceQuickStats = memo(function PerformanceQuickStats({
           <Text style={{ fontSize: 17, fontWeight: "900", color: theme.foreground }}>
             {avgMinutes}m {avgSeconds}s
           </Text>
-          <Text className="text-center text-[10px] leading-[14px] text-muted-foreground">
+          <Text className="text-center text-2xs leading-[14px] text-muted-foreground">
             Avg. Time Per{"\n"}Question
           </Text>
         </CardContent>
       </Card>
 
       <Card className="flex-1" style={{ borderWidth: 1, borderColor: theme.border }}>
-        <CardContent className="items-center gap-1.5 px-3 py-3.5">
+        <CardContent size="compact" className="items-center gap-1.5">
           <View
-            className="h-9 w-9 items-center justify-center rounded-xl"
+            className="h-9 w-9 items-center justify-center rounded-sm"
             style={{ backgroundColor: withOpacity(theme.accent, 0.12) }}
           >
             <Zap size={16} color={theme.accent} />
@@ -189,7 +189,7 @@ const PerformanceQuickStats = memo(function PerformanceQuickStats({
           <Text style={{ fontSize: 17, fontWeight: "900", color: theme.foreground }}>
             {stats.bestStreak}
           </Text>
-          <Text className="text-center text-[10px] leading-[14px] text-muted-foreground">
+          <Text className="text-center text-2xs leading-[14px] text-muted-foreground">
             Most Correct{"\n"}In A Row
           </Text>
         </CardContent>
@@ -206,15 +206,15 @@ const PerformanceCategoryBreakdown = memo(function PerformanceCategoryBreakdown(
 }) {
   return (
     <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-      <CardContent className="px-4 py-4">
+      <CardContent>
         <View className="mb-1 flex-row items-center gap-2">
           <View
-            className="h-8 w-8 items-center justify-center rounded-xl"
+            className="h-8 w-8 items-center justify-center rounded-sm"
             style={{ backgroundColor: withOpacity(theme.chart4, 0.12) }}
           >
             <Target size={14} color={theme.chart4} />
           </View>
-          <Text className="text-[13px] font-bold text-foreground">
+          <Text className="text-sm font-bold text-foreground">
             Category Breakdown
           </Text>
         </View>

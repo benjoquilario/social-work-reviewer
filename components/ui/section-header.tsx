@@ -32,23 +32,9 @@ function SectionHeader({
       {...props}
     >
       <View className="flex-1 gap-1">
-        {eyebrow ? (
-          <Text className="text-[11px] font-black uppercase tracking-[1.4px] text-primary">
-            {eyebrow}
-          </Text>
-        ) : null}
-        <Text
-          role="heading"
-          aria-level={2}
-          className="text-[17px] font-extrabold leading-6 text-foreground"
-        >
-          {title}
-        </Text>
-        {subtitle ? (
-          <Text className="text-[12px] leading-[18px] text-muted-foreground">
-            {subtitle}
-          </Text>
-        ) : null}
+        {eyebrow ? <Text variant="eyebrow">{eyebrow}</Text> : null}
+        <Text variant="heading">{title}</Text>
+        {subtitle ? <Text variant="caption">{subtitle}</Text> : null}
       </View>
       {action ?? null}
     </View>

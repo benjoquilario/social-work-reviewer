@@ -1,96 +1,84 @@
 import { memo } from "react"
-import { FlashList, type ListRenderItem } from "@shopify/flash-list"
-import { View } from "react-native"
+import { ChevronRight } from "lucide-react-native"
+import { Pressable, View } from "react-native"
 
 import type { ThemePalette } from "@/lib/home-types"
 import type { LearningSubject } from "@/lib/learning-content"
-import { Card, CardContent } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
+import { SectionHeader } from "@/components/ui/section-header"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
-import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 
-const SubjectCardSeparator = memo(function SubjectCardSeparator() {
-  return <View className="w-2.5" />
-})
+import { HomeSubjectRow } from "./HomeSubjectRow"
+
+const SKELETON_ROWS = [0, 1, 2]
 
 export const PracticeAreasSection = memo(function PracticeAreasSection({
   theme,
   isLoading,
   errorMessage,
-  reviewSubjects,
-  renderSubjectCard,
+  subjects,
+  hiddenCount,
+  onPressSubject,
+  onPressSeeAll,
 }: {
   theme: ThemePalette
   isLoading: boolean
   errorMessage: string | null
-  reviewSubjects: LearningSubject[]
-  renderSubjectCard: ListRenderItem<LearningSubject>
+  /** Already trimmed to the preview length by the screen. */
+  subjects: LearningSubject[]
+  /** How many more exist behind "See all". */
+  hiddenCount: number
+  onPressSubject: (subject: LearningSubject) => void
+  onPressSeeAll: () => void
 }) {
   return (
-    <View className="gap-2.5">
-      <View className="gap-0.5">
-        <Text className="text-[11px] font-black uppercase tracking-[1.4px] text-primary">
-          Practice Areas
-        </Text>
-        <Text className="text-[17px] font-extrabold text-foreground">
-          Quiz Categories
-        </Text>
-      </View>
+    <View className="gap-3">
+      <SectionHeader
+        title="Review by subject"
+        action={
+          hiddenCount > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`See all subjects, ${hiddenCount} more`}
+              className="flex-row items-center gap-0.5 py-1"
+              onPress={onPressSeeAll}
+            >
+              <Text className="text-sm font-bold text-primary">See all</Text>
+              <ChevronRight size={14} color={theme.primary} />
+            </Pressable>
+          ) : null
+        }
+      />
 
       {isLoading ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 10, paddingRight: 16 }}
-        >
-          {Array.from({ length: 3 }).map((_, index) => (
-            <View key={`subject-skeleton-${index}`} className="w-[300px]">
-              <Card>
-                <CardContent className="gap-3 px-4 py-4">
-                  <View className="flex-row items-center gap-3">
-                    <Skeleton className="h-10 w-10 rounded-2xl" />
-                    <View className="flex-1 gap-1.5">
-                      <Skeleton className="h-4 w-36 rounded-lg" />
-                      <Skeleton className="h-3 w-24 rounded-lg" />
-                    </View>
-                  </View>
-
-                  <Skeleton className="h-8 rounded-xl" />
-                  <View className="flex-row gap-2">
-                    <Skeleton className="h-10 flex-1 rounded-2xl" />
-                    <Skeleton className="h-10 w-12 rounded-2xl" />
-                  </View>
-                </CardContent>
-              </Card>
-            </View>
+        <View className="gap-2.5">
+          {SKELETON_ROWS.map((row) => (
+            <Skeleton key={row} className="h-[70px] rounded-xl" />
           ))}
-        </ScrollView>
+        </View>
       ) : errorMessage ? (
         <EmptyState
           tone="destructive"
-          title="Review subjects unavailable"
+          title="Subjects unavailable"
           description={errorMessage}
         />
-      ) : (
-        <FlashList
-          data={reviewSubjects}
-          extraData={theme}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingRight: 16 }}
-          keyExtractor={(item) => item.id}
-          decelerationRate="fast"
-          renderItem={renderSubjectCard}
-          ItemSeparatorComponent={SubjectCardSeparator}
-          ListEmptyComponent={
-            <EmptyState
-              className="w-[300px]"
-              title="No review subjects yet"
-              description="Add Appwrite subject and topic records to populate this section."
-            />
-          }
+      ) : subjects.length === 0 ? (
+        <EmptyState
+          title="No subjects yet"
+          description="Add Appwrite subject and topic records to populate this list."
         />
+      ) : (
+        <View className="gap-2.5">
+          {subjects.map((subject) => (
+            <HomeSubjectRow
+              key={subject.id}
+              subject={subject}
+              theme={theme}
+              onPress={onPressSubject}
+            />
+          ))}
+        </View>
       )}
     </View>
   )

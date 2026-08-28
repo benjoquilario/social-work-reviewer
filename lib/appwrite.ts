@@ -29,14 +29,15 @@ export const APPWRITE_CONFIG = {
     process.env.EXPO_PUBLIC_APPWRITE_PROFILE_IMAGES_BUCKET_ID ?? "",
   communityPostImagesBucketId:
     process.env.EXPO_PUBLIC_APPWRITE_COMMUNITY_POST_IMAGES_BUCKET_ID ?? "",
+  // No literal resource IDs here. A hard-coded fallback survives pointing the
+  // app at a different Appwrite project and silently reads the old project's
+  // bucket/function instead of failing — set these in .env instead.
   questionnaireBucketId:
-    process.env.EXPO_PUBLIC_APPWRITE_QUESTIONNAIRE_BUCKET_ID ??
-    "69fd51db00295050fc84",
+    process.env.EXPO_PUBLIC_APPWRITE_QUESTIONNAIRE_BUCKET_ID ?? "",
   communityPostLikeFunctionId:
     process.env.EXPO_PUBLIC_APPWRITE_COMMUNITY_POST_LIKE_FUNCTION_ID ?? "",
   premiumMaterialAccessFunctionId:
-    process.env.EXPO_PUBLIC_APPWRITE_PREMIUM_MATERIAL_FUNCTION_ID ??
-    "69c35f750004ff04204f",
+    process.env.EXPO_PUBLIC_APPWRITE_PREMIUM_MATERIAL_FUNCTION_ID ?? "",
   accountDeleteFunctionId:
     process.env.EXPO_PUBLIC_APPWRITE_ACCOUNT_DELETE_FUNCTION_ID ?? "",
   platform: Platform.select({
@@ -86,6 +87,57 @@ export function assertAppwriteConfigured() {
   }
 }
 
+/**
+ * Optional resources. Each caller already degrades gracefully when one is
+ * missing (bundled questionnaires, direct-write like fallback, …), which is
+ * exactly why an unset value is easy to miss — so say so once at startup.
+ */
+const OPTIONAL_APPWRITE_RESOURCES: {
+  value: string
+  envVar: string
+  usedFor: string
+}[] = [
+  {
+    value: APPWRITE_CONFIG.questionnaireBucketId,
+    envVar: "EXPO_PUBLIC_APPWRITE_QUESTIONNAIRE_BUCKET_ID",
+    usedFor: "remote board-exam questionnaires (falls back to bundled content)",
+  },
+  {
+    value: APPWRITE_CONFIG.communityPostLikeFunctionId,
+    envVar: "EXPO_PUBLIC_APPWRITE_COMMUNITY_POST_LIKE_FUNCTION_ID",
+    usedFor: "community post likes (falls back to direct client writes)",
+  },
+  {
+    value: APPWRITE_CONFIG.premiumMaterialAccessFunctionId,
+    envVar: "EXPO_PUBLIC_APPWRITE_PREMIUM_MATERIAL_FUNCTION_ID",
+    usedFor: "server-side premium material checks",
+  },
+  {
+    value: APPWRITE_CONFIG.accountDeleteFunctionId,
+    envVar: "EXPO_PUBLIC_APPWRITE_ACCOUNT_DELETE_FUNCTION_ID",
+    usedFor: "account deletion",
+  },
+]
+
+export function getUnconfiguredAppwriteResources() {
+  return OPTIONAL_APPWRITE_RESOURCES.filter(
+    (resource) => !resource.value.trim()
+  )
+}
+
+if (__DEV__) {
+  const missing = getUnconfiguredAppwriteResources()
+
+  if (missing.length > 0) {
+    console.warn(
+      `[Appwrite] ${missing.length} optional resource(s) are not configured:\n` +
+        missing
+          .map((r) => `  • ${r.envVar} — needed for ${r.usedFor}`)
+          .join("\n")
+    )
+  }
+}
+
 // ─── Appwrite Client ───────────────────────────────────────────────────────────
 
 export const client = new Client()
@@ -109,6 +161,11 @@ export const COLLECTIONS = {
   SUBJECTS: "subjects",
   TOPICS: "topics",
   LEARNING_MATERIALS: "learning_materials",
+  // Assessment content. Questionnaires are authored in the dashboard and
+  // imported from Excel; they are not derived from SUBJECTS/TOPICS.
+  EXAM_CATEGORIES: "exam_categories",
+  QUESTIONNAIRES: "questionnaires",
+  QUESTIONS: "questions",
   USER_ANSWERS: "user_answers",
   USER_PROGRESS: "user_progress",
   USER_DAILY_ACTIVITY: "user_daily_activity",
@@ -147,18 +204,81 @@ export function createAppwriteContentError(
 export function isAppwriteContentError(
   error: unknown
 ): error is AppwriteContentError {
-  return (
-    error instanceof Error &&
-    "code" in error &&
-    typeof (error as { code?: unknown }).code === "string"
-  )
+  // Anchored on the name we stamp in `createAppwriteContentError`. Testing for
+  // a string `code` instead used to match any Node/RN network error
+  // (ENOTFOUND, ECONNRESET, …) and classify it as a content problem.
+  return error instanceof Error && error.name === "AppwriteContentError"
+}
+
+// ─── Appwrite error predicates ─────────────────────────────────────────────────
+//
+// Single home for these. They previously existed in four places (auth.ts,
+// community.ts, progress/utils.ts, and here) in two flavours: `instanceof
+// AppwriteException` and a structural `.code` check. These accept either, so
+// they keep working even if an SDK error arrives without the right prototype.
+
+/** HTTP status carried by an Appwrite error, or null if it isn't one. */
+export function getAppwriteErrorCode(error: unknown): number | null {
+  if (error instanceof AppwriteException) {
+    return error.code
+  }
+
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = (error as { code?: unknown }).code
+    return typeof code === "number" ? code : null
+  }
+
+  return null
+}
+
+/**
+ * Appwrite's machine-readable error type (e.g. `user_session_already_exists`).
+ * Prefer this over matching on `error.message`, which is free to be reworded
+ * in any release.
+ */
+export function getAppwriteErrorType(error: unknown): string | null {
+  if (error instanceof AppwriteException && error.type) {
+    return error.type
+  }
+
+  if (typeof error === "object" && error !== null && "type" in error) {
+    const type = (error as { type?: unknown }).type
+    return typeof type === "string" && type ? type : null
+  }
+
+  return null
 }
 
 export function isAppwriteUnauthorizedError(error: unknown): boolean {
+  const code = getAppwriteErrorCode(error)
+  return code === 401 || code === 403
+}
+
+export function isAppwriteNotFoundError(error: unknown): boolean {
+  return getAppwriteErrorCode(error) === 404
+}
+
+export function isAppwriteConflictError(error: unknown): boolean {
+  return getAppwriteErrorCode(error) === 409
+}
+
+/** Appwrite rejects a new session while one is already active. */
+export function isAppwriteSessionAlreadyExistsError(error: unknown): boolean {
   return (
-    error instanceof AppwriteException &&
-    (error.code === 401 || error.code === 403)
+    getAppwriteErrorType(error) === "user_session_already_exists" ||
+    (getAppwriteErrorCode(error) === 401 &&
+      /session is active|session already exists/i.test(
+        error instanceof Error ? error.message : ""
+      ))
   )
+}
+
+/**
+ * The row payload does not match the collection schema — usually a column the
+ * app writes that has not been added in the Appwrite console yet.
+ */
+export function isAppwriteInvalidStructureError(error: unknown): boolean {
+  return getAppwriteErrorType(error) === "document_invalid_structure"
 }
 
 export function createAppwritePermissionMessage(

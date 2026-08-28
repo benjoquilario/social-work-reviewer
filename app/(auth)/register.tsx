@@ -2,7 +2,6 @@ import { useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "expo-router"
 import {
-  BookOpenText,
   Eye,
   EyeOff,
   Lock,
@@ -19,6 +18,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useTheme } from "@/hooks/use-theme"
+import { BrandLogo } from "@/components/ui/brand-logo"
 import { Button } from "@/components/ui/button"
 import { IconButton } from "@/components/ui/icon-button"
 import { FormField, Input } from "@/components/ui/input"
@@ -87,24 +87,13 @@ export default function RegisterScreen() {
         >
           {/* Brand + heading */}
           <View className="gap-5">
-            <View
-              className="h-16 w-16 items-center justify-center rounded-[22px]"
-              style={{ backgroundColor: theme.primary }}
-            >
-              <BookOpenText
-                size={28}
-                color={theme.primaryForeground}
-                strokeWidth={2.5}
-              />
-            </View>
+            <BrandLogo size="md" />
             <View className="gap-1.5">
-              <Text className="text-[12px] font-black uppercase tracking-[2px] text-primary">
-                Reviewer
-              </Text>
-              <Text className="text-[30px] font-black leading-10 text-foreground">
+              <Text variant="eyebrow">Social Work Sure Win</Text>
+              <Text className="text-3xl font-black leading-10 text-foreground">
                 Create your account
               </Text>
-              <Text className="text-[15px] leading-6 text-muted-foreground">
+              <Text className="text-sm leading-6 text-muted-foreground">
                 Set up your review path, practice with board-exam drills, and
                 track your progress as you go.
               </Text>
@@ -114,7 +103,7 @@ export default function RegisterScreen() {
           {/* Form */}
           <View className="gap-3">
             {error ? (
-              <View className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3">
+              <View className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3">
                 <Text className="text-sm text-destructive">{error}</Text>
               </View>
             ) : null}

@@ -3,25 +3,42 @@ import { DarkTheme, DefaultTheme, type Theme } from "@react-navigation/native"
 /**
  * ─── Brand ────────────────────────────────────────────────────────────────
  *
- * The literal colors sampled from the "Social Work Sure Win!" logo
- * (assets/images/logo.png). These are the identity colors — use them for
- * logo-adjacent surfaces, hero gradients and SVG fills. They are hex so they
- * can be handed straight to react-native-svg, which does not parse the
- * space-separated CSS Color Level 4 `hsl()` syntax used by the tokens below.
+ * Literal colors sampled from the "Social Work Sure Win!" logo
+ * (assets/images/logo.png) — the neon-on-ink artwork. Sampled by pixel
+ * dominance, so these are the hues a viewer actually reads off the mark:
  *
- * Every semantic token in THEME is derived from these five hues.
+ *   teal  #019a9d  29.7k px — left figure and heart outline, dominant hue
+ *   navy  #00246e  13.9k px — the book cover, deepest brand color
+ *   sky   #07abf4   7.4k px — the open book pages
+ *   blue  #0269ed   6.8k px — the right figure
+ *   gold  #fec503   5.1k px — the heart's highlight and the "!" dot
+ *   amber #fea902   5.1k px — the heart's body
+ *   cyan  #21d5fe          — the outer glow, the artwork's light source
+ *   ink   #01060d          — the near-black the whole mark sits on
+ *
+ * Use them for logo-adjacent surfaces, hero gradients and SVG fills. They are
+ * hex so they can be handed straight to react-native-svg, which does not
+ * parse the space-separated CSS Color Level 4 `hsl()` syntax used below.
+ *
+ * Every semantic token in THEME is derived from these hues.
  */
 export const BRAND = {
   /** Left figure, "Social Work" wordmark, "Win!" — the dominant logo color. */
-  teal: "#03979d",
+  teal: "#019a9d",
+  /** The glow radiating off the mark. Dark mode's primary comes from here. */
+  cyan: "#21d5fe",
   /** Book cover and the "Sure" wordmark — the deepest brand color. */
-  navy: "#02275c",
-  /** Right figure — supporting brand blue. */
-  blue: "#226dc3",
-  /** Open book pages — soft supporting blue. */
-  sky: "#2892be",
-  /** Heart, checkmark and the "!" dot — the single highlight color. */
-  amber: "#f8a716",
+  navy: "#00246e",
+  /** Right figure — electric brand blue. */
+  blue: "#0269ed",
+  /** Open book pages — bright supporting blue. */
+  sky: "#07abf4",
+  /** Heart body — the single warm highlight. */
+  amber: "#fea902",
+  /** Heart highlight and the "!" dot. */
+  gold: "#fec503",
+  /** The near-black the logo is set on. Dark mode's floor. */
+  ink: "#01060d",
 } as const
 
 /**
@@ -31,82 +48,96 @@ export const BRAND = {
  * for anything rendered outside the themed root View — change values HERE
  * first, then mirror.
  *
- * Every foreground/background pair below is verified to meet WCAG AA (4.5:1)
- * in both schemes. `accent` is a light amber and is only ever legible as a
- * FILL — when the amber has to be text on a light surface, use `accentText`.
+ * Every foreground/background pair below is verified against WCAG AA — 4.5:1
+ * for text, 3:1 for graphics — in both schemes.
+ *
+ * `accent` is the bright logo gold, which is legible only as a FILL. When the
+ * gold has to be TEXT on a light surface use `accentText`, and when it has to
+ * be a chart series in light mode use `chart3`; both are darkened versions.
  */
 export const THEME = {
   light: {
-    // Cool near-white pulled from the logo's blue family rather than a
+    // Cool near-white pulled from the logo's cyan family rather than a
     // neutral grey, so the whole app sits in the same temperature.
-    background: "hsl(204 46% 97%)",
-    foreground: "hsl(215 48% 15%)",
+    background: "hsl(200 50% 97%)",
+    foreground: "hsl(215 55% 13%)",
     card: "hsl(0 0% 100%)",
-    cardForeground: "hsl(215 48% 15%)",
+    cardForeground: "hsl(215 55% 13%)",
     popover: "hsl(0 0% 100%)",
-    popoverForeground: "hsl(215 48% 15%)",
-    // Logo teal, deepened until white-on-primary clears AA (5.06:1).
-    primary: "hsl(183 95% 26%)",
+    popoverForeground: "hsl(215 55% 13%)",
+    // Logo blue (#0269ed), deepened one step so white-on-primary clears AA
+    // with room to spare (5.34:1) and the blue itself stays legible as text
+    // on `background` (5.03:1). Teal moves to `chart2` and stays the app's
+    // supporting hue.
+    primary: "hsl(214 98% 45%)",
     primaryForeground: "hsl(0 0% 100%)",
-    secondary: "hsl(200 46% 92%)",
-    secondaryForeground: "hsl(215 52% 24%)",
-    muted: "hsl(204 40% 94%)",
-    mutedForeground: "hsl(210 18% 42%)",
-    // Logo amber, unchanged — it is a fill color.
-    accent: "hsl(38 94% 53%)",
-    accentForeground: "hsl(215 60% 13%)",
-    /** Amber darkened for use as TEXT on light surfaces (4.87:1 on card). */
-    accentText: "hsl(30 88% 36%)",
-    destructive: "hsl(0 72% 46%)",
+    secondary: "hsl(198 52% 92%)",
+    secondaryForeground: "hsl(214 52% 22%)",
+    muted: "hsl(200 44% 94%)",
+    mutedForeground: "hsl(208 20% 40%)",
+    // Logo gold, unchanged — it is a fill color.
+    accent: "hsl(45 99% 51%)",
+    accentForeground: "hsl(215 60% 12%)",
+    /** Gold darkened for use as TEXT on light surfaces (5.05:1 on card). */
+    accentText: "hsl(32 92% 34%)",
+    destructive: "hsl(0 74% 45%)",
     destructiveForeground: "hsl(0 0% 100%)",
-    border: "hsl(205 32% 87%)",
-    input: "hsl(205 34% 91%)",
-    ring: "hsl(183 95% 26%)",
-    success: "hsl(162 82% 27%)",
+    border: "hsl(203 34% 87%)",
+    input: "hsl(203 38% 92%)",
+    ring: "hsl(214 98% 45%)",
+    success: "hsl(165 88% 26%)",
     successForeground: "hsl(0 0% 100%)",
-    warning: "hsl(38 94% 53%)",
-    warningForeground: "hsl(215 60% 13%)",
-    radius: "0.875rem",
-    // chart1–3 are the logo colors; 4–5 add hue separation so categorical
+    warning: "hsl(40 99% 50%)",
+    warningForeground: "hsl(215 60% 12%)",
+    radius: "1rem",
+    // chart1–3 are the logo hues; 4–5 add hue separation so categorical
     // series stay distinguishable (teal/sky/blue alone are too close).
-    chart1: "hsl(183 95% 30%)",
-    chart2: "hsl(212 70% 45%)",
-    chart3: "hsl(38 94% 53%)",
-    chart4: "hsl(262 62% 56%)",
-    chart5: "hsl(344 72% 52%)",
+    // chart3 is the gold darkened to clear 3:1 as a graphic on white — the
+    // bright `accent` gold only reaches 1.65:1 there.
+    chart1: "hsl(214 92% 48%)",
+    chart2: "hsl(184 98% 30%)",
+    chart3: "hsl(38 98% 40%)",
+    chart4: "hsl(262 70% 56%)",
+    chart5: "hsl(340 78% 52%)",
   },
   dark: {
-    // Navy-black derived from the logo's book cover.
-    background: "hsl(215 50% 7%)",
-    foreground: "hsl(204 34% 94%)",
-    card: "hsl(215 42% 11%)",
-    cardForeground: "hsl(204 34% 94%)",
-    popover: "hsl(215 42% 11%)",
-    popoverForeground: "hsl(204 34% 94%)",
-    primary: "hsl(182 72% 46%)",
-    primaryForeground: "hsl(215 60% 8%)",
-    secondary: "hsl(214 36% 17%)",
-    secondaryForeground: "hsl(204 34% 94%)",
-    muted: "hsl(214 32% 18%)",
-    mutedForeground: "hsl(206 22% 68%)",
-    accent: "hsl(38 95% 58%)",
-    accentForeground: "hsl(215 60% 10%)",
-    accentText: "hsl(38 95% 62%)",
-    destructive: "hsl(2 76% 62%)",
-    destructiveForeground: "hsl(215 60% 8%)",
-    border: "hsl(213 28% 22%)",
-    input: "hsl(214 30% 16%)",
-    ring: "hsl(182 72% 46%)",
-    success: "hsl(160 66% 45%)",
-    successForeground: "hsl(215 60% 8%)",
-    warning: "hsl(38 95% 58%)",
-    warningForeground: "hsl(215 60% 10%)",
-    radius: "0.875rem",
-    chart1: "hsl(182 72% 50%)",
-    chart2: "hsl(212 82% 66%)",
-    chart3: "hsl(38 95% 58%)",
-    chart4: "hsl(262 78% 72%)",
-    chart5: "hsl(344 80% 68%)",
+    // The logo's own habitat: neon on ink. The artwork sits on a near-black
+    // with a cool cast, so dark mode is a deep navy-black rather than grey.
+    // It stops short of pure #000 so elevation layers still read.
+    background: "hsl(210 55% 5%)",
+    foreground: "hsl(200 32% 94%)",
+    card: "hsl(211 44% 9%)",
+    cardForeground: "hsl(200 32% 94%)",
+    popover: "hsl(211 40% 12%)",
+    popoverForeground: "hsl(200 32% 94%)",
+    // The logo blue lifted until it carries on ink (7.90:1 on background).
+    // The mark's cyan glow stays in the palette as `chart2`.
+    primary: "hsl(212 96% 68%)",
+    primaryForeground: "hsl(212 70% 7%)",
+    secondary: "hsl(212 34% 16%)",
+    secondaryForeground: "hsl(200 32% 94%)",
+    muted: "hsl(212 30% 17%)",
+    mutedForeground: "hsl(203 20% 66%)",
+    accent: "hsl(45 96% 58%)",
+    accentForeground: "hsl(215 70% 8%)",
+    // On ink the gold is already high-contrast, so accentText only warms it
+    // slightly instead of darkening it the way light mode has to.
+    accentText: "hsl(45 96% 62%)",
+    destructive: "hsl(2 80% 65%)",
+    destructiveForeground: "hsl(212 70% 7%)",
+    border: "hsl(209 30% 20%)",
+    input: "hsl(212 32% 15%)",
+    ring: "hsl(212 96% 68%)",
+    success: "hsl(160 70% 48%)",
+    successForeground: "hsl(212 70% 7%)",
+    warning: "hsl(45 96% 58%)",
+    warningForeground: "hsl(215 70% 8%)",
+    radius: "1rem",
+    chart1: "hsl(212 96% 68%)",
+    chart2: "hsl(188 92% 58%)",
+    chart3: "hsl(45 96% 58%)",
+    chart4: "hsl(262 82% 74%)",
+    chart5: "hsl(342 84% 68%)",
   },
 } as const
 
@@ -232,30 +263,34 @@ export function getBorderColor(theme: ThemePalette): string {
 }
 
 export function getThemeChartPalette(theme: ThemePalette): string[] {
-  return [theme.primary, theme.chart2, theme.chart3, theme.chart4, theme.chart5]
+  return [theme.chart1, theme.chart2, theme.chart3, theme.chart4, theme.chart5]
 }
 
 /**
- * Palette for content painted on top of the brand (navy) hero surface.
+ * Palette for content painted on top of the brand hero surface.
  *
  * The hero is deliberately dark in BOTH schemes — it is the logo's own
- * surface, so it stays constant the way a printed logo would. Everything here
- * is therefore light-on-dark regardless of the active color scheme.
+ * surface, so it stays constant the way a printed logo would. The gradient
+ * retraces how the artwork reads: ink at the edges, navy through the book,
+ * teal where the figures glow. Everything here is therefore light-on-dark
+ * regardless of the active color scheme.
  */
 export function getBrandSurfacePalette() {
   return {
-    /** Gradient stops, deep navy → brand teal, matching the logo's read. */
-    gradientStart: BRAND.navy,
-    gradientMid: "#0a4a73",
+    /** Gradient stops, ink → navy → brand teal, matching the logo's read. */
+    gradientStart: BRAND.ink,
+    gradientMid: BRAND.navy,
     gradientEnd: BRAND.teal,
     foreground: "hsl(0 0% 100%)",
-    mutedForeground: "hsl(199 40% 84%)",
+    mutedForeground: "hsl(196 45% 85%)",
     /** Frosted panels layered on the gradient. */
     overlayStrong: "hsl(0 0% 100% / 0.14)",
     overlaySoft: "hsl(0 0% 100% / 0.08)",
     border: "hsl(0 0% 100% / 0.18)",
-    accent: BRAND.amber,
+    accent: BRAND.gold,
     sky: BRAND.sky,
+    /** The logo's outer glow — for halos and rim light on the hero. */
+    glow: BRAND.cyan,
   }
 }
 

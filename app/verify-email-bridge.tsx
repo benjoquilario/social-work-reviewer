@@ -48,10 +48,10 @@ export default function VerifyEmailBridgeScreen() {
     <SafeAreaView className="flex-1 bg-background">
       <View className="flex-1 items-center justify-center gap-4 px-6">
         <ActivityIndicator size="large" />
-        <Text className="text-center text-[22px] font-black text-foreground">
+        <Text className="text-center text-xl font-black text-foreground">
           Opening Reviewer
         </Text>
-        <Text className="text-center text-[13px] leading-6 text-muted-foreground">
+        <Text className="text-center text-sm leading-6 text-muted-foreground">
           {message}
         </Text>
       </View>

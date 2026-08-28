@@ -60,17 +60,17 @@ const ReplyRow = memo(function ReplyRow({
       />
       <View className="flex-1">
         <View
-          className="rounded-2xl bg-muted/50 px-3 py-2.5"
+          className="rounded-xl bg-muted/50 px-3 py-2.5"
           style={{ borderWidth: 1, borderColor: theme.border }}
         >
-          <Text className="text-[13px] font-bold text-foreground">
+          <Text className="text-sm font-bold text-foreground">
             {reply.author.name}
           </Text>
-          <Text className="mt-0.5 text-[13px] leading-5 text-muted-foreground">
+          <Text className="mt-0.5 text-sm leading-5 text-muted-foreground">
             {reply.content}
           </Text>
         </View>
-        <Text className="mt-1 px-3 text-[11px] text-muted-foreground">
+        <Text className="mt-1 px-3 text-2xs text-muted-foreground">
           {reply.createdAtLabel}
         </Text>
       </View>
@@ -117,22 +117,22 @@ const CommentRow = memo(function CommentRow({
         />
         <View className="flex-1">
           <View
-            className="rounded-2xl bg-muted/50 px-3.5 py-3"
+            className="rounded-xl bg-muted/50 px-3.5 py-3"
             style={{ borderWidth: 1, borderColor: theme.border }}
           >
-            <Text className="text-[13px] font-bold text-foreground">
+            <Text className="text-sm font-bold text-foreground">
               {comment.author.name}
             </Text>
-            <Text className="mt-0.5 text-[14px] leading-5 text-foreground">
+            <Text className="mt-0.5 text-sm leading-5 text-foreground">
               {comment.content}
             </Text>
           </View>
           <View className="mt-1 flex-row items-center gap-4 px-3">
-            <Text className="text-[11px] text-muted-foreground">
+            <Text className="text-2xs text-muted-foreground">
               {comment.createdAtLabel}
             </Text>
             <Pressable onPress={toggleReplying} disabled={disabled}>
-              <Text className="text-[11px] font-bold text-primary">Reply</Text>
+              <Text className="text-2xs font-bold text-primary">Reply</Text>
             </Pressable>
           </View>
         </View>
@@ -149,7 +149,7 @@ const CommentRow = memo(function CommentRow({
             onChangeText={setReplyDraft}
             placeholder="Write a reply..."
             placeholderTextColor={theme.mutedForeground}
-            className="flex-1 rounded-full bg-muted/60 px-4 py-2.5 text-[13px] text-foreground"
+            className="flex-1 rounded-full bg-muted/60 px-4 py-2.5 text-sm text-foreground"
             style={{ color: theme.foreground }}
             selectionColor={theme.primary}
             returnKeyType="send"
@@ -289,7 +289,7 @@ export default function CommunityDiscussionScreen() {
           {/* Post content */}
           <View className="gap-3 px-4 pt-4">
             <View
-              className="gap-3 rounded-[24px] bg-card px-3.5 py-3.5"
+              className="gap-3 rounded-xl bg-card px-3.5 py-3.5"
               style={{ borderWidth: 1, borderColor: theme.border }}
             >
               {/* Author row */}
@@ -301,11 +301,11 @@ export default function CommunityDiscussionScreen() {
                   size="lg"
                 />
                 <View className="flex-1">
-                  <Text className="text-[15px] font-bold text-foreground">
+                  <Text className="text-sm font-bold text-foreground">
                     {post.author.name}
                   </Text>
                   <View className="flex-row items-center gap-1.5">
-                    <Text className="text-[12px] text-muted-foreground">
+                    <Text className="text-xs text-muted-foreground">
                       {post.createdAtLabel}
                     </Text>
                     <View className="h-1 w-1 rounded-full bg-muted-foreground/40" />
@@ -316,7 +316,7 @@ export default function CommunityDiscussionScreen() {
                       }}
                     >
                       <Text
-                        className="text-[10px] font-bold uppercase"
+                        className="text-2xs font-bold uppercase tracking-[1px]"
                         style={{ color: categoryColor }}
                       >
                         {post.category}
@@ -332,24 +332,24 @@ export default function CommunityDiscussionScreen() {
                   className="self-start rounded-full px-3 py-1"
                   style={{ backgroundColor: withOpacity(theme.primary, 0.08) }}
                 >
-                  <Text className="text-[11px] font-bold text-primary">
+                  <Text className="text-2xs font-bold text-primary">
                     {post.subjectName}
                   </Text>
                 </View>
               ) : null}
 
               {/* Title & content */}
-              <Text className="text-[18px] font-black leading-6 text-foreground">
+              <Text className="text-lg font-black leading-6 text-foreground">
                 {post.title}
               </Text>
-              <Text className="text-[14px] leading-6 text-foreground/80">
+              <Text className="text-sm leading-6 text-foreground/80">
                 {post.content}
               </Text>
 
               {/* Photo */}
               {post.photoUrl ? (
                 <View
-                  className="overflow-hidden rounded-2xl"
+                  className="overflow-hidden rounded-xl"
                   style={{ borderWidth: 1, borderColor: theme.border }}
                 >
                   <Image
@@ -383,11 +383,11 @@ export default function CommunityDiscussionScreen() {
                   >
                     <Heart size={10} color={theme.primary} />
                   </View>
-                  <Text className="text-[12px] text-muted-foreground">
+                  <Text className="text-xs text-muted-foreground">
                     {post.likesCount}
                   </Text>
                 </View>
-                <Text className="text-[12px] text-muted-foreground">
+                <Text className="text-xs text-muted-foreground">
                   {post.commentsCount} comments · {post.repliesCount} replies
                 </Text>
               </View>
@@ -405,7 +405,7 @@ export default function CommunityDiscussionScreen() {
                     fill={post.isLiked ? theme.primary : "transparent"}
                   />
                   <Text
-                    className="text-[13px] font-semibold"
+                    className="text-sm font-semibold"
                     style={{
                       color: post.isLiked
                         ? theme.primary
@@ -417,13 +417,13 @@ export default function CommunityDiscussionScreen() {
                 </Pressable>
                 <Pressable className="flex-1 flex-row items-center justify-center gap-2 py-1.5">
                   <MessageSquare size={18} color={theme.mutedForeground} />
-                  <Text className="text-[13px] font-semibold text-muted-foreground">
+                  <Text className="text-sm font-semibold text-muted-foreground">
                     Comment
                   </Text>
                 </Pressable>
                 <Pressable className="flex-1 flex-row items-center justify-center gap-2 py-1.5">
                   <Share2 size={18} color={theme.mutedForeground} />
-                  <Text className="text-[13px] font-semibold text-muted-foreground">
+                  <Text className="text-sm font-semibold text-muted-foreground">
                     Share
                   </Text>
                 </Pressable>
@@ -435,7 +435,7 @@ export default function CommunityDiscussionScreen() {
           <View className="px-4 pt-2">
             {post.comments.length === 0 ? (
               <View className="items-center py-8">
-                <Text className="text-[13px] text-muted-foreground">
+                <Text className="text-sm text-muted-foreground">
                   Be the first to comment
                 </Text>
               </View>
@@ -473,7 +473,7 @@ export default function CommunityDiscussionScreen() {
             onChangeText={setCommentText}
             placeholder="Write a comment..."
             placeholderTextColor={theme.mutedForeground}
-            className="flex-1 rounded-full border bg-muted/50 px-4 py-2.5 text-[13px] text-foreground"
+            className="flex-1 rounded-full border bg-muted/50 px-4 py-2.5 text-sm text-foreground"
             style={{ color: theme.foreground, borderColor: theme.border }}
             selectionColor={theme.primary}
             returnKeyType="send"

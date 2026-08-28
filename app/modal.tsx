@@ -25,7 +25,7 @@ export default function ModalScreen() {
         </Text>
 
         <Card>
-          <CardContent className="gap-2 px-4 py-4">
+          <CardContent className="gap-2">
             <Text className="text-sm font-bold text-card-foreground">
               import {"{ useState }"} from &apos;react&apos;
             </Text>
@@ -36,7 +36,7 @@ export default function ModalScreen() {
         </Card>
 
         <Card>
-          <CardContent className="gap-2 px-4 py-4">
+          <CardContent className="gap-2">
             <Text className="text-sm font-bold text-card-foreground">
               import {"{ View, Text, Pressable }"} from &apos;react-native&apos;
             </Text>
@@ -48,7 +48,7 @@ export default function ModalScreen() {
         </Card>
 
         <Card>
-          <CardContent className="gap-2 px-4 py-4">
+          <CardContent className="gap-2">
             <Text className="text-sm font-bold text-card-foreground">
               import {"{ Stack, Tabs, Link }"} from &apos;expo-router&apos;
             </Text>

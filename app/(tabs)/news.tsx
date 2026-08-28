@@ -1,9 +1,11 @@
-import { useCallback } from "react"
+import { useCallback, useEffect } from "react"
 import { NEWS_ITEMS, type NewsItemType } from "@/data/news-data"
 import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list"
 import { View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
+import { useAppPreferences } from "@/lib/app-preferences"
+import { getAllNewsIds } from "@/lib/news-unread"
 import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Badge } from "@/components/ui/badge"
@@ -32,6 +34,14 @@ function getNewsTone(
 }
 
 export default function NewsScreen() {
+  const setPreference = useAppPreferences((state) => state.setPreference)
+
+  // Opening this screen is what clears the Home bell badge. Without it the dot
+  // would be permanent, and a badge that never turns off stops being read.
+  useEffect(() => {
+    setPreference("seenNewsIds", getAllNewsIds())
+  }, [setPreference])
+
   const colorScheme = useColorScheme()
   const theme = colorScheme === "dark" ? THEME.dark : THEME.light
 
@@ -41,15 +51,15 @@ export default function NewsScreen() {
 
       return (
         <Card style={{ borderColor: withOpacity(tone, 0.18) }}>
-          <CardContent className="gap-3 px-4 py-4">
+          <CardContent className="gap-3">
             <View className="flex-row items-center justify-between gap-2">
               <Badge
-                variant="outline"
+                tone="default"
                 className="border-transparent"
                 style={{ backgroundColor: withOpacity(tone, 0.12) }}
               >
                 <Text
-                  className="text-xs font-bold uppercase tracking-wide"
+                  className="text-xs font-bold uppercase tracking-[1px]"
                   style={{ color: tone }}
                 >
                   {TYPE_LABELS[item.type]}
@@ -70,8 +80,8 @@ export default function NewsScreen() {
             </View>
 
             {item.isNew ? (
-              <Badge variant="default" className="mt-1">
-                <Text className="text-[10px] font-black uppercase tracking-wide">
+              <Badge tone="primary" className="mt-1">
+                <Text className="text-2xs font-bold uppercase tracking-[1px]">
                   New
                 </Text>
               </Badge>

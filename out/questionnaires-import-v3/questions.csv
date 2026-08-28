@@ -1,0 +1,422 @@
+﻿"SKU","Questionnaire","No","Question","Choices","Answer","Type","Difficulty","Free","Explanation","Image"
+"Q-000001","HSCICD-A","1","The term community organization originated in ____ where it meant the coordination of existing social services through joint planning & fund-raising.","A. US
+B. Manila
+C. Spain","A","mcq","","yes","",""
+"Q-000002","HSCICD-A","2","Daughters of charity were organized by ____ in 1633.","A. Fr. Vincent de Paul
+B. Juan Luis De Vives
+C. Franciscan Order
+D. Benjamin Thompson","A","mcq","","yes","",""
+"Q-000003","HSCICD-A","3","It became the main agency of medieval charity.","A. hospital
+B. foundations/charity","A","mcq","","yes","",""
+"Q-000004","HSCICD-A","4","An Augustinian priest who proposed begging and a ""common chest"" for money, food and clothes for the needy be set up in all parishes.","A. Martin Luther
+B. Martin Luther King","A","mcq","","yes","",""
+"Q-000005","HSCICD-A","5","Recognized community legal responsibility for the poor but did little to change the social condition of poor families.","A. common chest
+B. community chest","A","mcq","","yes","",""
+"Q-000006","HSCICD-A","6","Their teachings became the basis for charitable works.","A. the Jewish & Christian
+B. Religious devotion","A","mcq","","yes","",""
+"Q-000007","HSCICD-A","7","Became the most powerful incentive for benevolence and charity.","A. mutual protection/mutual aid/mutual assistance
+B. Religious devotion","B","mcq","","yes","",""
+"Q-000008","HSCICD-A","8","He divided the city into Parish quarters, assisting 2 senators with a secretary to investigate the social conditions of pauper families and providing aid through vocational training instead of customary distribution of alms. The faith of the individual poor deserve attention.","A. Fr. Vincent de Paul
+B. Juan Luis De Vives
+C. Franciscan Order
+D. Benjamin Thompson","B","mcq","","yes","",""
+"Q-000009","HSCICD-A","9","Founded military workhouse to prevent sturdy beggars from begging.","A. Fr. Vincent de Paul
+B. Juan Luis De Vives
+C. Franciscan Order
+D. Benjamin Thompson","D","mcq","","yes","",""
+"Q-000010","HSCICD-A","10","Composed of young women who wanted to devote themselves to charitable works; forerunners of modern social casework.","A. Associated Charities
+B. Daughters of Charities","B","mcq","","yes","",""
+"Q-000011","HSCICD-A","11","Main motive of alms giving","A. Passport to heaven to avoid hell
+B. Salvation of soul with little concern to human being who received charity","B","mcq","","","",""
+"Q-000012","HSCICD-A","12","Relief to destitute was first distributed by ____.","A. Franciscan Order
+B. Priests","B","mcq","","","",""
+"Q-000013","HSCICD-A","13","12th – 15th century, relief activities of the church were supplemented by charities sponsored by guilds.","A. True
+B. False","A","mcq","","","",""
+"Q-000014","HSCICD-A","14","The 1st Poor Law in England was based on national catastrophe called ____ in 1348.","A. WWII
+B. Black Death","B","mcq","","","",""
+"Q-000015","HSCICD-A","15","He designed the Statute of Laborers to prevent vagrancy and begging, to force the rural workers to stay on the land.","A. Henry VIII
+B. Edward III","B","mcq","","","",""
+"Q-000016","HSCICD-A","16","He designed the 1st constructive measure taken by the government for relief of the poor, the law (Reformation) marked the beginning of public responsibility for the poor.","A. Charles II
+B. Henry VIII","B","mcq","","","",""
+"Q-000017","HSCICD-A","17","Codification of previous poor laws in England; made it compulsory for parishes to levy a 'poor rate' to fund financial support ('public assistance') for those who could not work.","A. Elizabethan Poor Law of 1901
+B. Elizabethan Poor Law of 1601","B","mcq","","","",""
+"Q-000018","HSCICD-A","18","'sturdy beggars'","A. Able-bodied Poor
+B. Impotent Poor
+C. Dependent Poor","A","mcq","","","",""
+"Q-000019","HSCICD-A","19","people who were not able to work","A. Able-bodied Poor
+B. Impotent Poor
+C. Dependent Poor","B","mcq","","","",""
+"Q-000020","HSCICD-A","20","orphans, foundling, children, deserted by parents or parents are poor.","A. Able-bodied Poor
+B. Impotent Poor
+C. Dependent Poor","C","mcq","","","",""
+"Q-000021","HSCICD-A","21","Enacted by Charles II to protect the community against additional burden created by poor persons moving in from communities.","A. Settlement Movement
+B. Settlement Act of 1662","B","mcq","","","",""
+"Q-000022","HSCICD-A","22","Stated that the state should not interfere with private economy.","A. Adam Smith
+B. Thomas Malthus","A","mcq","","","",""
+"Q-000023","HSCICD-A","23","He disapproved poor relief as it tended to encourage paupers to have more children to get relief for them.","A. Thomas Chalmers
+B. Thomas Malthus","B","mcq","","","",""
+"Q-000024","HSCICD-A","24","A Parish minister in Scotland ; principle of neighborly aid.","A. Thomas Chalmers
+B. Thomas Malthus","A","mcq","","","",""
+"Q-000025","HSCICD-A","25","Laid the 1st foundation for individual approach in social work – casework.","A. COS
+B. London Charity Organization Society","B","mcq","","","",""
+"Q-000026","HSCICD-A","26","The pioneer of public hygiene; developed a program against contagious disease.","A. Edwin Chadwick
+B. Sir Robert Peel","A","mcq","","","",""
+"Q-000027","HSCICD-A","27","He initiated the Health and Moral Act of 1802, he objected the use of young children in labor work camp and textile mills.","A. William Beveridge
+B. Sir Robert Peel","B","mcq","","","",""
+"Q-000028","HSCICD-A","28","He devised a system of social security; 5 giant evils.","A. William Beveridge
+B. Sir Robert Peel","A","mcq","","","",""
+"Q-000029","HSCICD-A","29","The 1st hospital and was transferred to Manila in 1571 under the Franciscans; it was renamed Steinberg General Hospital; originator of SanLazaro and San Juan De Dios during American Period.","A. Hospicio de San Jose
+B. Hospitalito de Santa Ana","B","mcq","","","",""
+"Q-000030","HSCICD-A","30","Hospital for lepers; was also built to house beggars; it started the concept of organized isolation of the sick – Fr. Juan Clemente.","A. San Lazaro
+B. San Juan De Dios","A","mcq","","","",""
+"Q-000031","HSCICD-A","31","Asylums that were organized ____ to take care of the victims of cholera epidemic, except one.","A. Nuestra Senora Dela Consolacion
+B. Santo Tomas de Villanueva
+C. Hospicio","C","mcq","","","",""
+"Q-000032","HSCICD-A","32","Established to house the aged, orphans, mentally defective and young boys requiring reform.","A. Hospicio de San Jose
+B. Asilo de San Vicente","A","mcq","","","",""
+"Q-000033","HSCICD-A","33","The 1st asylum for girls.","A. Parochial School of Cebu
+B. Asilo de San Vicente","B","mcq","","","",""
+"Q-000034","HSCICD-A","34","Parochial school of Cebu, the 1st school established by the ____.","A. Franciscans
+B. Augustinians","B","mcq","","","",""
+"Q-000035","HSCICD-A","35","1st school for boys.","A. Colegio de San Felipe
+B. Colegio de San Ignacio","B","mcq","","","",""
+"Q-000036","HSCICD-A","36","A religious order that provided leadership in nursing the wounded.","A. COS
+B. Hermanos","B","mcq","","","",""
+"Q-000037","HSCICD-A","37","When was PGH established?","A. 1902
+B. 1908","B","mcq","","","",""
+"Q-000038","HSCICD-A","38","Insular board was created on","A. 1910
+B. 1902","B","mcq","","","",""
+"Q-000039","HSCICD-A","39","La Gota de Leche gets fresh cow’s milk in ____.","A. Pasay Farm
+B. Manila Farm","A","mcq","","","",""
+"Q-000040","HSCICD-A","40","When was PWB created?","A. Feb 15, 1915
+B. June 27, 2001","A","mcq","","","",""
+"Q-000041","HSCICD-A","41","On 1900, an attempt to alleviate the condition of deaf children started at","A. Philippine Women University
+B. Philippine Normal School","B","mcq","","","",""
+"Q-000042","HSCICD-A","42","Association de Damas Filipinas was organized by ____.","A. Civic-spirited Women
+B. Civic-spirited Men","A","mcq","","","",""
+"Q-000043","HSCICD-A","43","WWII existed from ____ during the Japanese Occupation period.","A. 1942-1944
+B. 1941-1944","A","mcq","","","",""
+"Q-000044","HSCICD-A","44","Bureau of Public Welfare was reopened","A. 1946
+B. 1915","A","mcq","","","",""
+"Q-000045","HSCICD-A","45","On Nov 12, 1947, 8 social workers had gone to US to pursue formal social work education","A. Nov 12, 1947
+B. April 18, 1948","A","mcq","","","",""
+"Q-000046","HSCICD-A","46","When was Philippine Social Work Code of ethics adopted?","A. November 24, 1964
+B. Nov 12, 1947","A","mcq","","","",""
+"Q-000047","HSCICD-A","47","Josefa Jara Martinez was the first director of what school?","A. PWU
+B. CEU","A","mcq","","","",""
+"Q-000048","HSCICD-A","48","It created dissident movement (Central Luzon) which threatened the stability of government.","A. Feudalistic Tenancy
+B. Feudalistic Movement","A","mcq","","","",""
+"Q-000049","HSCICD-A","49","PRATRA stands for","A. Philippine Relief And Trade Rehabilitation Administration
+B. Philippine Relief and Trade Rehabilitation Agency","A","mcq","","","",""
+"Q-000050","HSCICD-A","50","It became the underlying philosophy for rural community development projects by SWA.","A. Casework
+B. Self-help","B","mcq","","","",""
+"Q-000051","HSCICD-A","51","When did Marcos declare Martial Law?","A. September 21, 1972
+B. September 12, 1972","A","mcq","","","",""
+"Q-000052","HSCICD-A","52","Baranganic approach originated in ____","A. Davao
+B. Manila","A","mcq","","","",""
+"Q-000053","HSCICD-A","53","On January 30, 1987, Pres. Aquino signed E.O. ____ reorganized MSSD to DSWD.","A. 123
+B. 143","A","mcq","","","",""
+"Q-000054","HSCICD-A","54","Feel a physical loss of a part of the self.","A. Amputees
+B. Handicapped","A","mcq","","","",""
+"Q-000055","HSCICD-A","55","The ____ 1995-2025 (PPGD) is the government's 30 year perspective framework for pursuing full equality and development for women and men.","A. Philippine Plan for Gender-Responsive Development
+B. Philippine Plan for Gender-Responsive Department","A","mcq","","","",""
+"Q-000056","HSCICD-A","56","Developed by Max Weber","A. Bureaucratic & Autocratic Model
+B. Custodial Model","A","mcq","","","",""
+"Q-000057","HSCICD-A","57","____ setting up of the framework or structure of the different units of the system to carry out or perform distinct tasks for a ""specified objectives"".","A. Management
+B. Organization","B","mcq","","","",""
+"Q-000058","HSCICD-A","58","Woman who's enduring physical, romantic and/or emotional attraction is to other women","A. Gay
+B. Lesbian
+C. Bisexual
+D. Transgender","B","mcq","","","",""
+"Q-000059","HSCICD-A","59","____ is for people who have been convicted of a crime and have already served a portion of their prison sentence, ____ is a community supervision option that does not require the convicted person to spend time in jail.","A. Parole; Probation
+B. Probation; Parole","A","mcq","","","",""
+"Q-000060","HSCICD-A","60","These are those persons whose enduring physical, romantic, and or emotional attractions are to people of the same sex.","A. Gay
+B. Lesbian
+C. Bisexual
+D. Transgender","A","mcq","","","",""
+"Q-000061","HSCICD-A","61","A person who has the capacity to form enduring physical, romantic, and or emotional attractions to those of the same gender or to those of another gender.","A. Gay
+B. Lesbian
+C. Bisexual
+D. Transgender","C","mcq","","","",""
+"Q-000062","HSCICD-A","62","An umbrella term for people whose gender identity and/or gender expression differs from what is typically associated with the sex they were assigned at birth.","A. Gay
+B. Lesbian
+C. Queer
+D. Transgender","D","mcq","","","",""
+"Q-000063","HSCICD-A","63","____ an adjective used by some people particularly younger people whose sexual orientation is not exclusively heterosexual.","A. Gay
+B. Lesbian
+C. Queer
+D. Transgender","C","mcq","","","",""
+"Q-000064","HSCICD-A","64","According to the Philippine Statistics Authority, what was the national poverty incidence among families in the Philippines in 2023?","A. 10.9%
+B. 15.5%","A","mcq","","","",""
+"Q-000065","HSCICD-A","65","When did the Philippines gain independence from the United States?","A. 1946
+B. 1935","A","mcq","","","",""
+"Q-000066","HSCICD-A","66","As of the latest data, which sector employs the largest number of Filipino workers?","A. Agriculture
+B. Services","B","mcq","","","",""
+"Q-000067","HSCICD-A","67","According to a 2024 U-Report poll by UNICEF, what was the top concern among Filipino youth?","A. Climate change and natural disasters
+B. Access to quality education","A","mcq","","","",""
+"Q-000068","HSCICD-A","68","What year was the Philippine Social Welfare and Development Act (Republic Act No. 7160) enacted, which decentralizes social welfare services?","A. 1991
+B. 1992","A","mcq","","","",""
+"Q-000069","HSCICD-A","69","What is considered the main driver of population growth in the Philippines according to recent demographic studies?","A. High mortality rate
+B. High fertility rate","B","mcq","","","",""
+"Q-000070","HSCICD-A","70","What is the primary cause of poverty in the Philippines according to the 2023 Social Weather Stations (SWS) report?","A. Lack of stable employment opportunities
+B. High crime rates","A","mcq","","","",""
+"Q-000071","HSCICD-A","71","What was the significance of the establishment of the Public Welfare Board in 1915 under the American regime in the Philippines?","A. It marked the beginning of organized government social welfare efforts in the country.
+B. It was created solely to distribute foreign donations to disaster-stricken areas.","A","mcq","","","",""
+"Q-000072","HSCICD-A","72","Which of the following is a key structural cause of poverty in the Philippines?","A. Unequal distribution of wealth and limited access to basic social services.
+B. Laziness among poor households and their unwillingness to work.","A","mcq","","","",""
+"Q-000073","HSCICD-A","73","Why is 1965 considered a milestone in the professionalization of social work in the Philippines?","A. It was the year the Republic Act No. 4373 or the Social Work Law was enacted.
+B. It was the year when the first foreign-trained social workers arrived in the country.","A","mcq","","","",""
+"Q-000074","HSCICD-A","74","The charity organization period","A. 1870-1917
+B. 1917-1935
+C. 1935-1955
+D. 1955-1970","A","mcq","","","",""
+"Q-000075","HSCICD-A","75","The rise of federation","A. 1917-1935
+B. 1870-1917
+C. 1935-1955
+D. 1955-1970","A","mcq","","","",""
+"Q-000076","HSCICD-A","76","Expansion & Professional development","A. 1870-1917
+B. 1917-1935
+C. 1935-1955
+D. 1955-1970","D","mcq","","","",""
+"Q-000077","HSCICD-A","77","Community Organization & Social Change","A. 1970-present (implied/based on sequence)
+B. Other","A","mcq","","","",""
+"Q-000078","HSCICD-A","78","Sustainable development paradigm started in the latter part of the 80's while its institutionalization took place in the 90's.","A. True
+B. False","A","mcq","","","",""
+"Q-000079","HSCICD-A","79","Marked the advent of the women's movement in the Philippines","A. 1990s
+B. 1980s","A","mcq","","","",""
+"Q-000080","HSCICD-A","80","CO is said to have started in the Philippines in the pre-colonial era in the form of","A. Bayanihan & Damayan
+B. Disaster Relief","A","mcq","","","",""
+"Q-000081","HSCICD-A","81","Associated charities was established in","A. 1917
+B. 1914","A","mcq","","","",""
+"Q-000082","HSCICD-A","82","ZOTO succeed to stop the construction of International Port in Tondo","A. True
+B. False","A","mcq","","","",""
+"Q-000083","HSCICD-A","83","____ was among the dominant approach used to address the problems after WWII.","A. Disaster Relief
+B. Alms Giving","A","mcq","","","",""
+"Q-000084","HSCICD-A","84","NGO's were using the tools of structural analysis and ____ as guiding frameworks (integrated methods).","A. Dependency Theory
+B. CO","A","mcq","","","",""
+"Q-000085","HSCICD-A","85","The ____ approach to management is one such strategy, in which the decision-making process occurs at the highest level and is then communicated to the rest of the team.","A. Top-down
+B. Bottom-up","A","mcq","","","",""
+"Q-000086","HSCICD-A","86","____ approach is a way of making corporate decisions that starts from the bottom of the hierarchy, rather than at the top.","A. Top-down
+B. Bottom-up","B","mcq","","","",""
+"Q-000087","HSCICD-A","87","Paolo Freire’s theory on ____ created a big influence in organizing work in the Philippines. His theoretical assertions provided theoretical assertions of CO in the country.","A. Pedagogy of the Oppressed
+B. Liberative Education","A","mcq","","","",""
+"Q-000088","HSCICD-A","88","Pedagogy means","A. The method and practice of teaching, especially as an academic subject or theoretical concept
+B. Skill, science and art","A","mcq","","","",""
+"Q-000089","HSCICD-A","89","Originally the term cry referred to the first clash between the Katipuneros and the Civil Guards (Guardia Civil). The cry could also refer to the tearing up of community tax certificates (cédulas personales) in defiance of their allegiance to Spain.","A. Cry of Pugad Lawin
+B. Treaty of Paris","A","mcq","","","",""
+"Q-000090","HSCICD-A","90","The Treaty of Paris ended the Spanish-American War, and forced Spain to cede the Philippines, Guam, and Puerto Rico to the United States. In return, the United States paid Spain ____ for the Philippines. President William McKinley was then faced with the decision of what to do with the Philippines.","A. $20 Million
+B. $25 Million","A","mcq","","","",""
+"Q-000091","HSCICD-A","91","The battle cry of 1970 and the 1980's is ____; It marked the peak of NGO work in the Philippines.","A. Revolution
+B. People Power","B","mcq","","","",""
+"Q-000092","HSCICD-A","92","CO adopted two pronged approach; strengthening people’s organization to gain more power &","A. Implementation of socio-economic activities
+B. Implementation of biopsychosocial activities","A","mcq","","","",""
+"Q-000093","HSCICD-A","93","1950s – 1960s ; SWA; dole-outs; marked the birth of community development in Ph","A. Reconstruction Period
+B. Developmental Decade","A","mcq","","","",""
+"Q-000094","HSCICD-A","94","1960s – 1970s ; NGOs; social action; sectoral & mass-based organizations were organized","A. Participatory Development
+B. Developmental Decade","B","mcq","","","",""
+"Q-000095","HSCICD-A","95","1970s –1980s; institutionalization of CO; PECCO; ZOTO; Integrated method; Paolo Freire's Liberative Education; shift from bottom-up to top-down","A. Socio-economic Work
+B. Participatory Development","B","mcq","","","",""
+"Q-000096","HSCICD-A","96","1980s – 1990s; People Power; marked the peak of NGO; CO - 2 pronged approach; fight for freedom & justice; formation of self-group","A. Socio-economic Work
+B. Sustainable Development & Gender Development","A","mcq","","","",""
+"Q-000097","HSCICD-A","97","1990s – onwards","A. Pre-colonial Era
+B. Sustainable Development & Gender Development","B","mcq","","","",""
+"Q-000098","HSCICD-A","98","The single national agency for social welfare during 1950s – 1960s","A. SWA
+B. SWC","A","mcq","","","",""
+"Q-000099","HSCICD-A","99","Community chest of Manila","A. December 20, 1949
+B. December 21, 1959","B","mcq","","","",""
+"Q-000100","HSCICD-A","100","It is a church-based organization whose main concern is to develop local organizers through training & education.","A. PECCO – Philippine Ecumenical Center for Community Organization (Saul Alinsky)
+B. ZOTO","A","mcq","","","",""
+"Q-000101","HSCICD-A","101","Occur within the borders of the same country, or cross international borders.","A. Migration
+B. Immigration","A","mcq","","","",""
+"Q-000102","HSCICD-A","102","Occurs when a person crosses an international border and becomes a permanent resident in another country.","A. Migration
+B. Immigration","B","mcq","","","",""
+"Q-000103","HSCICD-A","103","Types of recording","A. Summary
+B. Narrative
+C. Condensed
+D. Process
+E. All","E","mcq","","","",""
+"Q-000104","HSCICD-A","104","This recording style is concerned with reporting the facts; may be condensed or process.","A. Summary
+B. Narrative
+C. Condensed
+D. Process","B","mcq","","","",""
+"Q-000105","HSCICD-A","105","Abridged, compact version which may have been reduced from its former site. It is generally useful for all types of cases, of clients, whether individual, family, group, or community, and is used practically is all types of social welfare agencies. It is used for reporting acts of practical helpfulness, events, and most collateral visits or case conferences. It may be used to show the contents of the interview of family or small group discussion in all instances except when the process itself and the use of relationships have special significance.","A. Summary
+B. Narrative
+C. Condensed
+D. Process","C","mcq","","","",""
+"Q-000106","HSCICD-A","106","A written description of the dynamic interaction that has taken place in an interview. It should contain the purpose of the interview, worker's observations, and description of the intentions, impressions, worker's roles, and plan.","A. Process Recording
+B. Narrative Process Recording","A","mcq","","","",""
+"Q-000107","HSCICD-A","107","Used to show the process and the interaction within the interview or to show group interaction. It may be a step-by-step account of the proceedings.","A. Process Recording
+B. Narrative Process Recording","B","mcq","","","",""
+"Q-000108","HSCICD-A","108","It is a review or recapitulation of material","A. Summary
+B. History","A","mcq","","","",""
+"Q-000109","HSCICD-A","109","Are made to cover a certain period of time during which the case is under the care of or is being handled by the worker. This is applicable to long-term case work, group work with groups, and with community work. In the Philippines the latter may take years to realize the goal of building self reliant communities.","A. Transfer Summaries
+B. Periodic Summaries
+C. The Closing Entry/Summary","B","mcq","","","",""
+"Q-000110","HSCICD-A","110","Refers to the summary made when the case is to be transferred to another worker or is being referred to another agency. It may contain a brief statement of the problem, the treatment plan and what has been accomplished so far.","A. Transfer Summaries
+B. Periodic Summaries
+C. The Closing Entry/Summary","A","mcq","","","",""
+"Q-000111","HSCICD-A","111","Focuses on the causes and results of the treatment or intervention. It covers the situation at intake and the reasons involved the problem that emerged, the treatment given, services extended, or intervention made.","A. Transfer Summaries
+B. Periodic Summaries
+C. The Closing Entry/Summary","C","mcq","","","",""
+"Q-000112","HSCICD-A","112","This skill refers to the ability of the worker to understand the uniqueness of the person in his situation and to adapt his techniques to him.","A. Individualization
+B. Differential Diagnosis","A","mcq","","","",""
+"Q-000113","HSCICD-A","113","Worker's own tempo or pace","A. Timing
+B. Space","A","mcq","","","",""
+"Q-000114","HSCICD-A","114","Ability of the worker to concentrate both his and the client to significant aspect of the situation","A. Focusing
+B. Partialization","A","mcq","","","",""
+"Q-000115","HSCICD-A","115","Breaking down into manageable parts, helping the client to think about and decide where to start.","A. Focusing
+B. Partialization","B","mcq","","","",""
+"Q-000116","HSCICD-A","116","Worker's ability to determine the setting & the boundaries that will be most conducive to the work to be done. It includes the choice of physical setting, etc.","A. Community Organizing
+B. Structuring","B","mcq","","","",""
+"Q-000117","HSCICD-A","117","Manner & timing in the delivery of social services.","A. Case Management
+B. Engagement","A","mcq","","","",""
+"Q-000118","HSCICD-A","118","In 1989, Morales and Sheafer wrote skills in establishing partnership; engagement, empathy, communication, and ____.","A. Observation
+B. Understanding","B","mcq","","","",""
+"Q-000119","HSCICD-A","119","Period in which the worker begins to relate himself to the task at hand.","A. Empathy
+B. Engagement","B","mcq","","","",""
+"Q-000120","HSCICD-A","120","Understanding so intimate that the feelings, thoughts, and motives of one are readily comprehended by another","A. Empathy
+B. Engagement
+C. Communication
+D. Observation","A","mcq","","","",""
+"Q-000121","HSCICD-A","121","Sharing or exchange of thoughts between 2 or more persons.","A. Empathy
+B. Engagement
+C. Communication
+D. Observation","C","mcq","","","",""
+"Q-000122","HSCICD-A","122","Paying attention to what is being verbally said and nonverbally communicated; involves a choice of what to see.","A. Empathy
+B. Engagement
+C. Communication
+D. Observation","D","mcq","","","",""
+"Q-000123","HSCICD-A","123","A systematic procedure by which a complex of scientific tasks is accomplished","A. Strategy
+B. Technique","B","mcq","","","",""
+"Q-000124","HSCICD-A","124","Refers to inconsequential conversation; advisable only when there is no urgent matters.","A. Small Talk
+B. Focus Group Discussion","A","mcq","","","",""
+"Q-000125","HSCICD-A","125","To ____ another person is to encourage, to uphold, to sustain some aspect of the client's functioning - his strength, his attitude, his eagerness to do something about his problem.","A. Motivate
+B. Support","B","mcq","","","",""
+"Q-000126","HSCICD-A","126","Bringing to the surface the feelings and attitudes that needs to be brought out","A. Catharsis
+B. Ventilation","B","mcq","","","",""
+"Q-000127","HSCICD-A","127","The purification and purgation of emotions through dramatic art, or it may be any extreme emotional state that results in renewal and restoration. In its literal medical sense, it refers to the evacuation of the catamenia—the menstrual fluid or other reproductive material from the patient.","A. Catharsis
+B. Ventilation","A","mcq","","","",""
+"Q-000128","HSCICD-A","128","It is used to elicit necessary information; to bring out details about experiences and relationships as the client perceives them; and to examine the feelings connected to the relationships and experiences.","A. Evaluation / Assessment
+B. Exploration","B","mcq","","","",""
+"Q-000129","HSCICD-A","129","According to Reid and Shyne, exploration may be divided in two types; exploration about the client situation and his relation to it; ____.","A. Exploration into the client's own behavior
+B. Exploration into the client's own personality","A","mcq","","","",""
+"Q-000130","HSCICD-A","130","To make understandable a point or two.","A. Clarification
+B. Questioning","A","mcq","","","",""
+"Q-000131","HSCICD-A","131","Formerly known as advice-giving & counseling.","A. Education & Advice
+B. Group Sessions","A","mcq","","","",""
+"Q-000132","HSCICD-A","132","It is the utilization of a commonality of human experiences and strengths of others to cope with situations similar to those which are troubling the client.","A. Universalize
+B. Universalization","B","mcq","","","",""
+"Q-000133","HSCICD-A","133","To ____ is to pick up or choose a certain trait or pattern of behavior characteristic of all the members of a particular culture or of all human beings.","A. Universalize
+B. Universalization","A","mcq","","","",""
+"Q-000134","HSCICD-A","134","It may be used extensively when learning new ways of behavior is required.","A. Socialization
+B. Role Rehearsal & Demonstration","B","mcq","","","",""
+"Q-000135","HSCICD-A","135","To come face-to-face with the hard facts of the situation - with reality.","A. Confrontation
+B. Integrity","A","mcq","","","",""
+"Q-000136","HSCICD-A","136","A rule of a thumb would be for confrontation to be focused on specifics rather than generalities.","A. True
+B. False","B","mcq","","","",""
+"Q-000137","HSCICD-A","137","A type of stress produced when a person is motivated by two or more needs in such a manner that the satisfaction of need may mean the dissatisfaction of another one.","A. Ambivalence
+B. Conflict","B","mcq","","","",""
+"Q-000138","HSCICD-A","138","It means skillful management of events.","A. Sensitivity
+B. Manipulation","B","mcq","","","",""
+"Q-000139","HSCICD-A","139","Malcolm Knowles, an authority on adult learning describes ____ as the art of helping adults to learn.","A. Gestalt
+B. Geriatric
+C. Andragogy","C","mcq","","","",""
+"Q-000140","HSCICD-A","140","It means the arousing of man’s positive self-concept in relation to the environment and society through a liberating education which treats learners as active agents rather than passive recipient of learning.","A. Conscious-raising
+B. Conscientization","B","mcq","","","",""
+"Q-000141","HSCICD-A","141","Praxis means","A. Reflection-action-reflection
+B. Action-reflection","B","mcq","","","",""
+"Q-000142","HSCICD-A","142","It is derived from the social and behavioral sciences","A. Assumptive knowledge
+B. Tested knowledge
+C. Hypothetical knowledge","B","mcq","","","",""
+"Q-000143","HSCICD-A","143","A proposition still subject to verification or proof; it is suppositional, conjectural and uncertain.","A. Assumptive knowledge
+B. Tested knowledge
+C. Hypothetical knowledge","C","mcq","","","",""
+"Q-000144","HSCICD-A","144","May be drawn from the practitioner's experiences and observations in the field. It has to be transformed first into a hypothesis and then tested to be certain that it is valid and applicable.","A. Assumptive knowledge
+B. Tested knowledge
+C. Hypothetical knowledge","A","mcq","","","",""
+"Q-000145","HSCICD-A","145","May be defined as the “acquaintance” with or theoretical or practical understanding of some branch of science, art, learning, and other areas involving study, research or practice, and the acquisition of skills.","A. Wisdom
+B. Research
+C. Knowledge","C","mcq","","","",""
+"Q-000146","HSCICD-A","146","He came up with three types of knowledge","A. Wernes Boehm
+B. Werner Boehm","B","mcq","","","",""
+"Q-000147","HSCICD-A","147","Traditional and widely accepted way of behaving or doing something that is specific to a particular society, place, or time.","A. Folkways
+B. Customs
+C. Mores","B","mcq","","","",""
+"Q-000148","HSCICD-A","148","The principal method of human communication consisting of words","A. Parts of Speech
+B. Dialect
+C. Language","C","mcq","","","",""
+"Q-000149","HSCICD-A","149","The standard of discerning what is good and just in society and are deeply embedded and critical for transmitting and teaching a culture’s beliefs.","A. Behavior
+B. Norms
+C. Values","C","mcq","","","",""
+"Q-000150","HSCICD-A","150","The increase in the number of individuals in a population","A. Population growth
+B. Population density","A","mcq","","","",""
+"Q-000151","HSCICD-A","151","____ is the use of any chemical substance, licit or illicit, which results in the individual's physical, mental, or social impairment.","A. Drug abuse
+B. Drug addict","A","mcq","","","",""
+"Q-000152","HSCICD-A","152","A ____ is a chemical substance that brings about physical, emotional, or behavioral change in a person taking it","A. Drug
+B. Pills","A","mcq","","","",""
+"Q-000153","HSCICD-A","153","Drugs which increase alertness and physical disposition. Examples: amphetamine, cocaine, caffeine and nicotine.","A. Stimulants
+B. Hallucinogens (also called psychedelics)
+C. Sedatives","A","mcq","","","",""
+"Q-000154","HSCICD-A","154","(also called psychedelics) - drugs which affect sensation, thinking, self-awareness, and emotion. Changes in time and space perception, delusions and hallucinations that may be mild or overwhelming, depending on dose and quality of the drug. Examples: LSD, mescaline and marijuana.","A. Stimulants
+B. Hallucinogens
+C. Sedatives","B","mcq","","","",""
+"Q-000155","HSCICD-A","155","Drugs which may reduce anxiety and excitement. Examples: barbiturates, nonbarbiturates, tranquilizers and alcohol.","A. Stimulants
+B. Hallucinogens
+C. Sedatives","C","mcq","","","",""
+"Q-000156","HSCICD-A","156","Drugs that relieve pain and often induce sleep. Examples: opium and its derivatives such as morphine, codeine and heroin.","A. Narcotics
+B. Heroine","A","mcq","","","",""
+"Q-000157","HSCICD-A","157","____ includes a wide variety of breathable substances that produce mind-altering results and effects. Examples include Toluene, plastic cement, paint, gasoline, paint thinners, hair sprays, and various anesthetic gases.","A. Inhalants
+B. Cannabis","A","mcq","","","",""
+"Q-000158","HSCICD-A","158","The scientific name for marijuana.","A. Inhalants
+B. Cannabis","B","mcq","","","",""
+"Q-000159","HSCICD-A","159","____ include drugs that inhibit pain by cutting off or dissociating the brain's perception of the pain. (PCP, its analogs, and dextromethoraphan)","A. Dissociative anesthetics
+B. Narcotics","A","mcq","","","",""
+"Q-000160","HSCICD-A","160","CNS depressants slow down the operations of the brain and the body. Examples of CNS depressants include alcohol, barbiturates, anti-anxiety tranquilizers (e.g., Valium, Librium, Xanax, Prozac, and Thorazine), GHB (gamma hydroxybutyrate), Rohypnol, and many other anti-depressants (e.g., Zoloft, Paxil). CNS means____","A. Central Nervous System
+B. Central Nerve System","A","mcq","","","",""
+"Q-000161","HSCICD-A","161","____ is an infectious disease caused by the SARS-CoV-2 virus.","A. Coronavirus disease (COVID-19)
+B. H1N1 (A/H1N1)","A","mcq","","","",""
+"Q-000162","HSCICD-A","162","Enuresis means","A. Involuntary urination, especially by children at night (bed-wetting)
+B. (Other unlisted choice)","A","mcq","","","",""
+"Q-000163","HSCICD-A","163","Sleepwalking at night","A. Somnambulism
+B. Sleepwalking","A","mcq","","","",""
+"Q-000164","HSCICD-A","164","AN ____ is a disease that affects a large number of people within a community, population, or region. A ____ is an epidemic that’s spread over multiple countries or continents. ____ is something that belongs to a particular people or country.","A. EPIDEMIC; PANDEMIC; ENDEMIC
+B. PANDEMIC; EPIDEMIC; ENDEMIC","A","mcq","","","",""
+"Q-000165","HSCICD-A","165","____ is a term often used to describe emotionally charged behavior that seems excessive and out of control.","A. Hysteria
+B. Hysterical
+C. Bipolar","A","mcq","","","",""
+"Q-000166","HSCICD-A","166","Is a long amnesic state in which one wanders from his home or usual surroundings and suddenly ""comes to"" in some strange place with no recollection as how he came to be here.","A. Fugue
+B. Insomnia","A","mcq","","","",""
+"Q-000167","HSCICD-A","167","____ are unwanted, intrusive thoughts, images, or urges that trigger intensely distressing feelings.","A. Obsessions
+B. Compulsions","A","mcq","","","",""
+"Q-000168","HSCICD-A","168","____ are behaviors an individual engages in to attempt to get rid of the obsessions and/or decrease distress.","A. Obsessions
+B. Compulsions","B","mcq","","","",""
+"Q-000169","HSCICD-A","169","To be diagnosed as having ____, a person must have an I.Q. below 70-75, i.e. significantly below average.","A. Mental retardation
+B. Normal condition","A","mcq","","","",""
+"Q-000170","HSCICD-A","170","Also called a reading disability","A. Hematoma
+B. Dyslexia","B","mcq","","","",""
+"Q-000171","HSCICD-A","171","A condition of the nervous system; sudden twitches, movements, or sounds that people do repeatedly; cannot stop their body from doing these things.","A. Tic
+B. Toe","A","mcq","","","",""
+"Q-000172","HSCICD-A","172","The action of setting fire to oneself, especially as a form of protest or sacrifice.","A. Pyromania
+B. Self-immolation","B","mcq","","","",""
+"Q-000173","HSCICD-A","173","____ is a type of impulse control disorder that is characterized by being unable to resist starting fires. People with ____ know that setting fires is harmful. But setting fires is the only way they can relieve their built-up tension, anxiety, or arousal.","A. Pyromania
+B. Self-immolation","A","mcq","","","",""
+"Q-000174","HSCICD-A","174","____ is an eating disorder in which people compulsively eat one or more nonfood items, such as ice, clay, paper, ash, or dirt. Pagophagia is a subtype of it.","A. Pica
+B. Binge eating","A","mcq","","","",""
+"Q-000175","HSCICD-A","175","____ is a process of social, psychological, and cultural change that stems from the balancing of two cultures while adapting to the prevailing culture of the society.","A. Acculturation
+B. Enculturation","A","mcq","","","",""
+"Q-000176","HSCICD-A","176","The gradual acquisition of the characteristics and norms of a culture or group by a person, another culture, etc.","A. Acculturation
+B. Enculturation","B","mcq","","","",""
+"Q-000177","HSCICD-A","177","The persons, groups, or institutions that teach us what we need to know in order to participate in society.","A. Agents of change
+B. Agents of socialization","B","mcq","","","",""
+"Q-000178","HSCICD-A","178","____ is a form of government and a political system that prohibits all opposition parties, outlaws individual and group opposition to the state and its claims, and exercises an extremely high degree of control and regulation over public and private life.","A. Totalitarianism
+B. Utilitarianism","A","mcq","","","",""
+"Q-000179","HSCICD-A","179","____ is an ethical theory that determines right from wrong by focusing on outcomes. It is a form of consequentialism. ____ holds that the most ethical choice is the one that will produce the greatest good for the greatest number.","A. Totalitarianism
+B. Utilitarianism","B","mcq","","","",""
+"Q-000180","HSCICD-A","180","____ (""apartness"" in the language of Afrikaans) was a system of legislation that upheld segregationist policies against non-white citizens of South Africa.","A. Apartheid
+B. Space","A","mcq","","","",""
+"Q-000181","HSCICD-A","181","____ is a term describing any relationship or interaction between two dissimilar organisms.","A. Symbiosis
+B. Clash","A","mcq","","","",""
+"Q-000182","HSCICD-A","182","An ____ is a geographic area where plants, animals, and other organisms, as well as weather and landscape, work together to form a bubble of life.","A. Ecology
+B. Ecosystem","B","mcq","","","",""
+"Q-000183","HSCICD-A","183","____ is defined as the psychology rooted on the experience, ideas, and cultural orientation of the Filipinos. It is regulated by the Pambansang Samahan sa Sikolohiyang Pilipino, (National Organization of Filipino Psychology), in English, which was established on 1975 by Virgilio Enriquez, regarded by many as the Father of Filipino Psychology.","A. Filipino psychology
+B. Filipino psychopathology","A","mcq","","","",""

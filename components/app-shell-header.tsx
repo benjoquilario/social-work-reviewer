@@ -26,25 +26,16 @@ export function AppShellHeader({
     <View className={compact ? "gap-4 px-1" : "gap-5 px-1"}>
       <View className="flex-row items-start justify-between gap-4">
         <View className="flex-1 gap-1.5">
-          {eyebrow ? (
-            <Text className="text-[11px] font-bold uppercase tracking-[1.6px] text-primary">
-              {eyebrow}
-            </Text>
-          ) : null}
+          {eyebrow ? <Text variant="eyebrow">{eyebrow}</Text> : null}
 
           <Text
-            role="heading"
-            aria-level={1}
-            className={
-              compact
-                ? "text-[22px] font-extrabold leading-7 text-foreground"
-                : "text-[24px] font-extrabold leading-8 text-foreground"
-            }
+            variant="title"
+            className={compact ? undefined : "text-2xl leading-8"}
           >
             {title}
           </Text>
           {subtitle ? (
-            <Text className="text-[13px] leading-5 text-muted-foreground">
+            <Text variant="callout" className="text-muted-foreground">
               {subtitle}
             </Text>
           ) : null}

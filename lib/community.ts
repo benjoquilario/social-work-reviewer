@@ -7,6 +7,9 @@ import {
   ExecutionMethod,
   getAppwriteConfigurationError,
   ID,
+  isAppwriteConflictError,
+  isAppwriteInvalidStructureError,
+  isAppwriteNotFoundError,
   isAppwriteUnauthorizedError,
   Permission,
   Query,
@@ -28,6 +31,8 @@ import {
 const COMMUNITY_POST_PAGE_SIZE = 25
 const COMMUNITY_RELATION_PAGE_SIZE = 100
 const COMMUNITY_QUERY_VALUE_CHUNK_SIZE = 100
+/** Ceiling for cursor paging of a single relation set (100 × 50 = 5,000 rows). */
+const COMMUNITY_MAX_RELATION_PAGES = 50
 const MAX_THREAD_PHOTO_SIZE_BYTES = 8 * 1024 * 1024
 const UNKNOWN_POST_ATTRIBUTE_PATTERN =
   /unknown attribute|attribute not found|Invalid document structure/i
@@ -326,40 +331,47 @@ function chunkValues(values: string[], size: number) {
 }
 
 /**
- * Builds a deterministic row ID for a post_like record.
- * Encoding (postId, userId) into the ID makes the row naturally unique
- * at the application level — concurrent like requests for the same pair
- * will collide on insert (409) rather than creating duplicate rows.
+ * Deterministic row ID for a post_like record.
+ *
+ * Encoding (postId, userId) into the ID makes the row unique at the application
+ * level: concurrent likes for the same pair collide on insert (409) instead of
+ * creating duplicate rows.
+ *
+ * Must stay byte-identical to `toLikeRowId` in
+ * functions/community-post-like-toggle/src/main.js, or the two paths write the
+ * same like under two different IDs and the count doubles. Kept in sync by
+ * hand because the function bundle cannot import from lib/.
  */
-function buildDeterministicLikeRowId(postId: string, userId: string): string {
-  // FNV-1a 32-bit hash — same algorithm used in progress/utils.ts
-  const input = `${postId}|${userId}`
-  let hash = 0x811c9dc5
+const LIKE_HASH_OFFSET_BASES = [0x811c9dc5, 0x01000193, 0x9dc5811c]
+
+function hashLikeKey(input: string, offsetBasis: number): string {
+  let hash = offsetBasis
 
   for (let i = 0; i < input.length; i += 1) {
     hash ^= input.charCodeAt(i)
     hash = Math.imul(hash, 0x01000193)
   }
 
-  return `like_${(hash >>> 0).toString(36).padStart(7, "0")}`
+  return (hash >>> 0).toString(36).padStart(7, "0")
 }
 
-function isAppwriteNotFoundError(error: unknown) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === 404
-  )
+export function buildDeterministicLikeRowId(
+  postId: string,
+  userId: string
+): string {
+  // 96 bits (21 chars) rather than the original 32. These are row IDs, so a
+  // collision silently blocked one user's like or unliked a different row —
+  // 2^32 is only ~9,300 likes for a 1% chance of some collision.
+  const input = `${postId}|${userId}`
+
+  return `like_${LIKE_HASH_OFFSET_BASES.map((basis) =>
+    hashLikeKey(input, basis)
+  ).join("")}`
 }
 
-function isAppwriteConflictError(error: unknown) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === 409
-  )
+/** The pre-widening 32-bit ID. Reads and deletes fall back to it. */
+function buildLegacyLikeRowId(postId: string, userId: string): string {
+  return `like_${hashLikeKey(`${postId}|${userId}`, LIKE_HASH_OFFSET_BASES[0])}`
 }
 
 async function listPaginatedRowsSafe<T extends { $id: string }>(
@@ -370,25 +382,38 @@ async function listPaginatedRowsSafe<T extends { $id: string }>(
   const rows: T[] = []
   let cursorAfterId: string | null = null
 
-  while (true) {
-    const page: T[] = await listRowsSafe<T>(tableId, [
+  // Bounded so a cursor that stops advancing (or a genuinely huge relation set)
+  // can't spin forever or pull an unbounded result into memory. Hitting the
+  // ceiling is reported rather than silently returning a partial list.
+  for (let page = 0; page < COMMUNITY_MAX_RELATION_PAGES; page += 1) {
+    const nextPage: T[] = await listRowsSafe<T>(tableId, [
       ...queries,
       Query.limit(pageSize),
       ...(cursorAfterId ? [Query.cursorAfter(cursorAfterId)] : []),
     ])
 
-    rows.push(...page)
+    rows.push(...nextPage)
 
-    if (page.length < pageSize) {
+    if (nextPage.length < pageSize) {
       return rows
     }
 
-    cursorAfterId = page[page.length - 1]?.$id ?? null
+    const nextCursor = nextPage[nextPage.length - 1]?.$id ?? null
 
-    if (!cursorAfterId) {
+    // No cursor, or a cursor that didn't move: stop instead of re-requesting
+    // the same page forever.
+    if (!nextCursor || nextCursor === cursorAfterId) {
       return rows
     }
+
+    cursorAfterId = nextCursor
   }
+
+  console.warn(
+    `[community] listPaginatedRowsSafe: ${tableId} hit the ${COMMUNITY_MAX_RELATION_PAGES}-page ceiling (${rows.length} rows). Results are truncated — narrow the query or paginate at the call site.`
+  )
+
+  return rows
 }
 
 async function listRowsByFieldValues<T extends { $id: string }>(
@@ -937,8 +962,14 @@ async function createCommunityPostRow(
 }
 
 function isUnknownPostAttributeError(error: unknown) {
+  // `document_invalid_structure` is Appwrite's stable error type for a payload
+  // that does not match the collection schema. The message regex below is only
+  // a fallback for older servers — matching on prose alone meant this silently
+  // stopped firing whenever Appwrite reworded the string.
   return (
-    error instanceof Error && UNKNOWN_POST_ATTRIBUTE_PATTERN.test(error.message)
+    isAppwriteInvalidStructureError(error) ||
+    (error instanceof Error &&
+      UNKNOWN_POST_ATTRIBUTE_PATTERN.test(error.message))
   )
 }
 
@@ -1044,10 +1075,7 @@ async function createCommunityThreadEntry(
       permissions: getOwnerPermissions(input.userId),
     })
   } catch (error) {
-    if (
-      error instanceof Error &&
-      UNKNOWN_POST_ATTRIBUTE_PATTERN.test(error.message)
-    ) {
+    if (isUnknownPostAttributeError(error)) {
       try {
         await tablesDB.createRow({
           databaseId: DB_ID,
@@ -1156,6 +1184,19 @@ export async function toggleCommunityPostLike(input: {
         if (!isAppwriteNotFoundError(error)) {
           throw error
         }
+
+        // Not under the current ID — this like may predate the widened hash.
+        try {
+          await tablesDB.deleteRow({
+            databaseId: DB_ID,
+            tableId: COLLECTIONS.POST_LIKES,
+            rowId: buildLegacyLikeRowId(input.postId, input.userId),
+          })
+        } catch (legacyError) {
+          if (!isAppwriteNotFoundError(legacyError)) {
+            throw legacyError
+          }
+        }
       }
     } else {
       // Like: create the like row; ignore 409 (already liked)
@@ -1189,14 +1230,12 @@ export async function toggleCommunityPostLike(input: {
       ],
     })
 
-    await tablesDB.updateRow({
-      databaseId: DB_ID,
-      tableId: COLLECTIONS.POSTS,
-      rowId: input.postId,
-      data: {
-        likesCount: Math.max(0, likesCount),
-      },
-    })
+    // No write back to the post row. `posts` rows carry owner-only document
+    // permissions, so this update was either failing with a 401 on every post
+    // the user did not write, or only succeeding because the collection grants
+    // update to all users — which would let anyone rewrite anyone's post. The
+    // feed does not read it either: `likesCount` there is derived from the
+    // post_likes rows themselves (see mapPost).
 
     return {
       isLiked: !input.currentlyLiked,

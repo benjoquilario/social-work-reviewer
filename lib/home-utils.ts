@@ -1,14 +1,15 @@
 import { DAILY_TRACKER, PERFORMANCE_METRICS } from "@/data/reviewer-data"
-import type {
-  ActivityLearningHistory,
-  ActivityQuizAttempt,
-  UserActivityFeed,
-} from "@/lib/progress"
+
 import type {
   TrackingMetrics,
   TrackingSnapshot,
   WeeklyCalendarDay,
 } from "@/lib/home-types"
+import type {
+  ActivityLearningHistory,
+  ActivityQuizAttempt,
+  UserActivityFeed,
+} from "@/lib/progress"
 
 export const DAILY_ACTIVITY_TARGET = 4
 
@@ -65,10 +66,6 @@ export function parseBoardExamAttemptExamId(examId: string) {
     totalQuestions,
     minutes,
   }
-}
-
-export function matchesSearchQuery(value: string, query: string) {
-  return value.toLowerCase().includes(query)
 }
 
 export function toDayKey(date: Date) {
@@ -220,8 +217,12 @@ export function buildTrackingMetrics(
   }
 }
 
+/**
+ * Two letters, not one: a single-letter strip reads "S M T W T F S", where
+ * the two S's and two T's are indistinguishable from each other.
+ */
 function getWeekdayGlyph(date: Date) {
-  return ["S", "M", "T", "W", "T", "F", "S"][date.getDay()] ?? "?"
+  return ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][date.getDay()] ?? "?"
 }
 
 export function buildWeeklyCalendarSummary(
@@ -297,9 +298,7 @@ export function fetchEnrichedResumableAttempts(
     lastAnsweredAt: string | null
     startedAt: string
   }[],
-  getBoardExamSet: (
-    setId: string
-  ) => Promise<{
+  getBoardExamSet: (setId: string) => Promise<{
     title: string
     setCode: string
     categoryId: string
@@ -311,9 +310,7 @@ export function fetchEnrichedResumableAttempts(
       const boardExamMeta = parseBoardExamAttemptExamId(attempt.examId)
 
       if (boardExamMeta) {
-        const set = await getBoardExamSet(boardExamMeta.setId).catch(
-          () => null
-        )
+        const set = await getBoardExamSet(boardExamMeta.setId).catch(() => null)
 
         const params = set
           ? {

@@ -31,7 +31,7 @@ export const CommunityThreadCard = memo(function CommunityThreadCard({
 
   return (
     <View
-      className="overflow-hidden rounded-[24px] bg-card"
+      className="overflow-hidden rounded-xl bg-card"
       style={{ borderWidth: 1, borderColor: theme.border }}
     >
       {/* Author header */}
@@ -45,7 +45,7 @@ export const CommunityThreadCard = memo(function CommunityThreadCard({
           />
           <View className="flex-1">
             <View className="flex-row items-center gap-2">
-              <Text className="text-[14px] font-bold text-card-foreground">
+              <Text className="text-sm font-bold text-card-foreground">
                 {post.author.name}
               </Text>
               <View
@@ -53,7 +53,7 @@ export const CommunityThreadCard = memo(function CommunityThreadCard({
                 style={{ backgroundColor: withOpacity(categoryColor, 0.12) }}
               >
                 <Text
-                  className="text-[9px] font-bold uppercase"
+                  className="text-2xs font-bold uppercase tracking-[1px]"
                   style={{ color: categoryColor }}
                 >
                   {post.category}
@@ -61,11 +61,11 @@ export const CommunityThreadCard = memo(function CommunityThreadCard({
               </View>
             </View>
             <View className="flex-row items-center gap-1.5">
-              <Text className="text-[11px] text-muted-foreground">
+              <Text className="text-2xs text-muted-foreground">
                 {post.author.subtitle}
               </Text>
               <View className="h-0.5 w-0.5 rounded-full bg-muted-foreground/50" />
-              <Text className="text-[11px] text-muted-foreground">
+              <Text className="text-2xs text-muted-foreground">
                 {post.createdAtLabel}
               </Text>
             </View>
@@ -78,7 +78,7 @@ export const CommunityThreadCard = memo(function CommunityThreadCard({
             className="self-start rounded-full px-2.5 py-1"
             style={{ backgroundColor: withOpacity(theme.primary, 0.08) }}
           >
-            <Text className="text-[10px] font-bold text-primary">
+            <Text className="text-2xs font-bold text-primary">
               {post.subjectName}
             </Text>
           </View>
@@ -86,11 +86,11 @@ export const CommunityThreadCard = memo(function CommunityThreadCard({
 
         {/* Post content */}
         <View className="gap-1.5">
-          <Text className="text-[15px] font-bold leading-5 text-card-foreground">
+          <Text className="text-sm font-bold leading-5 text-card-foreground">
             {post.title}
           </Text>
           <Text
-            className="text-[13px] leading-5 text-muted-foreground"
+            className="text-sm leading-5 text-muted-foreground"
             numberOfLines={hasPhoto ? 3 : 5}
           >
             {post.content}
@@ -127,11 +127,11 @@ export const CommunityThreadCard = memo(function CommunityThreadCard({
           >
             <Heart size={10} color={theme.primary} />
           </View>
-          <Text className="text-[12px] text-muted-foreground">
+          <Text className="text-xs text-muted-foreground">
             {post.likesCount}
           </Text>
         </View>
-        <Text className="text-[12px] text-muted-foreground">
+        <Text className="text-xs text-muted-foreground">
           {post.commentsCount} comments · {post.repliesCount} replies
         </Text>
       </View>
@@ -159,7 +159,7 @@ export const CommunityThreadCard = memo(function CommunityThreadCard({
             fill={post.isLiked ? theme.primary : "transparent"}
           />
           <Text
-            className="text-[12px] font-semibold"
+            className="text-xs font-semibold"
             style={{
               color: post.isLiked ? theme.primary : theme.mutedForeground,
             }}
@@ -172,13 +172,13 @@ export const CommunityThreadCard = memo(function CommunityThreadCard({
           onPress={() => onOpen(post.id)}
         >
           <MessageSquare size={18} color={theme.mutedForeground} />
-          <Text className="text-[12px] font-semibold text-muted-foreground">
+          <Text className="text-xs font-semibold text-muted-foreground">
             Comment
           </Text>
         </Pressable>
         <Pressable className="flex-1 flex-row items-center justify-center gap-2 py-2.5">
           <Share2 size={18} color={theme.mutedForeground} />
-          <Text className="text-[12px] font-semibold text-muted-foreground">
+          <Text className="text-xs font-semibold text-muted-foreground">
             Share
           </Text>
         </Pressable>

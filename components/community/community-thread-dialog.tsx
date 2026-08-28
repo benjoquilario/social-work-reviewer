@@ -39,7 +39,7 @@ const ReplyRow = memo(function ReplyRow({
   theme: ThemePalette
 }) {
   return (
-    <View className="ml-6 gap-2 rounded-[22px] border border-border bg-background px-3 py-3">
+    <View className="ml-6 gap-2 rounded-xl border border-border bg-background px-3 py-3">
       <View className="flex-row items-center gap-2.5">
         <CommunityAvatar
           label={reply.author.avatarSeed}
@@ -90,7 +90,7 @@ const CommentRow = memo(function CommentRow({
   }, [comment.id, onSubmitReply, replyDraft])
 
   return (
-    <View className="gap-3 rounded-[26px] border border-border bg-card px-3.5 py-3.5">
+    <View className="gap-3 rounded-2xl border border-border bg-card px-3.5 py-3.5">
       <View className="flex-row items-start gap-3">
         <CommunityAvatar
           label={comment.author.avatarSeed}
@@ -105,7 +105,7 @@ const CommentRow = memo(function CommentRow({
           <Text className="text-xs text-muted-foreground">
             {comment.author.subtitle} · {comment.createdAtLabel}
           </Text>
-          <View className="rounded-[20px] border border-border bg-background px-3.5 py-3">
+          <View className="rounded-lg border border-border bg-background px-3.5 py-3">
             <Text className="text-sm leading-6 text-muted-foreground">
               {comment.content}
             </Text>
@@ -118,7 +118,7 @@ const CommentRow = memo(function CommentRow({
           >
             <View className="flex-row items-center gap-1.5">
               <CornerDownRight size={14} color={theme.mutedForeground} />
-              <Text className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              <Text className="text-xs font-bold uppercase tracking-[1px] text-muted-foreground">
                 Reply
               </Text>
             </View>
@@ -131,7 +131,7 @@ const CommentRow = memo(function CommentRow({
       ))}
 
       {isReplying ? (
-        <View className="ml-6 gap-2 rounded-[22px] border border-border bg-background p-3">
+        <View className="ml-6 gap-2 rounded-xl border border-border bg-background p-3">
           <TextInput
             value={replyDraft}
             onChangeText={setReplyDraft}
@@ -143,7 +143,7 @@ const CommentRow = memo(function CommentRow({
             style={{ color: theme.foreground }}
           />
           <View className="flex-row justify-end">
-            <Button className="h-10 rounded-2xl px-4" onPress={submitReply}>
+            <Button className="h-10 rounded-md px-4" onPress={submitReply}>
               <Send size={14} color={theme.primaryForeground} />
               <Text className="font-bold text-primary-foreground">Reply</Text>
             </Button>
@@ -209,7 +209,7 @@ export function CommunityThreadDialog({
               </DialogDescription>
             </DialogHeader>
 
-            <View className="gap-4 rounded-[28px] border border-border bg-background p-4">
+            <View className="gap-4 rounded-2xl border border-border bg-background p-4">
               <View className="flex-row items-start gap-3">
                 <CommunityAvatar
                   label={post.author.avatarSeed}
@@ -226,7 +226,7 @@ export function CommunityThreadDialog({
                   </Text>
                   {post.subjectName ? (
                     <View className="self-start rounded-full border border-border px-3 py-1.5">
-                      <Text className="text-[10px] font-bold uppercase tracking-[1.2px] text-primary">
+                      <Text variant="eyebrow">
                         {post.subjectName}
                       </Text>
                     </View>
@@ -235,7 +235,7 @@ export function CommunityThreadDialog({
               </View>
 
               {post.photoUrl ? (
-                <View className="overflow-hidden rounded-[24px] border border-border bg-card">
+                <View className="overflow-hidden rounded-xl border border-border bg-card">
                   <Image
                     source={{ uri: post.photoUrl }}
                     style={{
@@ -253,13 +253,13 @@ export function CommunityThreadDialog({
                 {post.content}
               </Text>
 
-              <View className="flex-row items-center justify-between rounded-[22px] border border-border bg-card px-3.5 py-3">
-                <Text className="text-[12px] text-muted-foreground">
+              <View className="flex-row items-center justify-between rounded-xl border border-border bg-card px-3.5 py-3">
+                <Text className="text-xs text-muted-foreground">
                   {post.commentsCount} comments · {post.repliesCount} replies
                 </Text>
                 <Button
                   variant={post.isLiked ? "default" : "outline"}
-                  className="h-10 rounded-2xl px-4"
+                  className="h-10 rounded-md px-4"
                   disabled={isLikePending}
                   onPress={() => onToggleLike(post)}
                 >
@@ -294,11 +294,11 @@ export function CommunityThreadDialog({
                   />
                 ))
               ) : (
-                <View className="rounded-[24px] border border-border bg-card px-4 py-4">
+                <View className="rounded-xl border border-border bg-card px-4 py-4">
                   <Text className="text-sm font-black text-card-foreground">
                     No comments yet
                   </Text>
-                  <Text className="mt-1 text-[13px] leading-6 text-muted-foreground">
+                  <Text className="mt-1 text-sm leading-6 text-muted-foreground">
                     Start the discussion with a clear answer, follow-up, or
                     study tip.
                   </Text>
@@ -306,7 +306,7 @@ export function CommunityThreadDialog({
               )}
             </View>
 
-            <View className="gap-2 rounded-[24px] border border-border bg-background p-3.5">
+            <View className="gap-2 rounded-xl border border-border bg-background p-3.5">
               <Text className="text-sm font-bold text-card-foreground">
                 Add a comment
               </Text>
@@ -322,7 +322,7 @@ export function CommunityThreadDialog({
               />
               <DialogFooter className="mt-0 flex-row justify-end">
                 <Button
-                  className="h-10 rounded-2xl px-4"
+                  className="h-10 rounded-md px-4"
                   disabled={isCommentPending}
                   onPress={onSubmitComment}
                 >

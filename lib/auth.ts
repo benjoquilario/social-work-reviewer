@@ -10,7 +10,11 @@ import {
   DB_ID,
   ExecutionMethod,
   functions,
+  getAppwriteErrorCode,
   ID,
+  isAppwriteConflictError,
+  isAppwriteNotFoundError,
+  isAppwriteSessionAlreadyExistsError,
   isAppwriteUnauthorizedError,
   isValidExternalRedirectUrl,
   Permission,
@@ -87,23 +91,12 @@ type AccountProfileResult = {
 
 type UserBootstrapInput = Pick<AuthUser, "$id" | "email" | "name">
 
-function isUnauthorizedError(error: unknown) {
-  return (
-    error instanceof AppwriteException &&
-    (error.code === 401 || error.code === 403)
-  )
-}
-
 function toErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) {
     return error.message
   }
 
   return fallback
-}
-
-function isNotFoundError(error: unknown) {
-  return error instanceof AppwriteException && error.code === 404
 }
 
 function normalizeOptionalString(value: string | null | undefined) {
@@ -174,6 +167,17 @@ function withTimeout<T>(label: string, promise: Promise<T>): Promise<T> {
   ]).finally(() => id && clearTimeout(id))
 }
 
+/**
+ * Retry wrapper for **idempotent** work only.
+ *
+ * `withTimeout` races a timer against the request; it cannot abort the request
+ * itself. So a call that times out on the client at 12s may still be landing
+ * server-side, and retrying it runs the operation a second time. For reads and
+ * for writes with a deterministic row ID that is harmless. For anything that
+ * mints new state — creating an account, opening a session, uploading a file
+ * under `ID.unique()`, consuming a one-time secret — it is not: those use
+ * `withTimeout` directly and surface the timeout to the caller.
+ */
 async function withRetry<T>(
   label: string,
   fn: () => Promise<T>,
@@ -290,7 +294,7 @@ async function fetchExistingProfile(user: AuthUser): Promise<UserProfile | null>
       throw new Error(getBootstrapFailureMessage())
     }
 
-    if (!isNotFoundError(error)) {
+    if (!isAppwriteNotFoundError(error)) {
       const fallbackProfile = await getUserProfile(user.$id)
       if (fallbackProfile) {
         return fallbackProfile
@@ -301,7 +305,7 @@ async function fetchExistingProfile(user: AuthUser): Promise<UserProfile | null>
 }
 
 function handleProfileCreationError(error: unknown) {
-  if (error instanceof AppwriteException && error.code !== 409) {
+  if (getAppwriteErrorCode(error) !== null && !isAppwriteConflictError(error)) {
     if (isAppwriteUnauthorizedError(error)) {
       throw new Error(getBootstrapFailureMessage())
     }
@@ -312,7 +316,7 @@ function handleProfileCreationError(error: unknown) {
 }
 
 function handleRoleCreationError(error: unknown) {
-  if (error instanceof AppwriteException && error.code !== 409) {
+  if (getAppwriteErrorCode(error) !== null && !isAppwriteConflictError(error)) {
     if (isAppwriteUnauthorizedError(error)) {
       throw new Error(getBootstrapFailureMessage())
     }
@@ -357,12 +361,17 @@ export async function createAccount(
   assertAppwriteConfigured()
 
   const userId = ID.unique()
-  await withRetry("Account creation", () =>
+  await withTimeout(
+    "Account creation",
     account.create({ userId, ...input, name: input.fullName })
   )
 
-  await withRetry("Login", () =>
-    account.createEmailPasswordSession({ email: input.email, password: input.password })
+  await withTimeout(
+    "Login",
+    account.createEmailPasswordSession({
+      email: input.email,
+      password: input.password,
+    })
   )
 
   const newUser = await withRetry("Session lookup", () => account.get())
@@ -381,9 +390,21 @@ export async function createAccount(
 export async function login(input: LoginInput): Promise<AuthUser> {
   assertAppwriteConfigured()
 
-  await withRetry("Login", () =>
-    account.createEmailPasswordSession(input)
-  )
+  try {
+    await withTimeout("Login", account.createEmailPasswordSession(input))
+  } catch (error) {
+    // Appwrite refuses a new session while one is still active. That state is
+    // reachable whenever the startup session check gave up (slow network,
+    // backgrounded app) while the stored session was in fact still valid — the
+    // user then sees a sign-in form that can never succeed. Drop the stale
+    // session and take one more run at it.
+    if (!isAppwriteSessionAlreadyExistsError(error)) {
+      throw error
+    }
+
+    await logout()
+    await withTimeout("Login", account.createEmailPasswordSession(input))
+  }
 
   return withRetry("Session lookup", () => account.get())
 }
@@ -525,7 +546,8 @@ export async function uploadCurrentUserProfilePhoto(
 
   const bucketId = getProfileImagesBucketId()
   const currentUser = await withRetry("Session lookup", () => account.get())
-  const uploadedFile = await withRetry("Profile photo upload", () =>
+  const uploadedFile = await withTimeout(
+    "Profile photo upload",
     storage.createFile({
       bucketId,
       fileId: ID.unique(),
@@ -555,7 +577,8 @@ export async function completeCurrentUserEmailVerification(
 ): Promise<AuthUser> {
   assertAppwriteConfigured()
 
-  await withRetry("Email verification completion", () =>
+  await withTimeout(
+    "Email verification completion",
     account.updateEmailVerification(input)
   )
 
@@ -584,7 +607,8 @@ export async function changeCurrentUserPassword(
     )
   }
 
-  await withRetry("Password update", () =>
+  await withTimeout(
+    "Password update",
     account.updatePassword({ password, oldPassword })
   )
 }
@@ -598,7 +622,10 @@ async function executeDeleteAccountFunction() {
     )
   }
 
-  return await withRetry("Delete account", () =>
+  // Not retried: a second execution after a successful delete finds no account
+  // and reports a failure for a deletion that actually went through.
+  return await withTimeout(
+    "Delete account",
     functions.createExecution({
       functionId,
       body: JSON.stringify({ action: "delete-account" }),
@@ -651,7 +678,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   try {
     return await withRetry("Session check", () => account.get())
   } catch (error) {
-    if (!isUnauthorizedError(error)) {
+    if (!isAppwriteUnauthorizedError(error)) {
       throw new Error(
         toErrorMessage(error, "Unable to verify the current session.")
       )

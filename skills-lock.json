@@ -6,6 +6,12 @@
       "sourceType": "github",
       "computedHash": "c2654d10a77e48197df43d29b3dcfe230b6f3b8efc81c5566f0f45afffb28e09"
     },
+    "mobile-app-ui-design": {
+      "source": "ceorkm/mobile-app-ui-design",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "0f039cf367e8f72ca25d27e503e8a68f26210c6bbe31ed51c86d7263ecfe5f74"
+    },
     "mobile-design": {
       "source": "sickn33/antigravity-awesome-skills",
       "sourceType": "github",
@@ -16,6 +22,12 @@
       "source": "callstackincubator/agent-skills",
       "sourceType": "github",
       "computedHash": "4ba6d1ee4af74a3707d86ab5af63ac1292f5a064019f2fd41b8efa43ce6be5ea"
+    },
+    "ui-ux-pro-max": {
+      "source": "nextlevelbuilder/ui-ux-pro-max-skill",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/ui-ux-pro-max/SKILL.md",
+      "computedHash": "d1de8ff8d228cd4204bf06eb959ef4317d5b927908d9f42765971e33e80c8a7e"
     },
     "vercel-react-native-skills": {
       "source": "vercel-labs/agent-skills",

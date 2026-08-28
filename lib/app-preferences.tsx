@@ -18,6 +18,20 @@ export type AppPreferences = {
   dailyReminder: boolean
   strictMode: boolean
   hasCompletedOnboarding: boolean
+  /**
+   * Target board exam date as an ISO 8601 string, or null when the learner
+   * has not set one. Drives the Home countdown card. Stored per device
+   * alongside the other preferences rather than on the Appwrite profile,
+   * so it works offline and needs no schema change.
+   */
+  examDate: string | null
+  /**
+   * IDs of news items the learner has already opened. Drives the Home bell
+   * badge: an `isNew` item whose ID is not in here is unread. Stored as IDs
+   * rather than a timestamp because NEWS_ITEMS carries a display
+   * `dateLabel` ("Today", "Mar 19, 2026"), not a parseable date.
+   */
+  seenNewsIds: string[]
 }
 
 const STORAGE_KEY = "@reviewer/app-preferences"
@@ -31,6 +45,8 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   dailyReminder: true,
   strictMode: false,
   hasCompletedOnboarding: false,
+  examDate: null,
+  seenNewsIds: [],
 }
 
 type StorageLike = {

@@ -1,6 +1,7 @@
 import { type ReactNode } from "react"
 import { View, type ViewProps } from "react-native"
 
+import { TONE_TEXT_CLASS, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 import { Text } from "@/components/ui/text"
 
@@ -11,8 +12,12 @@ type EmptyStateProps = ViewProps & {
   description?: string
   /** Optional call to action (usually a `Button`). */
   action?: ReactNode
-  /** `destructive` styles the state as an error. */
-  tone?: "default" | "destructive"
+  /**
+   * Shared vocabulary from `lib/tone.ts` — colors the title. `destructive`
+   * additionally tints the whole card, since a failed load should read as an
+   * error at a glance rather than only in the copy.
+   */
+  tone?: Tone
 }
 
 /**
@@ -40,7 +45,7 @@ function EmptyState({
   return (
     <View
       className={cn(
-        "items-center gap-2 rounded-2xl border border-border/70 bg-card px-5 py-8",
+        "items-center gap-2 rounded-xl border border-border/70 bg-card px-5 py-8",
         tone === "destructive" && "border-destructive/25 bg-destructive/5",
         className
       )}
@@ -48,15 +53,13 @@ function EmptyState({
     >
       {icon ? <View className="mb-1">{icon}</View> : null}
       <Text
-        className={cn(
-          "text-center text-[15px] font-extrabold",
-          tone === "destructive" ? "text-destructive" : "text-foreground"
-        )}
+        variant="subheading"
+        className={cn("text-center", TONE_TEXT_CLASS[tone])}
       >
         {title}
       </Text>
       {description ? (
-        <Text className="text-center text-[12px] leading-[18px] text-muted-foreground">
+        <Text variant="caption" className="text-center">
           {description}
         </Text>
       ) : null}

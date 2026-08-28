@@ -11,9 +11,13 @@ import {
   STREAK_TIER_META,
 } from "./constants"
 import type { AchievementProfileSnapshot, AwardMilestoneParams } from "./types"
-import { buildDeterministicRowId, isAppwriteConflictError } from "./utils"
+import {
+  getUserOwnedPermissions,
+  isAppwriteConflictError,
+  resolveDeterministicRow,
+} from "./utils"
 
-function buildAchievementRowId(params: {
+function buildAchievementKeyParts(params: {
   userId: string
   achievementType: LearningAchievementDocument["achievementType"]
   title: string
@@ -22,7 +26,7 @@ function buildAchievementRowId(params: {
   badgeKey?: string
   periodStartDate?: string
 }) {
-  return buildDeterministicRowId("achieve", [
+  return [
     params.userId,
     params.achievementType,
     params.title,
@@ -30,7 +34,7 @@ function buildAchievementRowId(params: {
     params.examId ?? "",
     params.learningMaterialId ?? "",
     params.periodStartDate ?? "",
-  ])
+  ]
 }
 
 export async function createAchievementIfMissing(params: {
@@ -55,11 +59,28 @@ export async function createAchievementIfMissing(params: {
 }): Promise<boolean> {
   const nowIso = new Date().toISOString()
 
+  // Look before writing. A create-and-swallow-409 would no longer recognise an
+  // achievement stored under the pre-widening row ID, and would award the badge
+  // a second time under the new ID.
+  const { row: existing, rowId } = await resolveDeterministicRow<
+    LearningAchievementDocument & { userId?: string }
+  >(
+    COLLECTIONS.LEARNING_ACHIEVEMENTS,
+    "achieve",
+    buildAchievementKeyParts(params),
+    params.userId
+  )
+
+  if (existing) {
+    return false
+  }
+
   try {
     await tablesDB.createRow({
       databaseId: DB_ID,
       tableId: COLLECTIONS.LEARNING_ACHIEVEMENTS,
-      rowId: buildAchievementRowId(params),
+      rowId,
+      permissions: getUserOwnedPermissions(params.userId),
       data: {
         userId: params.userId,
         fullName: params.profileSnapshot?.fullName ?? null,

@@ -1,4 +1,4 @@
-import type { QuestionnaireDocument, QuestionnaireQuestionType } from "./schema"
+import type { LegacyQuestionnaireDocument, LegacyQuestionnaireQuestionType } from "./schema"
 
 export type BoardExamCatalogSet = {
   id: string
@@ -8,11 +8,11 @@ export type BoardExamCatalogSet = {
   setCode: string
   description: string
   order: number
-  questionType: QuestionnaireQuestionType
+  questionType: LegacyQuestionnaireQuestionType
   isPremium?: boolean
   storageFileId?: string
   storageFileName?: string
-  loadLocal: () => QuestionnaireDocument
+  loadLocal: () => LegacyQuestionnaireDocument
 }
 
 export type BoardExamCatalogCategory = {
@@ -27,9 +27,9 @@ export type BoardExamCatalogCategory = {
 
 function readLocalQuestionnaire(
   value:
-    | QuestionnaireDocument
+    | LegacyQuestionnaireDocument
     | {
-        default: QuestionnaireDocument
+        default: LegacyQuestionnaireDocument
       }
 ) {
   return "default" in value ? value.default : value

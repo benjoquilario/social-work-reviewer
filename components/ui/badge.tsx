@@ -1,6 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority"
 import { View, type ViewProps } from "react-native"
 
+import { TONE_SURFACE_CLASS, TONE_TEXT_CLASS, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 import { Text, TextClassContext } from "@/components/ui/text"
 
@@ -8,23 +9,18 @@ const badgeVariants = cva(
   "flex-row items-center gap-1 self-start rounded-full border",
   {
     variants: {
-      variant: {
-        default: "border-primary/25 bg-primary/10",
-        secondary: "border-transparent bg-secondary",
-        muted: "border-transparent bg-muted",
-        success: "border-success/25 bg-success/10",
-        warning: "border-warning/30 bg-warning/15",
-        destructive: "border-destructive/25 bg-destructive/10",
-        accent: "border-accent/30 bg-accent/15",
-        outline: "border-border bg-transparent",
-      },
+      tone: {
+        ...TONE_SURFACE_CLASS,
+        // A badge's neutral state is a hairline outline, not a filled card.
+        default: "border-border bg-transparent",
+      } satisfies Record<Tone, string>,
       size: {
         default: "px-2.5 py-1",
         sm: "px-2 py-0.5",
       },
     },
     defaultVariants: {
-      variant: "default",
+      tone: "primary",
       size: "default",
     },
   }
@@ -32,25 +28,14 @@ const badgeVariants = cva(
 
 const badgeTextVariants = cva("font-semibold", {
   variants: {
-    variant: {
-      default: "text-primary",
-      secondary: "text-secondary-foreground",
-      muted: "text-muted-foreground",
-      success: "text-success",
-      // Yellow reads fine on dark surfaces but fails contrast on light ones,
-      // so light mode falls back to foreground.
-      warning: "text-foreground dark:text-warning",
-      destructive: "text-destructive",
-      accent: "text-foreground dark:text-accent",
-      outline: "text-foreground",
-    },
+    tone: TONE_TEXT_CLASS,
     size: {
-      default: "text-[11px]",
-      sm: "text-[10px]",
+      default: "text-2xs",
+      sm: "text-2xs",
     },
   },
   defaultVariants: {
-    variant: "default",
+    tone: "primary",
     size: "default",
   },
 })
@@ -62,16 +47,19 @@ type BadgeProps = ViewProps & VariantProps<typeof badgeVariants>
  * String children are wrapped in a styled Text automatically;
  * element children inherit the text style via TextClassContext.
  *
+ * `tone` is the shared vocabulary from `lib/tone.ts` — the same values
+ * `StatTile` and `EmptyState` take.
+ *
  * ```tsx
- * <Badge variant="success">Completed</Badge>
- * <Badge variant="accent" size="sm"><Crown size={10} … /><Text>Premium</Text></Badge>
+ * <Badge tone="success">Completed</Badge>
+ * <Badge tone="accent" size="sm"><Crown size={10} … /><Text>Premium</Text></Badge>
  * ```
  */
-function Badge({ className, variant, size, children, ...props }: BadgeProps) {
+function Badge({ className, tone, size, children, ...props }: BadgeProps) {
   return (
-    <TextClassContext.Provider value={badgeTextVariants({ variant, size })}>
+    <TextClassContext.Provider value={badgeTextVariants({ tone, size })}>
       <View
-        className={cn(badgeVariants({ variant, size }), className)}
+        className={cn(badgeVariants({ tone, size }), className)}
         {...props}
       >
         {typeof children === "string" || typeof children === "number" ? (

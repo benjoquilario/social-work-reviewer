@@ -3,7 +3,9 @@ import { getBoardExamCatalogSet } from "../board-exam-catalog"
 import type { UserAnswerDocument } from "../schema"
 import type { ExamAttempt } from "./types"
 
-const QUIZ_SESSION_QUERY_LIMIT = 500
+const QUIZ_SESSION_PAGE_SIZE = 500
+/** 10 × 500 = 5,000 answer rows, i.e. ~50 full 100-item board exams. */
+const QUIZ_SESSION_MAX_PAGES = 10
 
 export function parseBoardExamSessionExamId(examId: string) {
   if (!examId.startsWith("board-exam:")) {
@@ -103,27 +105,83 @@ export function summarizeQuizSessions(answerRows: UserAnswerDocument[]) {
     )
 }
 
+/**
+ * Every answer row for a user, newest first, gathered by cursor paging.
+ *
+ * A single `limit(500)` request used to back this. Because sessions are
+ * reconstructed by grouping answer rows, that cap did more than shorten the
+ * list: a 100-item board exam is 100 rows, so past ~5 exams the oldest session
+ * in the window arrived half-loaded, `answeredCount` came out below
+ * `totalItems`, and a finished exam was reported as `"ongoing"` — reappearing
+ * under "Resume answering". Paging fixes the common case; `truncated` covers
+ * the rest.
+ */
+async function listUserAnswerRows(params: {
+  userId: string
+  examIds?: string[]
+}) {
+  const baseQueries = [
+    Query.equal("userId", params.userId),
+    Query.orderDesc("answeredAt"),
+  ]
+
+  if (params.examIds && params.examIds.length > 0) {
+    baseQueries.unshift(Query.equal("topicId", params.examIds))
+  }
+
+  const rows: UserAnswerDocument[] = []
+  let cursorAfterId: string | null = null
+
+  for (let page = 0; page < QUIZ_SESSION_MAX_PAGES; page += 1) {
+    const response = await tablesDB.listRows({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.USER_ANSWERS,
+      queries: [
+        ...baseQueries,
+        Query.limit(QUIZ_SESSION_PAGE_SIZE),
+        ...(cursorAfterId ? [Query.cursorAfter(cursorAfterId)] : []),
+      ],
+    })
+
+    const pageRows = response.rows as unknown as UserAnswerDocument[]
+    rows.push(...pageRows)
+
+    if (pageRows.length < QUIZ_SESSION_PAGE_SIZE) {
+      return { rows, truncated: false }
+    }
+
+    const nextCursor = pageRows[pageRows.length - 1]?.$id ?? null
+
+    if (!nextCursor || nextCursor === cursorAfterId) {
+      return { rows, truncated: false }
+    }
+
+    cursorAfterId = nextCursor
+  }
+
+  return { rows, truncated: true }
+}
+
 export async function listUserQuizSessions(params: {
   userId: string
   examIds?: string[]
 }) {
-  const queries = [
-    Query.equal("userId", params.userId),
-    Query.orderDesc("answeredAt"),
-    Query.limit(QUIZ_SESSION_QUERY_LIMIT),
-  ]
+  const { rows, truncated } = await listUserAnswerRows(params)
+  const sessions = summarizeQuizSessions(rows)
 
-  if (params.examIds && params.examIds.length > 0) {
-    queries.unshift(Query.equal("topicId", params.examIds))
+  if (!truncated) {
+    return sessions
   }
 
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.USER_ANSWERS,
-    queries,
-  })
+  // We stopped mid-history, so the oldest session we saw is the one that may be
+  // missing rows. Drop it rather than publish a completed attempt as resumable.
+  console.warn(
+    `[progress] listUserQuizSessions: userId=${params.userId} has more than ${
+      QUIZ_SESSION_PAGE_SIZE * QUIZ_SESSION_MAX_PAGES
+    } answer rows. Older sessions are omitted — consider persisting a quiz_sessions row per attempt instead of deriving sessions from user_answers.`
+  )
 
-  return summarizeQuizSessions(rows as unknown as UserAnswerDocument[])
+  return sessions.slice(0, Math.max(sessions.length - 1, 0))
 }
 
 export function getQuizSessionTitle(attempt: Pick<ExamAttempt, "examId">) {

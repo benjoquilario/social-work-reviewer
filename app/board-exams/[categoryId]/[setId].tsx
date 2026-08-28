@@ -22,7 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 
-const MODE_CARD_STYLE = "rounded-[24px]"
+const MODE_CARD_STYLE = "rounded-xl"
 
 const BOARD_EXAM_MODE_PRESETS = [
   {
@@ -99,13 +99,13 @@ function BoardExamModeCard({
           opacity: isDisabled ? 0.55 : 1,
         }}
       >
-        <CardContent className="gap-3 px-4 py-4">
+        <CardContent className="gap-3">
           <View className="flex-row items-start justify-between gap-3">
             <View className="flex-1 gap-1.5">
-              <Text className="text-[15px] font-black text-card-foreground">
+              <Text className="text-sm font-black text-card-foreground">
                 {preset.label}
               </Text>
-              <Text className="text-[12px] leading-5 text-muted-foreground">
+              <Text className="text-xs leading-5 text-muted-foreground">
                 {preset.description}
               </Text>
             </View>
@@ -114,7 +114,7 @@ function BoardExamModeCard({
                 className="rounded-full px-2.5 py-1"
                 style={{ backgroundColor: withOpacity(theme.primary, 0.14) }}
               >
-                <Text className="text-[10px] font-black uppercase tracking-[1px] text-primary">
+                <Text variant="eyebrow">
                   Selected
                 </Text>
               </View>
@@ -124,14 +124,14 @@ function BoardExamModeCard({
           <View className="flex-row flex-wrap items-center gap-2.5">
             <View className="flex-row items-center gap-1.5">
               <FileQuestion size={13} color={theme.primary} />
-              <Text className="text-[11px] font-semibold uppercase tracking-[0.9px] text-primary">
+              <Text variant="eyebrow">
                 {effectiveQuestionCount} items
               </Text>
             </View>
             <View className="flex-row items-center gap-1.5">
               <Clock3 size={13} color={theme.accent} />
               <Text
-                className="text-[11px] font-semibold uppercase tracking-[0.9px]"
+                className="text-2xs font-bold uppercase tracking-[1px]"
                 style={{ color: theme.accent }}
               >
                 {effectiveMinutes} minutes
@@ -140,7 +140,7 @@ function BoardExamModeCard({
           </View>
 
           {isDisabled ? (
-            <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-muted-foreground">
+            <Text variant="label">
               Not enough visible questions for this mode
             </Text>
           ) : null}
@@ -248,8 +248,8 @@ export default function BoardExamSetDetailScreen() {
       >
         {setDetailQuery.isLoading ? (
           <View className="gap-3">
-            <Skeleton className="h-28 rounded-2xl" />
-            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-xl" />
+            <Skeleton className="h-28 rounded-xl" />
           </View>
         ) : null}
 
@@ -269,28 +269,28 @@ export default function BoardExamSetDetailScreen() {
               // backgroundColor: withOpacity(theme.accent, 0.08),
             }}
           >
-            <CardContent className="gap-3 px-4 py-3.5">
+            <CardContent size="compact" className="gap-3">
               <View className="flex-row items-center gap-2">
                 <LockKeyhole size={14} color={theme.accent} />
                 <Text
-                  className="text-[11px] font-black uppercase tracking-[1.1px]"
+                  className="text-2xs font-bold uppercase tracking-[1px]"
                   style={{ color: theme.accent }}
                 >
                   Free Preview
                 </Text>
               </View>
-              <Text className="text-[13px] font-bold text-card-foreground">
+              <Text className="text-sm font-bold text-card-foreground">
                 You have access to {visibleQuestionCount} of{" "}
                 {visibleQuestionCount + hiddenPremiumQuestionCount} questions
               </Text>
-              <Text className="text-[12px] leading-5 text-muted-foreground">
+              <Text className="text-xs leading-5 text-muted-foreground">
                 Free users can answer up to {FREE_QUESTION_LIMIT} questions per
                 set. Upgrade to Premium to unlock all{" "}
                 {hiddenPremiumQuestionCount} remaining questions and access
                 every mode.
               </Text>
               <Pressable
-                className="mt-1 h-11 flex-row items-center justify-center gap-2 rounded-2xl"
+                className="mt-1 h-11 flex-row items-center justify-center gap-2 rounded-md"
                 style={{
                   backgroundColor: theme.accent,
                 }}
@@ -307,7 +307,7 @@ export default function BoardExamSetDetailScreen() {
               >
                 <Crown size={15} color={theme.accentForeground} />
                 <Text
-                  className="text-[13px] font-black"
+                  className="text-sm font-black"
                   style={{ color: theme.accentForeground }}
                 >
                   Unlock All Questions
@@ -319,11 +319,11 @@ export default function BoardExamSetDetailScreen() {
 
         {/* {!setDetailQuery.isLoading && !errorMessage && set ? (
           <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-            <CardContent className="gap-1.5 px-4 py-3.5">
-              <Text className="text-[13px] font-bold text-card-foreground">
+            <CardContent size="compact" className="gap-1.5">
+              <Text className="text-sm font-bold text-card-foreground">
                 Select a mode first
               </Text>
-              <Text className="text-[12px] leading-5 text-muted-foreground">
+              <Text className="text-xs leading-5 text-muted-foreground">
                 You must choose a mode before starting. Correct answers are not
                 shown during the quiz, and you need to answer the current item
                 before moving to the next one.
@@ -348,11 +348,11 @@ export default function BoardExamSetDetailScreen() {
 
             {selectedMode?.isCustomMinutes ? (
               <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-                <CardContent className="gap-2 px-4 py-4">
-                  <Text className="text-[11px] font-black uppercase tracking-[1.1px] text-primary">
+                <CardContent className="gap-2">
+                  <Text variant="eyebrow">
                     Full item minutes
                   </Text>
-                  <Text className="text-[12px] leading-5 text-muted-foreground">
+                  <Text className="text-xs leading-5 text-muted-foreground">
                     Type how many minutes the learner should take for all
                     available items in this set.
                   </Text>
@@ -364,7 +364,7 @@ export default function BoardExamSetDetailScreen() {
                     keyboardType="number-pad"
                     placeholder="180"
                     placeholderTextColor={theme.mutedForeground}
-                    className="rounded-2xl border px-4 py-3 text-sm text-foreground"
+                    className="rounded-xl border px-4 py-3 text-sm text-foreground"
                     style={{
                       borderColor: theme.border,
                       backgroundColor: theme.input,
@@ -380,11 +380,11 @@ export default function BoardExamSetDetailScreen() {
             !errorMessage &&
             visibleQuestionCount === 0 ? (
               <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-                <CardContent className="gap-1.5 px-4 py-4">
-                  <Text className="text-[14px] font-black text-card-foreground">
+                <CardContent className="gap-1.5">
+                  <Text className="text-sm font-black text-card-foreground">
                     No visible questions in this set
                   </Text>
-                  <Text className="text-[12px] leading-5 text-muted-foreground">
+                  <Text className="text-xs leading-5 text-muted-foreground">
                     No questions are available for this set yet. Check back
                     later for updates.
                   </Text>

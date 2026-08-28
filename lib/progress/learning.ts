@@ -19,9 +19,10 @@ import {
   buildDeterministicRowId,
   clampNumber,
   fetchEntityTitleMap,
-  getRowByIdSafe,
+  getUserOwnedPermissions,
   isAppwriteConflictError,
   listFirstRow,
+  resolveDeterministicRow,
   uniqueStrings,
   mapLearningHistoryRowsToActivityItems,
 } from "./utils"
@@ -30,17 +31,15 @@ export async function findLearningHistoryRow(
   userId: string,
   learningMaterialId: string
 ) {
-  const rowId = buildDeterministicRowId("history", [
-    userId,
-    learningMaterialId,
-  ])
-  const directRow = await getRowByIdSafe<LearningHistoryDocument>(
+  const { row } = await resolveDeterministicRow<LearningHistoryDocument>(
     COLLECTIONS.LEARNING_HISTORY,
-    rowId
+    "history",
+    [userId, learningMaterialId],
+    userId
   )
 
-  if (directRow) {
-    return directRow
+  if (row) {
+    return row
   }
 
   return listFirstRow<LearningHistoryDocument>(COLLECTIONS.LEARNING_HISTORY, [
@@ -126,6 +125,7 @@ async function insertNewLearningHistory(
     tableId: COLLECTIONS.LEARNING_HISTORY,
     rowId,
     data: newRow,
+    permissions: getUserOwnedPermissions(params.userId),
   })
 
   return {
@@ -185,9 +185,9 @@ export async function listRecentLearningHistory(
   }
 
   queries.push(Query.orderDesc("lastAccessedAt"))
-  queries.push(Query.limit(Math.min(historyLimit + 1, HISTORY_QUERY_LIMIT)))
+  queries.push(Query.limit(Math.min(historyLimit, HISTORY_QUERY_LIMIT)))
 
-  const { rows } = await tablesDB.listRows({
+  const { rows, total } = await tablesDB.listRows({
     databaseId: DB_ID,
     tableId: COLLECTIONS.LEARNING_HISTORY,
     queries,
@@ -195,8 +195,10 @@ export async function listRecentLearningHistory(
 
   const historyRows = rows as unknown as LearningHistoryDocument[]
   const displayHistoryRows = historyRows.slice(0, historyLimit)
-  const hasMore = historyRows.length > historyLimit
-  
+  // Server-side `total` rather than page length — see getUserActivityFeed.
+  const hasMore = (total ?? historyRows.length) > displayHistoryRows.length
+
+
   const materialTitleMap = await fetchEntityTitleMap({
     collectionId: COLLECTIONS.LEARNING_MATERIALS,
     entityIds: uniqueStrings(displayHistoryRows.map((row) => row.learningMaterialId)),

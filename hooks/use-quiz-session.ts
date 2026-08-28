@@ -113,6 +113,12 @@ export function useQuizSession({
   const [didResumeAttempt, setDidResumeAttempt] = useState(false)
 
   const startTimeRef = useRef(Date.now())
+  /**
+   * `startTimeRef` as rendered state. The countdown needs the effective
+   * start instant — which resume shifts backwards by the time already
+   * spent — and a ref never triggers the re-render that would deliver it.
+   */
+  const [startedAtMs, setStartedAtMs] = useState(() => Date.now())
   const hydratedAttemptKeyRef = useRef<string | null>(null)
   const activeIndexRef = useRef(0)
   const isSubmittedRef = useRef(false)
@@ -139,6 +145,7 @@ export function useQuizSession({
     activeIndexRef.current = 0
     isSubmittedRef.current = false
     startTimeRef.current = Date.now()
+    setStartedAtMs(startTimeRef.current)
   }, [totalSeconds, categoryId, examId, totalQuestions])
 
   useEffect(() => {
@@ -186,6 +193,7 @@ export function useQuizSession({
           activeIndexRef.current = safeIndex
           startTimeRef.current =
             Date.now() - Math.max(resumableAttempt.timeTaken, 0) * 1000
+          setStartedAtMs(startTimeRef.current)
 
           requestAnimationFrame(() => {
             flatListRef.current?.scrollToIndex({
@@ -290,6 +298,15 @@ export function useQuizSession({
   }, [questions, answers])
 
   const handleSubmit = useCallback(async () => {
+    // Guard, not decoration: the countdown expiring and the learner confirming
+    // the submit dialog can both land, and `setIsSubmitted` does not take
+    // effect until the next render — so without this, `completeQuizAttempt`
+    // runs twice and the attempt is recorded twice.
+    if (isSubmittedRef.current) {
+      return
+    }
+
+    isSubmittedRef.current = true
     setIsSubmitted(true)
     setShowSubmitModal(false)
 
@@ -403,6 +420,7 @@ export function useQuizSession({
   return {
     questions,
     activeIndex,
+    startedAtMs,
     setActiveIndex,
     answers,
     isSubmitted,

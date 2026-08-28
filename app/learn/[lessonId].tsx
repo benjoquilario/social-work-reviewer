@@ -6,17 +6,18 @@ import { openBrowserAsync, WebBrowserPresentationStyle } from "expo-web-browser"
 import {
   ArrowRight,
   ArrowUpRight,
-  CirclePlay,
-  FileText,
+  Check,
+  CheckCircle2,
   Info,
 } from "lucide-react-native"
-import { Pressable, View } from "react-native"
+import { View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import {
   getLearningMaterialDetail,
   listLearningMaterialsByTopicId,
 } from "@/lib/learning-content"
+import { normalizeMaterialContentToMarkdown } from "@/lib/learning-material-content"
 import {
   getLearningMaterialStatus,
   trackLearningMaterialCompleted,
@@ -25,8 +26,8 @@ import {
   trackLearningMaterialSession,
   type LearningMaterialStatusSnapshot,
 } from "@/lib/progress"
-import { THEME, withOpacity } from "@/lib/theme"
-import { useColorScheme } from "@/hooks/use-color-scheme"
+import { useThemePalette } from "@/hooks/use-theme"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -37,14 +38,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { EmptyState } from "@/components/ui/empty-state"
 import { IconButton } from "@/components/ui/icon-button"
 import { MarkdownContent } from "@/components/ui/markdown-content"
+import { MotionPressable } from "@/components/ui/motion"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
+import {
+  getMaterialStatusPresentation,
+  getMaterialTypeMeta,
+  MaterialTypeIcon,
+} from "@/components/learn"
 import { ScreenHeader } from "@/components/screen-header"
-
-import { normalizeMaterialContentToMarkdown } from "../../lib/learning-material-content"
 
 const SHORT_DATETIME_FMT = new Intl.DateTimeFormat("en-PH", {
   dateStyle: "medium",
@@ -61,29 +67,46 @@ function formatCreatedAt(value: string) {
   return SHORT_DATETIME_FMT.format(parsed)
 }
 
-function getMaterialActionLabel(type: string) {
-  if (type === "video") {
-    return "Watch video"
-  }
-
-  if (type === "pdf") {
-    return "Open PDF"
-  }
-
+function getResourceActionLabel(type: string) {
+  if (type === "video") return "Watch video"
+  if (type === "pdf") return "Open PDF"
   return "Open attachment"
 }
 
-function getMaterialActionIcon(type: string, color: string) {
-  if (type === "video") {
-    return <CirclePlay size={16} color={color} strokeWidth={2.2} />
-  }
-
-  return <FileText size={16} color={color} strokeWidth={2.2} />
+/** One metadata line in the details dialog. */
+function DetailRow({
+  label,
+  value,
+  isFirst,
+}: {
+  label: string
+  value: string
+  isFirst: boolean
+}) {
+  return (
+    <View
+      className={
+        isFirst
+          ? "flex-row items-start justify-between gap-4 py-2.5"
+          : "flex-row items-start justify-between gap-4 border-t border-border/70 py-2.5"
+      }
+    >
+      <Text variant="label">{label}</Text>
+      <Text
+        variant="callout"
+        className="flex-1 text-right font-semibold"
+        numberOfLines={2}
+      >
+        {value}
+      </Text>
+    </View>
+  )
 }
 
 export default function LessonDetailScreen() {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const theme = useThemePalette()
   const user = useAuth((state) => state.user)
   const isAuthenticated = useAuth((state) => state.isAuthenticated)
   const profile = useAuth((state) => state.profile)
@@ -94,9 +117,6 @@ export default function LessonDetailScreen() {
   const [isMarkedCompleted, setIsMarkedCompleted] = useState(false)
   const sessionStartedAtRef = useRef(Date.now())
   const openedMaterialIdRef = useRef<string | null>(null)
-  const colorScheme = useColorScheme()
-  const activeTheme = colorScheme === "dark" ? THEME.dark : THEME.light
-  const primaryColor = activeTheme.primary
 
   const lessonId = params.lessonId ?? ""
   const isPremiumUser = profile?.isPremium === true
@@ -146,59 +166,50 @@ export default function LessonDetailScreen() {
   const isStatusLoading = Boolean(user) && materialStatusQuery.isLoading
   const isResolvingNextMaterial =
     Boolean(materialDetail?.topic.id) && topicMaterialsQuery.isLoading
-  const nextMaterial = useMemo(() => {
-    if (!materialDetail) {
-      return null
-    }
 
-    const orderedMaterials = topicMaterialsQuery.data ?? []
-    const currentIndex = orderedMaterials.findIndex(
-      (material) => material.id === materialDetail.material.id
-    )
+  const orderedMaterials = useMemo(
+    () => topicMaterialsQuery.data ?? [],
+    [topicMaterialsQuery.data]
+  )
+  const currentIndex = useMemo(
+    () =>
+      materialDetail
+        ? orderedMaterials.findIndex(
+            (material) => material.id === materialDetail.material.id
+          )
+        : -1,
+    [materialDetail, orderedMaterials]
+  )
+  const nextMaterial =
+    currentIndex >= 0 ? (orderedMaterials[currentIndex + 1] ?? null) : null
 
-    if (currentIndex < 0) {
-      return null
-    }
+  const statusPresentation = useMemo(
+    () =>
+      isCompleted
+        ? getMaterialStatusPresentation({
+            learningMaterialId: lessonId,
+            status: "completed",
+            progressPercent: 100,
+            lastAccessedAt: "",
+            completedAt: null,
+          })
+        : persistedMaterialStatus
+          ? getMaterialStatusPresentation(persistedMaterialStatus)
+          : null,
+    [isCompleted, lessonId, persistedMaterialStatus]
+  )
 
-    return orderedMaterials[currentIndex + 1] ?? null
-  }, [materialDetail, topicMaterialsQuery.data])
-
-  const statusChip = useMemo(() => {
-    if (isCompleted) {
-      return {
-        label: "Completed",
-        textColor: activeTheme.success,
-        backgroundColor: withOpacity(activeTheme.success, 0.16),
-      }
-    }
-
-    if (!persistedMaterialStatus) {
-      return null
-    }
-
-    if (persistedMaterialStatus.status === "paused") {
-      return {
-        label: `Paused ${Math.round(persistedMaterialStatus.progressPercent)}%`,
-        textColor: activeTheme.warning,
-        backgroundColor: withOpacity(activeTheme.warning, 0.16),
-      }
-    }
-
-    return {
-      label: `In progress ${Math.round(persistedMaterialStatus.progressPercent)}%`,
-      textColor: activeTheme.primary,
-      backgroundColor: withOpacity(activeTheme.primary, 0.14),
-    }
-  }, [activeTheme, isCompleted, persistedMaterialStatus])
-
-  const materialMarkdown = useMemo(() => {
-    return normalizeMaterialContentToMarkdown(
-      materialDetail?.material.content ?? ""
-    )
-  }, [materialDetail?.material.content])
+  const materialMarkdown = useMemo(
+    () =>
+      normalizeMaterialContentToMarkdown(
+        materialDetail?.material.content ?? ""
+      ),
+    [materialDetail?.material.content]
+  )
 
   const hasRenderableNote = Boolean(materialMarkdown)
   const hasExternalResource = Boolean(materialDetail?.material.fileUrl)
+  const typeMeta = getMaterialTypeMeta(materialDetail?.material.type ?? "")
 
   useEffect(() => {
     setIsMarkedCompleted(false)
@@ -356,65 +367,41 @@ export default function LessonDetailScreen() {
     router.back()
   }
 
+  // ─── Loading / error ────────────────────────────────────────────
+
   if (materialQuery.isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-background">
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          contentContainerClassName="gap-4 px-4 pb-7 pt-3"
-        >
-          <Skeleton className="h-10 w-10 rounded-2xl" />
-          <Skeleton className="h-28 rounded-2xl" />
-          <Skeleton className="h-24 rounded-2xl" />
-          <Skeleton className="h-32 rounded-2xl" />
-        </ScrollView>
+      <SafeAreaView className="flex-1 gap-4 bg-background px-4 pt-3">
+        <Skeleton className="h-11 w-11 rounded-lg" />
+        <Skeleton className="h-8 w-3/4 rounded-xs" />
+        <Skeleton className="h-6 w-32 rounded-full" />
+        <Skeleton className="h-56 rounded-xl" />
       </SafeAreaView>
     )
   }
 
-  if (materialQuery.error) {
+  if (materialQuery.error || !materialDetail) {
     return (
       <SafeAreaView className="flex-1 bg-background">
-        <View className="flex-1 items-center justify-center gap-3 px-6">
-          <Text className="text-2xl font-black text-foreground">
-            Material unavailable
-          </Text>
-          <Text className="text-center text-sm leading-6 text-muted-foreground">
-            {materialQuery.error instanceof Error
-              ? materialQuery.error.message
-              : "Unable to load learning material."}
-          </Text>
-          <Button
-            className="h-11 w-full"
-            onPress={() => router.replace("/learn")}
-          >
-            <Text className="font-bold text-primary-foreground">
-              Back to Learning Center
-            </Text>
-          </Button>
-        </View>
-      </SafeAreaView>
-    )
-  }
-
-  if (!materialDetail) {
-    return (
-      <SafeAreaView className="flex-1 bg-background">
-        <View className="flex-1 items-center justify-center gap-3 px-6">
-          <Text className="text-2xl font-black text-foreground">
-            Material not found
-          </Text>
-          <Text className="text-center text-sm leading-6 text-muted-foreground">
-            This learning material ID does not exist in Appwrite.
-          </Text>
-          <Button
-            className="h-11 w-full"
-            onPress={() => router.replace("/learn")}
-          >
-            <Text className="font-bold text-primary-foreground">
-              Back to Learning Center
-            </Text>
-          </Button>
+        <View className="flex-1 justify-center px-4">
+          <EmptyState
+            tone="destructive"
+            title={
+              materialQuery.error
+                ? "Material unavailable"
+                : "Material not found"
+            }
+            description={
+              materialQuery.error instanceof Error
+                ? materialQuery.error.message
+                : "This learning material could not be loaded."
+            }
+            action={
+              <Button onPress={() => router.replace("/learn")}>
+                <Text>Back to library</Text>
+              </Button>
+            }
+          />
         </View>
       </SafeAreaView>
     )
@@ -423,283 +410,254 @@ export default function LessonDetailScreen() {
   if (materialDetail.material.isLocked) {
     return (
       <SafeAreaView className="flex-1 bg-background">
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          contentContainerClassName="gap-4 px-4 pb-7"
-        >
-          <ScreenHeader
-            title="Lesson"
-            trailing={
-              <IconButton
-                label="Material details"
-                size="sm"
-                variant="outline"
-                onPress={() => setIsDetailsOpen(true)}
-              >
-                <Info size={18} color={primaryColor} strokeWidth={2.3} />
-              </IconButton>
+        <ScrollView contentContainerClassName="gap-4 px-4 pb-10">
+          <ScreenHeader title={materialDetail.topic.title} />
+          <EmptyState
+            tone="accent"
+            title="Premium content"
+            description={`${materialDetail.material.title} is available to premium subscribers only.`}
+            action={
+              <View className="w-full gap-2.5">
+                <Button
+                  onPress={() =>
+                    router.push({
+                      pathname: "/premium",
+                      params: {
+                        source: "material",
+                        title: materialDetail.material.title,
+                        categoryId: materialDetail.subject.id,
+                        topicId: materialDetail.topic.id,
+                      },
+                    })
+                  }
+                >
+                  <Text>View premium plans</Text>
+                </Button>
+                <Button variant="outline" onPress={() => router.back()}>
+                  <Text>Back to topic</Text>
+                </Button>
+              </View>
             }
           />
-
-          <Card>
-            <CardContent className="gap-3 px-3.5 py-4">
-              <Text className="text-base font-black text-card-foreground">
-                Premium Content Locked
-              </Text>
-              <Text className="text-[13px] leading-5 text-muted-foreground">
-                {materialDetail.material.title} is available only to premium
-                subscribers.
-              </Text>
-              <Text className="text-[12px] leading-5 text-muted-foreground">
-                Subject: {materialDetail.subject.name}
-              </Text>
-              <Text className="text-[12px] leading-5 text-muted-foreground">
-                Topic: {materialDetail.topic.title}
-              </Text>
-              <Button
-                className="h-11"
-                onPress={() =>
-                  router.push({
-                    pathname: "/premium",
-                    params: {
-                      source: "material",
-                      title: materialDetail.material.title,
-                      categoryId: materialDetail.subject.id,
-                      topicId: materialDetail.topic.id,
-                    },
-                  })
-                }
-              >
-                <Text className="font-bold text-primary-foreground">
-                  View Premium Plans
-                </Text>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-11"
-                onPress={() => router.back()}
-              >
-                <Text className="font-bold">Back to Topic Materials</Text>
-              </Button>
-            </CardContent>
-          </Card>
         </ScrollView>
       </SafeAreaView>
     )
   }
 
+  // ─── Reader ─────────────────────────────────────────────────────
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="gap-4 px-3 pb-7"
+        contentContainerClassName="gap-5 px-4 pb-10"
       >
+        {/* The header names the topic — the lesson title belongs in the
+            document, at document size, not squeezed into a nav bar. */}
         <ScreenHeader
-          title="Lesson"
+          title={materialDetail.topic.title}
           trailing={
-            <View className="flex-row items-center gap-2">
-              {hasExternalResource ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-10 rounded-2xl px-3"
-                  onPress={() => void handleOpenResource()}
-                >
-                  {getMaterialActionIcon(
-                    materialDetail.material.type,
-                    primaryColor
-                  )}
-                  <Text className="text-xs font-bold">
-                    {getMaterialActionLabel(materialDetail.material.type)}
-                  </Text>
-                </Button>
-              ) : null}
-              <IconButton
-                label="Material details"
-                size="sm"
-                variant="outline"
-                onPress={() => setIsDetailsOpen(true)}
-              >
-                <Info size={18} color={primaryColor} strokeWidth={2.3} />
-              </IconButton>
-            </View>
+            <IconButton
+              label="Material details"
+              size="sm"
+              variant="outline"
+              onPress={() => setIsDetailsOpen(true)}
+            >
+              <Info size={18} color={theme.primary} />
+            </IconButton>
           }
         />
 
-        <View className="gap-3 px-1">
-          <Text className="text-[13px] font-black uppercase tracking-[1.4px] text-primary">
-            {materialDetail.subject.name} · {materialDetail.topic.title} ·{" "}
-            {materialDetail.material.type}
+        <View className="gap-2.5">
+          <Text variant="eyebrow" numberOfLines={1}>
+            {materialDetail.subject.name}
           </Text>
 
-          <Text className="text-[17px] font-black leading-7 text-foreground">
+          {/* Was `text-base` under a 14px all-caps breadcrumb — the title
+              read smaller than its own kicker. */}
+          <Text className="text-2xl font-black leading-8">
             {materialDetail.material.title}
           </Text>
-          {statusChip ? (
-            <View
-              className="self-start rounded-full px-3 py-1"
-              style={{ backgroundColor: statusChip.backgroundColor }}
-            >
-              <Text
-                className="text-[11px] font-black uppercase tracking-[0.8px]"
-                style={{ color: statusChip.textColor }}
-              >
-                {statusChip.label}
+
+          <View className="flex-row flex-wrap items-center gap-2">
+            <Badge tone="muted" size="sm">
+              <MaterialTypeIcon
+                size={11}
+                type={materialDetail.material.type}
+                color={theme.mutedForeground}
+              />
+              <Text>{typeMeta.label}</Text>
+            </Badge>
+
+            {statusPresentation ? (
+              <Badge tone={statusPresentation.tone} size="sm">
+                {statusPresentation.label}
+              </Badge>
+            ) : null}
+
+            {currentIndex >= 0 && orderedMaterials.length > 0 ? (
+              <Text variant="label">
+                {currentIndex + 1} of {orderedMaterials.length}
               </Text>
-            </View>
-          ) : null}
-          {materialDetail.material.type !== "note" ? (
-            <Text className="text-[13px] leading-6 text-muted-foreground">
-              This material is linked to an external learning resource.
-            </Text>
-          ) : null}
+            ) : null}
+          </View>
         </View>
 
         {hasExternalResource ? (
-          <Card>
-            <CardContent className="gap-3 px-3.5 py-3.5">
+          <Card className="border-primary/25">
+            <CardContent size="compact" className="gap-3">
               <View className="flex-row items-center gap-2">
-                {getMaterialActionIcon(
-                  materialDetail.material.type,
-                  primaryColor
-                )}
-                <Text className="text-sm font-black text-card-foreground">
-                  External Resource
-                </Text>
-              </View>
-              <Text className="text-[13px] leading-6 text-muted-foreground">
-                This {materialDetail.material.type} is hosted from the attached
-                file URL. Open it in-app to view the original resource.
-              </Text>
-              <Button
-                className="h-11 rounded-2xl"
-                onPress={() => void handleOpenResource()}
-              >
-                <ArrowUpRight
+                <MaterialTypeIcon
                   size={16}
-                  color={activeTheme.primaryForeground}
-                  strokeWidth={2.2}
+                  type={materialDetail.material.type}
+                  color={theme.primary}
                 />
-                <Text className="font-bold text-primary-foreground">
-                  {getMaterialActionLabel(materialDetail.material.type)}
+                <Text variant="subheading">Attached resource</Text>
+              </View>
+              <Text variant="caption">
+                Hosted outside the app. Opening it counts toward your progress.
+              </Text>
+              <Button onPress={() => void handleOpenResource()}>
+                <ArrowUpRight size={16} color={theme.primaryForeground} />
+                <Text>
+                  {getResourceActionLabel(materialDetail.material.type)}
                 </Text>
               </Button>
             </CardContent>
           </Card>
         ) : null}
 
-        <Card className="rounded-none border-0 bg-background py-0 shadow-none">
-          <CardContent className="gap-2 border-none bg-background px-1 py-2">
-            {hasRenderableNote ? (
-              <MarkdownContent markdown={materialMarkdown} />
-            ) : (
-              <Text className="text-[13px] leading-6 text-muted-foreground">
-                {hasExternalResource
-                  ? "No inline note body was provided for this material. Use the resource action above to view the original file."
-                  : "No readable note content was provided for this material yet."}
-              </Text>
-            )}
-          </CardContent>
-        </Card>
-
-        {user ? (
-          <Button
-            className="h-11 rounded-2xl"
-            onPress={() => void handleMarkCompleted()}
-            disabled={isMarkingComplete || isCompleted || isStatusLoading}
-          >
-            <Text className="font-bold text-primary-foreground">
-              {isCompleted
-                ? "Completed"
-                : isStatusLoading
-                  ? "Checking status..."
-                  : isMarkingComplete
-                    ? "Saving..."
-                    : "Mark as Completed"}
+        {/* Plain view. This was a Card with `rounded-none border-0
+            bg-background py-0 shadow-none` wrapped around a CardContent with
+            `size="none" border-none bg-background` — a card configured to
+            stop being a card. */}
+        <View>
+          {hasRenderableNote ? (
+            <MarkdownContent markdown={materialMarkdown} />
+          ) : (
+            <Text variant="callout" className="text-muted-foreground">
+              {hasExternalResource
+                ? "No inline notes for this material — use the resource above."
+                : "No readable note content has been added to this material yet."}
             </Text>
-          </Button>
-        ) : null}
+          )}
+        </View>
 
-        <Pressable
-          className="mt-1 self-end rounded-full border border-border bg-card p-3.5"
-          onPress={handleNextLearningContent}
-          disabled={isResolvingNextMaterial}
-          style={{ opacity: isResolvingNextMaterial ? 0.5 : 1 }}
-        >
-          <ArrowRight size={22} color={primaryColor} strokeWidth={2.2} />
-        </Pressable>
+        {/* Actions */}
+        <View className="gap-2.5 pt-1">
+          {user ? (
+            isCompleted ? (
+              <View className="flex-row items-center justify-center gap-2 rounded-md border border-success/25 bg-success/10 py-3">
+                <CheckCircle2 size={16} color={theme.success} />
+                <Text className="text-sm font-bold text-success">
+                  Completed
+                </Text>
+              </View>
+            ) : (
+              <Button
+                size="lg"
+                disabled={isMarkingComplete || isStatusLoading}
+                onPress={() => void handleMarkCompleted()}
+              >
+                <Check size={16} color={theme.primaryForeground} />
+                <Text>
+                  {isStatusLoading
+                    ? "Checking status…"
+                    : isMarkingComplete
+                      ? "Saving…"
+                      : "Mark as complete"}
+                </Text>
+              </Button>
+            )
+          ) : null}
+
+          {/* Was an unlabelled circular arrow floating at the bottom right —
+              no way to tell whether it advanced, submitted, or exited. */}
+          {nextMaterial ? (
+            <MotionPressable
+              accessibilityRole="button"
+              accessibilityLabel={`Next material: ${nextMaterial.title}`}
+              onPress={handleNextLearningContent}
+            >
+              <Card>
+                <CardContent
+                  size="compact"
+                  className="flex-row items-center gap-3"
+                >
+                  <View className="flex-1 gap-0.5">
+                    <Text variant="label">Next in this topic</Text>
+                    <Text
+                      variant="callout"
+                      className="font-bold"
+                      numberOfLines={1}
+                    >
+                      {nextMaterial.title}
+                    </Text>
+                  </View>
+                  <ArrowRight size={18} color={theme.primary} />
+                </CardContent>
+              </Card>
+            </MotionPressable>
+          ) : (
+            <Button variant="outline" onPress={() => router.back()}>
+              <Text>Back to topic</Text>
+            </Button>
+          )}
+        </View>
       </ScrollView>
 
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Material Details</DialogTitle>
+            <DialogTitle>Material details</DialogTitle>
             <DialogDescription>
-              Metadata for this learning material and its source.
+              Where this material sits and where it came from.
             </DialogDescription>
           </DialogHeader>
 
-          <View className="gap-2.5">
-            <Text className="text-[13px] leading-6 text-muted-foreground">
-              Subject:{" "}
-              <Text className="font-bold text-card-foreground">
-                {materialDetail.subject.name}
-              </Text>
-            </Text>
-            <Text className="text-[13px] leading-6 text-muted-foreground">
-              Topic:{" "}
-              <Text className="font-bold text-card-foreground">
-                {materialDetail.topic.title}
-              </Text>
-            </Text>
-            <Text className="text-[13px] leading-6 text-muted-foreground">
-              Type:{" "}
-              <Text className="font-bold uppercase text-card-foreground">
-                {materialDetail.material.type}
-              </Text>
-            </Text>
-            <Text className="text-[13px] leading-6 text-muted-foreground">
-              Premium:{" "}
-              <Text className="font-bold text-card-foreground">
-                {materialDetail.material.isPremium ? "Yes" : "No"}
-              </Text>
-            </Text>
-            <Text className="text-[13px] leading-6 text-muted-foreground">
-              Created:{" "}
-              <Text className="font-bold text-card-foreground">
-                {formatCreatedAt(materialDetail.material.createdAt)}
-              </Text>
-            </Text>
-            <Text className="text-[13px] leading-6 text-muted-foreground">
-              Source file:{" "}
-              <Text className="font-bold text-card-foreground">
-                {hasExternalResource ? "Attached" : "None"}
-              </Text>
-            </Text>
+          <View>
+            {[
+              { label: "Subject", value: materialDetail.subject.name },
+              { label: "Topic", value: materialDetail.topic.title },
+              { label: "Type", value: typeMeta.label },
+              {
+                label: "Premium",
+                value: materialDetail.material.isPremium ? "Yes" : "No",
+              },
+              {
+                label: "Created",
+                value: formatCreatedAt(materialDetail.material.createdAt),
+              },
+              {
+                label: "Source file",
+                value: hasExternalResource ? "Attached" : "None",
+              },
+            ].map((row, index) => (
+              <DetailRow
+                key={row.label}
+                label={row.label}
+                value={row.value}
+                isFirst={index === 0}
+              />
+            ))}
           </View>
 
-          <DialogFooter>
+          <DialogFooter className="flex-row">
             {hasExternalResource ? (
               <Button
-                className="h-11 rounded-2xl"
+                className="flex-1"
                 onPress={() => void handleOpenResource()}
               >
-                <ArrowUpRight
-                  size={16}
-                  color={activeTheme.primaryForeground}
-                  strokeWidth={2.2}
-                />
-                <Text className="font-bold text-primary-foreground">
-                  {getMaterialActionLabel(materialDetail.material.type)}
-                </Text>
+                <ArrowUpRight size={16} color={theme.primaryForeground} />
+                <Text numberOfLines={1}>Open</Text>
               </Button>
             ) : null}
             <Button
               variant="outline"
-              className="h-11 rounded-2xl"
+              className="flex-1"
               onPress={() => setIsDetailsOpen(false)}
             >
-              <Text className="font-bold">Close</Text>
+              <Text>Close</Text>
             </Button>
           </DialogFooter>
         </DialogContent>

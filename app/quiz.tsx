@@ -12,11 +12,11 @@ import {
   LayoutGrid,
   Timer,
   Trophy,
-  X,
 } from "lucide-react-native"
 import {
   Alert,
   Animated,
+  AppState,
   Easing,
   FlatList,
   Modal,
@@ -35,8 +35,12 @@ import type { QuizQuestion } from "@/lib/quiz-types"
 import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { useQuizSession, type UserAnswers } from "@/hooks/use-quiz-session"
-import { AnswerOption } from "@/components/ui/answer-option"
+import {
+  AnswerOption,
+  getAnswerOptionState,
+} from "@/components/ui/answer-option"
 import { Button } from "@/components/ui/button"
+import { QuizAnswerFeedback } from "@/components/quiz/quiz-answer-feedback"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 
@@ -182,11 +186,11 @@ function QuizProgressBar({
 }
 
 const LOADING_SKELETON_CLASSES = [
-  "h-24 rounded-3xl",
-  "h-32 rounded-3xl",
-  "h-16 rounded-2xl",
-  "h-16 rounded-2xl",
-  "h-16 rounded-2xl",
+  "h-24 rounded-xl",
+  "h-32 rounded-xl",
+  "h-16 rounded-xl",
+  "h-16 rounded-xl",
+  "h-16 rounded-xl",
 ]
 
 const QUIZ_LOADING_CONTENT_STYLE = {
@@ -197,12 +201,8 @@ const QUIZ_RESULTS_CONTENT_STYLE = {
   paddingHorizontal: 16,
   paddingVertical: 16,
 }
-const QUIZ_CARD_CLASS = "rounded-3xl border border-border bg-card p-5"
+const QUIZ_CARD_CLASS = "rounded-xl border border-border bg-card p-5"
 const QUIZ_PASSING_SCORE = 75
-const QUIZ_RESULT_STATS_ROW_STYLE = {
-  flexDirection: "row" as const,
-  gap: 12,
-}
 const QUIZ_DRAWER_GRID_STYLE = {
   flexDirection: "row" as const,
   flexWrap: "wrap" as const,
@@ -228,7 +228,7 @@ const QuizQuestionDrawerTile = memo(function QuizQuestionDrawerTile({
     <Pressable
       onPress={() => onPress(questionIndex)}
       disabled={isLocked}
-      className="relative h-12 w-12 items-center justify-center rounded-2xl border"
+      className="relative h-12 w-12 items-center justify-center rounded-md border"
       style={{
         borderColor: isActive
           ? theme.primary
@@ -347,7 +347,7 @@ const QuizQuestionMap = memo(function QuizQuestionMap({
           accessibilityLabel="Close question map"
         />
         <View
-          className="rounded-t-[28px] border-t px-5 pb-10 pt-3"
+          className="rounded-t-2xl border-t px-5 pb-10 pt-3"
           style={{ backgroundColor: theme.background, borderColor: theme.border }}
         >
           <View className="mb-4 items-center">
@@ -422,52 +422,95 @@ function getQuizScore(correct: number, total: number) {
   return Math.round((correct / total) * 100)
 }
 
+/**
+ * Countdown for a timed set.
+ *
+ * Driven by a wall-clock deadline rather than by decrementing a counter once a
+ * second. The previous version had three problems, all of which handed the
+ * learner extra time on a timed exam:
+ *
+ *  - it drifted, because each `setTimeout(…, 1000)` is scheduled *after* the
+ *    render it followed, so every tick cost slightly more than a second;
+ *  - it stopped while the app was backgrounded, since JS timers are throttled
+ *    or suspended — leaving the exam and coming back paused the clock;
+ *  - it ignored a resumed attempt entirely, restarting at the full duration
+ *    even when half the time had already been spent.
+ *
+ * It also called `onExpire` from inside a `setSecondsLeft` updater. Updaters
+ * must be pure — React may run them more than once, and does in development —
+ * so expiry could submit the exam twice. Expiry now fires once from an effect,
+ * guarded by a ref.
+ */
 const QuizTimerBadge = memo(function QuizTimerBadge({
   durationSeconds,
+  startedAtMs,
   isSubmitted,
   onExpire,
   theme,
 }: {
   durationSeconds: number
+  /** Effective start instant; a resumed attempt back-dates this. */
+  startedAtMs: number
   isSubmitted: boolean
   onExpire: () => void
   theme: ThemePalette
 }) {
-  const [secondsLeft, setSecondsLeft] = useState(durationSeconds)
-  const onExpireRef = useRef(onExpire)
+  const deadlineMs = startedAtMs + durationSeconds * 1000
 
-  useEffect(() => {
-    setSecondsLeft(durationSeconds)
-  }, [durationSeconds])
+  const readSecondsLeft = useCallback(
+    () => Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000)),
+    [deadlineMs]
+  )
+
+  const [secondsLeft, setSecondsLeft] = useState(readSecondsLeft)
+  const onExpireRef = useRef(onExpire)
+  const hasExpiredRef = useRef(false)
 
   useEffect(() => {
     onExpireRef.current = onExpire
   }, [onExpire])
 
   useEffect(() => {
-    if (isSubmitted || secondsLeft <= 0) {
+    hasExpiredRef.current = false
+    setSecondsLeft(readSecondsLeft())
+  }, [readSecondsLeft])
+
+  useEffect(() => {
+    if (isSubmitted) {
       return
     }
 
-    const timeoutId = setTimeout(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          onExpireRef.current()
-          return 0
-        }
+    const tick = () => setSecondsLeft(readSecondsLeft())
+    const intervalId = setInterval(tick, 500)
 
-        return prev - 1
-      })
-    }, 1000)
+    // Recompute the moment the app comes back: time kept passing while the
+    // interval was suspended.
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        tick()
+      }
+    })
 
-    return () => clearTimeout(timeoutId)
+    return () => {
+      clearInterval(intervalId)
+      subscription.remove()
+    }
+  }, [isSubmitted, readSecondsLeft])
+
+  useEffect(() => {
+    if (isSubmitted || secondsLeft > 0 || hasExpiredRef.current) {
+      return
+    }
+
+    hasExpiredRef.current = true
+    onExpireRef.current()
   }, [isSubmitted, secondsLeft])
 
   const isDanger = secondsLeft < 60
 
   return (
     <View
-      className="flex-row items-center gap-1.5 rounded-2xl px-3.5 py-2"
+      className="flex-row items-center gap-1.5 rounded-xl px-3.5 py-2"
       style={{
         backgroundColor: isDanger
           ? withOpacity(theme.destructive, 0.15)
@@ -507,38 +550,35 @@ const QuizResultQuestionCard = memo(
           {questionIndex + 1}. {question.prompt}
         </Text>
         <View className="mt-3 gap-2">
-          {question.choices.map((choice, choiceIndex) => {
-            const isCorrectChoice = choiceIndex === question.answerIndex
-            const isWrongSelection =
-              selectedChoiceIndex === choiceIndex &&
-              choiceIndex !== question.answerIndex
-
-            return (
-              <AnswerOption
-                key={`${question.id}-${choiceIndex}`}
-                index={choiceIndex}
-                isSelected={false}
-                isCorrect={isCorrectChoice}
-                isWrong={isWrongSelection}
-                onPress={() => undefined}
-              >
-                {choice}
-              </AnswerOption>
-            )
-          })}
+          {question.choices.map((choice, choiceIndex) => (
+            <AnswerOption
+              key={`${question.id}-${choiceIndex}`}
+              index={choiceIndex}
+              state={getAnswerOptionState({
+                choiceIndex,
+                answerIndex: question.answerIndex,
+                selectedIndex: selectedChoiceIndex,
+                isGraded: true,
+              })}
+              disabled
+              onPress={() => undefined}
+            >
+              {choice}
+            </AnswerOption>
+          ))}
         </View>
         <View
-          className="mt-3.5 rounded-2xl p-3.5"
+          className="mt-3.5 rounded-xl p-3.5"
           style={{
             backgroundColor: withOpacity(theme.primary, 0.08),
             borderWidth: 1,
             borderColor: withOpacity(theme.primary, 0.2),
           }}
         >
-          <Text className="text-xs font-black uppercase tracking-[1.6px] text-primary">
+          <Text className="text-xs font-black uppercase tracking-[1.4px] text-primary">
             Explanation
           </Text>
-          <Text className="mt-1.5 text-[13px] leading-5 text-card-foreground">
+          <Text className="mt-1.5 text-sm leading-5 text-card-foreground">
             {question.explanation}
           </Text>
           <Text className="mt-2.5 text-xs text-muted-foreground">
@@ -587,118 +627,6 @@ function QuizConfetti({ colors }: { colors: string[] }) {
     </View>
   )
 }
-
-const QuizFeedbackView = memo(function QuizFeedbackView({
-  question,
-  questionIndex,
-  totalQuestions,
-  selectedChoiceIndex,
-  onContinue,
-  colors,
-}: {
-  question: QuizQuestion
-  questionIndex: number
-  totalQuestions: number
-  selectedChoiceIndex: number
-  onContinue: () => void
-  colors: ReturnType<typeof getQuizColors>
-}) {
-  const isCorrect = selectedChoiceIndex === question.answerIndex
-  const heading = isCorrect ? "Correct! 🎉" : "Incorrect"
-  const message = isCorrect
-    ? question.explanation
-    : `The correct answer is ${String.fromCharCode(
-        65 + question.answerIndex
-      )}. ${question.choices[question.answerIndex]}${
-        question.explanation ? ` ${question.explanation}` : ""
-      }`
-
-  return (
-    <SafeAreaView
-      edges={["left", "right", "bottom"]}
-      className="flex-1"
-      style={{ backgroundColor: colors.background }}
-    >
-      <QuizAnimatedPanel animationKey={`feedback-${question.id}`}>
-        <View className="flex-1 px-5 pb-5 pt-1">
-          <Text
-            className="text-[12px] font-medium"
-            style={{ color: colors.mutedText }}
-          >
-            Question {questionIndex + 1} of {totalQuestions}
-          </Text>
-
-          <View className="flex-1 items-center justify-center">
-            <View className="items-center">
-              <View className="mb-8">
-                <QuizConfetti colors={colors.confetti} />
-                <View
-                  className="h-32 w-32 items-center justify-center rounded-full border"
-                  style={{
-                    backgroundColor: isCorrect
-                      ? colors.greenSoft
-                      : colors.redSoft,
-                    borderColor: isCorrect
-                      ? withOpacity(colors.green, 0.45)
-                      : withOpacity(colors.red, 0.45),
-                  }}
-                >
-                  <View
-                    className="h-24 w-24 items-center justify-center rounded-full"
-                    style={{
-                      backgroundColor: isCorrect ? colors.green : colors.red,
-                    }}
-                  >
-                    {isCorrect ? (
-                      <Check
-                        size={52}
-                        color={colors.onGreen}
-                        strokeWidth={3.5}
-                      />
-                    ) : (
-                      <X size={52} color={colors.onRed} strokeWidth={3.5} />
-                    )}
-                  </View>
-                </View>
-              </View>
-
-              <Text
-                className="text-[34px] font-black"
-                style={{ color: colors.text }}
-              >
-                {heading}
-              </Text>
-              <Text
-                className="mt-4 max-w-[300px] text-center text-[16px] leading-7"
-                style={{ color: colors.mutedText }}
-              >
-                {message}
-              </Text>
-            </View>
-          </View>
-
-          <Pressable
-            onPress={onContinue}
-            className="h-14 items-center justify-center rounded-[14px]"
-            style={{ backgroundColor: colors.primary }}
-          >
-            <View className="flex-row items-center gap-2">
-              <Text
-                className="text-[16px] font-bold"
-                style={{ color: colors.onPrimary }}
-              >
-                {questionIndex < totalQuestions - 1
-                  ? "Next Question"
-                  : "View Results"}
-              </Text>
-              <ArrowRight size={18} color={colors.onPrimary} />
-            </View>
-          </Pressable>
-        </View>
-      </QuizAnimatedPanel>
-    </SafeAreaView>
-  )
-})
 
 // 3. SPLIT UI COMPONENTS
 const QuizLoadingState = memo(function QuizLoadingState({
@@ -862,7 +790,7 @@ const QuizResultsView = memo(function QuizResultsView({
         <QuizAnimatedPanel animationKey="quiz-results-summary">
           <View className="flex-1 px-5 pb-6 pt-3">
             <Text
-              className="text-center text-[28px] font-black"
+              className="text-center text-3xl font-black"
               style={{ color: colors.text }}
             >
               Quiz Completed
@@ -879,7 +807,7 @@ const QuizResultsView = memo(function QuizResultsView({
                 }}
               >
                 <Text
-                  className="text-[11px] font-black uppercase tracking-[1.2px]"
+                  className="text-2xs font-bold uppercase tracking-[1px]"
                   style={{ color: isPassed ? colors.green : colors.red }}
                 >
                   {isPassed
@@ -892,9 +820,11 @@ const QuizResultsView = memo(function QuizResultsView({
             <View className="flex-1 items-center justify-center">
               <View className="items-center">
                 <View className="mb-7">
-                  <QuizConfetti colors={colors.confetti} />
+                  {isPassed ? (
+                    <QuizConfetti colors={colors.confetti} />
+                  ) : null}
                   <View
-                    className="h-36 w-36 items-center justify-center rounded-[30px]"
+                    className="h-36 w-36 items-center justify-center rounded-2xl"
                     style={{ backgroundColor: colors.primarySoft }}
                   >
                     <Trophy
@@ -906,7 +836,7 @@ const QuizResultsView = memo(function QuizResultsView({
                 </View>
 
                 <Text
-                  className="text-center text-[16px] leading-7"
+                  className="text-center text-base leading-7"
                   style={{ color: colors.mutedText }}
                 >
                   {isPassed
@@ -915,7 +845,7 @@ const QuizResultsView = memo(function QuizResultsView({
                 </Text>
 
                 <View
-                  className="mt-8 w-full rounded-[16px] border px-4 py-5"
+                  className="mt-8 w-full rounded-md border px-4 py-5"
                   style={{
                     backgroundColor: colors.panel,
                     borderColor: colors.panelBorder,
@@ -924,13 +854,13 @@ const QuizResultsView = memo(function QuizResultsView({
                   <View className="flex-row items-center">
                     <View className="flex-1 items-center">
                       <Text
-                        className="text-[34px] font-black"
+                        className="text-4xl font-black"
                         style={{ color: colors.green }}
                       >
                         {result.correct}
                       </Text>
                       <Text
-                        className="text-[13px] font-medium"
+                        className="text-sm font-medium"
                         style={{ color: colors.green }}
                       >
                         Correct
@@ -942,13 +872,13 @@ const QuizResultsView = memo(function QuizResultsView({
                     />
                     <View className="flex-1 items-center">
                       <Text
-                        className="text-[34px] font-black"
+                        className="text-4xl font-black"
                         style={{ color: colors.red }}
                       >
                         {result.wrong}
                       </Text>
                       <Text
-                        className="text-[13px] font-medium"
+                        className="text-sm font-medium"
                         style={{ color: colors.red }}
                       >
                         Incorrect
@@ -960,13 +890,13 @@ const QuizResultsView = memo(function QuizResultsView({
                     />
                     <View className="flex-1 items-center">
                       <Text
-                        className="text-[34px] font-black"
+                        className="text-4xl font-black"
                         style={{ color: colors.primary }}
                       >
                         {score}%
                       </Text>
                       <Text
-                        className="text-[13px] font-medium"
+                        className="text-sm font-medium"
                         style={{ color: colors.mutedText }}
                       >
                         Score
@@ -978,33 +908,16 @@ const QuizResultsView = memo(function QuizResultsView({
             </View>
 
             <View className="gap-4">
-              <Pressable
-                onPress={() => setIsReviewingAnswers(true)}
-                className="h-14 items-center justify-center rounded-[14px]"
-                style={{ backgroundColor: colors.primary }}
-              >
-                <Text
-                  className="text-[16px] font-bold"
-                  style={{ color: colors.onPrimary }}
-                >
-                  Review Answers
-                </Text>
-              </Pressable>
-              <Pressable
+              <Button size="xl" onPress={() => setIsReviewingAnswers(true)}>
+                <Text>Review Answers</Text>
+              </Button>
+              <Button
+                size="xl"
+                variant="outline"
                 onPress={() => router.replace("/")}
-                className="h-14 items-center justify-center rounded-[14px] border"
-                style={{
-                  backgroundColor: colors.panel,
-                  borderColor: colors.panelBorder,
-                }}
               >
-                <Text
-                  className="text-[16px] font-bold"
-                  style={{ color: colors.text }}
-                >
-                  Back to Learning
-                </Text>
-              </Pressable>
+                <Text>Back to Learning</Text>
+              </Button>
             </View>
           </View>
         </QuizAnimatedPanel>
@@ -1057,7 +970,7 @@ const QuizResultsView = memo(function QuizResultsView({
                       }}
                     >
                       <Text
-                        className="text-[12px] font-bold"
+                        className="text-xs font-bold"
                         style={{
                           color: isActiveChip ? colors.onPrimary : colors.text,
                         }}
@@ -1112,12 +1025,24 @@ export default function QuizScreen() {
   const refreshProfile = useAuth((state) => state.refreshProfile)
 
   const flatListRef = useRef<FlatList<QuizQuestion>>(null)
-  const [feedbackQuestionIndex, setFeedbackQuestionIndex] = useState<
-    number | null
-  >(null)
+  // Which questions have been checked. A set rather than a single index so a
+  // verdict survives navigating away and back: returning to a question you
+  // already checked must not re-open it for a different answer.
+  const [gradedIndices, setGradedIndices] = useState<ReadonlySet<number>>(
+    () => new Set()
+  )
+  // Strict mode: questions the learner has already navigated away from.
+  // Settings has promised "Lock answer changes after moving to next
+  // question" all along while nothing implemented it.
+  const [lockedIndices, setLockedIndices] = useState<ReadonlySet<number>>(
+    () => new Set()
+  )
   const [isMapOpen, setIsMapOpen] = useState(false)
   const showExplanations = useAppPreferences(
     (state) => state.preferences.showExplanations
+  )
+  const strictMode = useAppPreferences(
+    (state) => state.preferences.strictMode
   )
 
   const params = useLocalSearchParams<{
@@ -1176,6 +1101,7 @@ export default function QuizScreen() {
   const {
     questions,
     activeIndex,
+    startedAtMs,
     setActiveIndex,
     answers,
     isSubmitted,
@@ -1228,13 +1154,31 @@ export default function QuizScreen() {
     )
   }, [answeredCount, handleSubmit, questions.length])
 
+  const goToQuestion = useCallback(
+    (nextIndex: number) => {
+      if (strictMode && typeof answers[activeIndex] === "number") {
+        setLockedIndices((current) => new Set(current).add(activeIndex))
+      }
+
+      setActiveIndex(nextIndex)
+    },
+    [activeIndex, answers, setActiveIndex, strictMode]
+  )
+
+  // The question is graded in place rather than on a separate screen, so
+  // "showing feedback" is now a property of the current question.
+  const isCurrentQuestionGraded =
+    gradedIndices.has(activeIndex) && isCurrentQuestionAnswered
+  const isCurrentQuestionLocked =
+    isCurrentQuestionGraded || lockedIndices.has(activeIndex)
+
   const handleAdvanceToFeedback = useCallback(() => {
     if (!isCurrentQuestionAnswered) {
       return
     }
 
-    if (showExplanations) {
-      setFeedbackQuestionIndex(activeIndex)
+    if (showExplanations && !gradedIndices.has(activeIndex)) {
+      setGradedIndices((current) => new Set(current).add(activeIndex))
       return
     }
 
@@ -1243,30 +1187,55 @@ export default function QuizScreen() {
       return
     }
 
-    setActiveIndex(activeIndex + 1)
+    goToQuestion(activeIndex + 1)
   }, [
     activeIndex,
+    goToQuestion,
+    gradedIndices,
     handleSubmitRequest,
     isCurrentQuestionAnswered,
     questions.length,
-    setActiveIndex,
     showExplanations,
   ])
 
   const handleContinueFromFeedback = useCallback(() => {
-    if (feedbackQuestionIndex === null) {
+    if (activeIndex >= questions.length - 1) {
+      handleSubmitRequest()
       return
     }
 
-    if (feedbackQuestionIndex >= questions.length - 1) {
-      void handleSubmit()
+    goToQuestion(activeIndex + 1)
+  }, [activeIndex, goToQuestion, handleSubmitRequest, questions.length])
+
+  const primaryActionLabel = !isCurrentQuestionAnswered
+    ? "Select an answer"
+    : isCurrentQuestionGraded
+      ? activeIndex >= questions.length - 1
+        ? "View Results"
+        : "Next Question"
+      : showExplanations
+        ? "Check Answer"
+        : activeIndex >= questions.length - 1
+          ? "Finish"
+          : "Next"
+
+  // Leaving mid-exam loses the run, so it asks first. The old Back button
+  // called router.back() straight from question one with no confirmation.
+  const handleGoBack = useCallback(() => {
+    if (activeIndex > 0) {
+      goToQuestion(activeIndex - 1)
       return
     }
 
-    const nextIndex = feedbackQuestionIndex + 1
-    setFeedbackQuestionIndex(null)
-    setActiveIndex(nextIndex)
-  }, [feedbackQuestionIndex, handleSubmit, questions.length, setActiveIndex])
+    Alert.alert(
+      "Leave this exam?",
+      "Your answers so far are saved, and you can resume from where you left off.",
+      [
+        { text: "Keep answering", style: "cancel" },
+        { text: "Leave", style: "destructive", onPress: () => router.back() },
+      ]
+    )
+  }, [activeIndex, goToQuestion, router])
 
   // 5. DECOMPOSITION OF COMPLEX CONDITIONALS
   const isInvalidSetup =
@@ -1310,23 +1279,6 @@ export default function QuizScreen() {
     )
   }
 
-  if (
-    feedbackQuestionIndex !== null &&
-    questions[feedbackQuestionIndex] &&
-    typeof answers[feedbackQuestionIndex] === "number"
-  ) {
-    return (
-      <QuizFeedbackView
-        question={questions[feedbackQuestionIndex]}
-        questionIndex={feedbackQuestionIndex}
-        totalQuestions={questions.length}
-        selectedChoiceIndex={answers[feedbackQuestionIndex] as number}
-        onContinue={handleContinueFromFeedback}
-        colors={colors}
-      />
-    )
-  }
-
   return (
     <SafeAreaView
       className="flex-1"
@@ -1342,6 +1294,7 @@ export default function QuizScreen() {
               headerRight: () => (
                 <QuizTimerBadge
                   durationSeconds={totalSeconds}
+                  startedAtMs={startedAtMs}
                   isSubmitted={isSubmitted}
                   onExpire={handleSubmit}
                   theme={theme}
@@ -1361,7 +1314,7 @@ export default function QuizScreen() {
                   style={{ backgroundColor: colors.primarySoft }}
                 >
                   <Text
-                    className="text-[11px] font-black uppercase tracking-[1.2px]"
+                    className="text-2xs font-bold uppercase tracking-[1px]"
                     style={{ color: colors.primary }}
                   >
                     Question {activeIndex + 1} of {questions.length}
@@ -1379,7 +1332,7 @@ export default function QuizScreen() {
                 >
                   <LayoutGrid size={13} color={colors.mutedText} />
                   <Text
-                    className="text-[11px] font-bold"
+                    className="text-2xs font-bold"
                     style={{ color: colors.mutedText }}
                   >
                     {answeredCount}/{questions.length} answered
@@ -1393,31 +1346,42 @@ export default function QuizScreen() {
                 colors={colors}
               />
 
+              {/* Bold, not black: a board-exam stem is a paragraph to read,
+                  not a headline to scan, and the heaviest weight in the family
+                  fights legibility over three or four lines. */}
               <Text
-                className="mt-7 text-[18px] font-black leading-8"
+                accessibilityRole="header"
+                className="mt-7 text-lg font-bold leading-7"
                 style={{ color: colors.text }}
               >
                 {activeQuestion?.prompt}
               </Text>
 
-              <View className="mt-6 gap-3">
+              <View
+                accessibilityRole="radiogroup"
+                // Announces "1 of 4" per option, which a bare stack of radios
+                // never did.
+                className="mt-6 gap-2.5"
+              >
                 {activeQuestion?.choices.map((choice, choiceIndex) => (
                   <AnswerOption
                     key={`${activeQuestion.id}-${choiceIndex}`}
                     index={choiceIndex}
-                    isSelected={selectedChoiceIndex === choiceIndex}
+                    state={getAnswerOptionState({
+                      choiceIndex,
+                      answerIndex: activeQuestion.answerIndex,
+                      selectedIndex: selectedChoiceIndex,
+                      isGraded: isCurrentQuestionGraded,
+                    })}
+                    disabled={isCurrentQuestionLocked}
                     colors={{
                       baseBorder: colors.subtleBorder,
                       baseBackground: colors.panel,
                       baseText: colors.text,
                       mutedText: colors.mutedText,
                       selectedBorder: colors.primary,
-                      selectedBackground: withOpacity(colors.primary, 0.32),
                       correctBorder: colors.green,
-                      correctBackground: withOpacity(colors.green, 0.24),
                       wrongBorder: colors.red,
-                      wrongBackground: withOpacity(colors.red, 0.24),
-                      ringBorder: withOpacity(colors.text, 0.28),
                     }}
                     onPress={() => handleSelectAnswer(activeIndex, choiceIndex)}
                   >
@@ -1426,66 +1390,67 @@ export default function QuizScreen() {
                 ))}
               </View>
 
-              <View className="mt-auto flex-row gap-4 pt-8">
-                <Pressable
-                  onPress={() => {
-                    if (activeIndex === 0) {
-                      router.back()
-                      return
+              {isCurrentQuestionGraded && activeQuestion ? (
+                <View className="mt-4">
+                  <QuizAnswerFeedback
+                    theme={theme}
+                    isCorrect={selectedChoiceIndex === activeQuestion.answerIndex}
+                    correctLetter={String.fromCharCode(
+                      65 + activeQuestion.answerIndex
+                    )}
+                    correctChoice={
+                      activeQuestion.choices[activeQuestion.answerIndex]
                     }
-
-                    setActiveIndex(Math.max(activeIndex - 1, 0))
-                  }}
-                  className="h-14 flex-1 flex-row items-center justify-center gap-2 rounded-[14px] border"
-                  style={{
-                    backgroundColor: colors.panel,
-                    borderColor: colors.panelBorder,
-                  }}
-                >
-                  <ArrowLeft size={16} color={colors.text} />
-                  <Text
-                    className="text-[16px] font-bold"
-                    style={{ color: colors.text }}
-                  >
-                    Back
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={handleAdvanceToFeedback}
-                  disabled={!isCurrentQuestionAnswered}
-                  className="h-14 flex-1 flex-row items-center justify-center gap-2 rounded-[14px]"
-                  style={{
-                    backgroundColor: isCurrentQuestionAnswered
-                      ? colors.primary
-                      : withOpacity(colors.primary, 0.45),
-                  }}
-                >
-                  <Text
-                    className="text-[16px] font-bold"
-                    style={{ color: colors.onPrimary }}
-                  >
-                    {!isCurrentQuestionAnswered
-                      ? "Select an answer"
-                      : showExplanations
-                        ? "Check Answer"
-                        : activeIndex >= questions.length - 1
-                          ? "Finish"
-                          : "Next"}
-                  </Text>
-                  {isCurrentQuestionAnswered ? (
-                    <ArrowRight size={16} color={colors.onPrimary} />
-                  ) : null}
-                </Pressable>
-              </View>
+                    explanation={activeQuestion.explanation}
+                  />
+                </View>
+              ) : null}
             </View>
           </ScrollView>
+
+          {/* Outside the ScrollView on purpose. A long stem with four long
+              options plus the feedback panel overflows the viewport, and
+              the primary action must not be something you scroll to hunt
+              for — it stays in the thumb zone. */}
+          <View
+            className="flex-row gap-3 border-t pt-4"
+            style={{ borderTopColor: colors.subtleBorder }}
+          >
+            <Button
+              size="xl"
+              variant="outline"
+              className="flex-1"
+              accessibilityLabel={
+                activeIndex === 0 ? "Leave the quiz" : "Previous question"
+              }
+              onPress={handleGoBack}
+            >
+              <ArrowLeft size={16} color={colors.text} />
+              <Text>{activeIndex === 0 ? "Exit" : "Back"}</Text>
+            </Button>
+
+            <Button
+              size="xl"
+              className="flex-[1.4]"
+              onPress={
+                isCurrentQuestionGraded
+                  ? handleContinueFromFeedback
+                  : handleAdvanceToFeedback
+              }
+              disabled={!isCurrentQuestionAnswered}
+            >
+              <Text>{primaryActionLabel}</Text>
+              {isCurrentQuestionAnswered ? (
+                <ArrowRight size={16} color={colors.onPrimary} />
+              ) : null}
+            </Button>
+          </View>
         </View>
       </QuizAnimatedPanel>
       <QuizQuestionMap
         visible={isMapOpen}
         onClose={() => setIsMapOpen(false)}
-        onJump={setActiveIndex}
+        onJump={goToQuestion}
         onSubmitRequest={handleSubmitRequest}
         answers={answers}
         activeIndex={activeIndex}

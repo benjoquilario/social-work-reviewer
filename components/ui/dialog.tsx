@@ -64,7 +64,7 @@ function DialogContent({
     <TextClassContext.Provider value="text-card-foreground">
       <View
         className={cn(
-          "w-full max-w-[520px] rounded-[32px] border border-border/70 bg-card p-5 shadow-lg shadow-black/15",
+          "w-full max-w-[520px] rounded-3xl border border-border/70 bg-card p-5 shadow-lg shadow-black/15",
           className
         )}
         {...props}
@@ -84,12 +84,7 @@ function DialogTitle({
   className,
   ...props
 }: React.ComponentProps<typeof Text>) {
-  return (
-    <Text
-      className={cn("text-xl font-black text-card-foreground", className)}
-      {...props}
-    />
-  )
+  return <Text variant="title" className={className} {...props} />
 }
 
 function DialogDescription({
@@ -97,10 +92,7 @@ function DialogDescription({
   ...props
 }: React.ComponentProps<typeof Text>) {
   return (
-    <Text
-      className={cn("text-sm leading-6 text-muted-foreground", className)}
-      {...props}
-    />
+    <Text variant="muted" className={cn("leading-6", className)} {...props} />
   )
 }
 

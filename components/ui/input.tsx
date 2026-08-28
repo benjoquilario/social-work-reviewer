@@ -50,7 +50,9 @@ function Input({
   return (
     <View
       className={cn(
-        "h-[52px] flex-row items-center gap-3 rounded-2xl border bg-input px-4",
+        // h-12 matches Button size="lg", so a field and the button that
+        // submits it line up exactly. Was an off-scale h-[52px].
+        "h-12 flex-row items-center gap-3 rounded-md border bg-input px-4",
         isFocused ? "border-ring" : "border-border",
         isDisabled && "opacity-50",
         containerClassName
@@ -88,15 +90,7 @@ function InputLabel({
   className,
   ...props
 }: React.ComponentProps<typeof Text>) {
-  return (
-    <Text
-      className={cn(
-        "text-xs font-bold uppercase tracking-wide text-muted-foreground",
-        className
-      )}
-      {...props}
-    />
-  )
+  return <Text variant="label" className={className} {...props} />
 }
 
 type FormFieldProps = ViewProps & {

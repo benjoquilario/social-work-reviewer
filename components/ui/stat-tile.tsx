@@ -1,11 +1,9 @@
 import { type ReactNode } from "react"
 import { View, type ViewProps } from "react-native"
 
+import { TONE_TEXT_CLASS, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 import { Text } from "@/components/ui/text"
-
-type StatTileTone =
-  "default" | "primary" | "success" | "warning" | "destructive"
 
 type StatTileProps = ViewProps & {
   /** Small uppercase label, e.g. "Streak". */
@@ -16,15 +14,8 @@ type StatTileProps = ViewProps & {
   caption?: string
   /** Optional leading icon (16px lucide icon works well). */
   icon?: ReactNode
-  tone?: StatTileTone
-}
-
-const VALUE_TONE_CLASS: Record<StatTileTone, string> = {
-  default: "text-foreground",
-  primary: "text-primary",
-  success: "text-success",
-  warning: "text-foreground dark:text-warning",
-  destructive: "text-destructive",
+  /** Shared vocabulary from `lib/tone.ts` — same values `Badge` takes. */
+  tone?: Tone
 }
 
 /**
@@ -50,28 +41,22 @@ function StatTile({
   return (
     <View
       className={cn(
-        "gap-1 rounded-2xl border border-border/70 bg-card px-3.5 py-3",
+        "gap-1 rounded-xl border border-border/70 bg-card px-3.5 py-3",
         className
       )}
       {...props}
     >
       <View className="flex-row items-center gap-1.5">
         {icon}
-        <Text className="text-[10px] font-bold uppercase tracking-[1px] text-muted-foreground">
-          {label}
-        </Text>
+        <Text variant="label">{label}</Text>
       </View>
-      <Text className={cn("text-lg font-extrabold", VALUE_TONE_CLASS[tone])}>
+      <Text className={cn("text-lg font-extrabold", TONE_TEXT_CLASS[tone])}>
         {value}
       </Text>
-      {caption ? (
-        <Text className="text-[11px] leading-4 text-muted-foreground">
-          {caption}
-        </Text>
-      ) : null}
+      {caption ? <Text variant="caption">{caption}</Text> : null}
     </View>
   )
 }
 
 export { StatTile }
-export type { StatTileProps, StatTileTone }
+export type { StatTileProps }

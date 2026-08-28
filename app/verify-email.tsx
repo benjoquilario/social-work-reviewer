@@ -72,7 +72,7 @@ export default function VerifyEmailScreen() {
     <SafeAreaView className="flex-1 bg-background">
       <View className="flex-1 items-center justify-center gap-5 px-6">
         <View className="items-center gap-3">
-          <View className="h-16 w-16 items-center justify-center rounded-[24px] bg-primary/10">
+          <View className="h-16 w-16 items-center justify-center rounded-xl bg-primary/10">
             {state === "loading" ? (
               <LoaderCircle size={28} color={theme.primary} strokeWidth={2.2} />
             ) : state === "success" ? (
@@ -82,21 +82,21 @@ export default function VerifyEmailScreen() {
             )}
           </View>
 
-          <Text className="text-center text-[24px] font-black text-foreground">
+          <Text className="text-center text-2xl font-black text-foreground">
             {state === "loading"
               ? "Verifying email"
               : state === "success"
                 ? "Email verified"
                 : "Verification failed"}
           </Text>
-          <Text className="text-center text-[13px] leading-6 text-muted-foreground">
+          <Text className="text-center text-sm leading-6 text-muted-foreground">
             {message}
           </Text>
         </View>
 
         {state === "success" ? (
           <Button
-            className="h-11 w-full rounded-2xl"
+            className="h-11 w-full rounded-md"
             onPress={() => router.replace("/(tabs)/profile")}
           >
             <Text className="font-bold text-primary-foreground">
@@ -108,7 +108,7 @@ export default function VerifyEmailScreen() {
         {state === "error" ? (
           <Button
             variant="outline"
-            className="h-11 w-full rounded-2xl"
+            className="h-11 w-full rounded-md"
             onPress={() =>
               router.replace(
                 isAuthenticated ? "/(tabs)/profile" : "/(auth)/login"

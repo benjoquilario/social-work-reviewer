@@ -11,7 +11,7 @@ import {
   type BoardExamCatalogCategory,
   type BoardExamCatalogSet,
 } from "./board-exam-catalog"
-import type { QuestionnaireDocument, QuestionnaireQuestion } from "./schema"
+import type { LegacyQuestionnaireDocument, LegacyQuestionnaireQuestion } from "./schema"
 
 const BOARD_EXAM_RESOURCE_LABEL = "board exam questionnaire JSON"
 
@@ -85,7 +85,7 @@ export type BoardExamSetDetail = {
   hiddenPremiumQuestionCount: number
 }
 
-const questionnaireCache = new Map<string, Promise<QuestionnaireDocument>>()
+const questionnaireCache = new Map<string, Promise<LegacyQuestionnaireDocument>>()
 
 function toBoardExamError(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) {
@@ -108,12 +108,12 @@ function decodeUtf8(arrayBuffer: ArrayBuffer) {
   return new TextDecoder("utf-8").decode(arrayBuffer)
 }
 
-function isQuestionnaireDocument(value: unknown): value is QuestionnaireDocument {
+function isLegacyQuestionnaireDocument(value: unknown): value is LegacyQuestionnaireDocument {
   if (!value || typeof value !== "object") {
     return false
   }
 
-  const candidate = value as Partial<QuestionnaireDocument>
+  const candidate = value as Partial<LegacyQuestionnaireDocument>
   return (
     typeof candidate.questionnaire === "string" &&
     typeof candidate.set === "string" &&
@@ -122,11 +122,11 @@ function isQuestionnaireDocument(value: unknown): value is QuestionnaireDocument
   )
 }
 
-function normalizeQuestionnaireDocument(
+function normalizeLegacyQuestionnaireDocument(
   value: unknown,
   sourceLabel: string
-): QuestionnaireDocument {
-  if (!isQuestionnaireDocument(value)) {
+): LegacyQuestionnaireDocument {
+  if (!isLegacyQuestionnaireDocument(value)) {
     throw createAppwriteContentError(
       "request",
       `Invalid ${BOARD_EXAM_RESOURCE_LABEL} payload from ${sourceLabel}.`
@@ -191,14 +191,14 @@ async function loadQuestionnaireFromStorage(set: BoardExamCatalogSet) {
     fileId,
   })
 
-  return normalizeQuestionnaireDocument(
+  return normalizeLegacyQuestionnaireDocument(
     JSON.parse(decodeUtf8(fileBuffer)),
     `Appwrite Storage file ${fileId}`
   )
 }
 
 function loadQuestionnaireFromLocalFile(set: BoardExamCatalogSet) {
-  return normalizeQuestionnaireDocument(
+  return normalizeLegacyQuestionnaireDocument(
     set.loadLocal(),
     `local questionnaire ${set.questionnaireKey}/${set.setCode}`
   )
@@ -234,7 +234,7 @@ function buildChoiceId(setId: string, questionId: number, key: string) {
 function toBoardExamQuestion(
   set: BoardExamCatalogSet,
   category: BoardExamCatalogCategory,
-  question: QuestionnaireQuestion,
+  question: LegacyQuestionnaireQuestion,
   index: number
 ): BoardExamQuestion {
   const choices = question.options.map((option, optionIndex) => ({

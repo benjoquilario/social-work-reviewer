@@ -23,7 +23,6 @@ type ProfileStore = {
   schoolName: string
   reviewType: string
   avatarUrl: string
-  imageFailed: boolean
   quizAttemptsLimit: number
   learningHistoryLimit: number
   achievementsLimit: number
@@ -39,8 +38,6 @@ type ProfileStore = {
   setReviewType: (value: string) => void
   setAvatarUrl: (value: string) => void
   clearAvatarUrl: () => void
-  setImageFailed: (value: boolean) => void
-  resetImageFailure: () => void
   incrementQuizAttemptsLimit: (step?: number) => void
   incrementLearningHistoryLimit: (step?: number) => void
   incrementAchievementsLimit: (step?: number) => void
@@ -58,7 +55,6 @@ const INITIAL_STATE = {
   schoolName: "",
   reviewType: "",
   avatarUrl: "",
-  imageFailed: false,
   quizAttemptsLimit: PROFILE_ACTIVITY_PAGE_SIZE,
   learningHistoryLimit: PROFILE_ACTIVITY_PAGE_SIZE,
   achievementsLimit: PROFILE_ACTIVITY_PAGE_SIZE,
@@ -86,8 +82,6 @@ export const useProfileStore = create<ProfileStore>((set) => ({
   setReviewType: (reviewType) => set({ reviewType }),
   setAvatarUrl: (avatarUrl) => set({ avatarUrl }),
   clearAvatarUrl: () => set({ avatarUrl: "" }),
-  setImageFailed: (imageFailed) => set({ imageFailed }),
-  resetImageFailure: () => set({ imageFailed: false }),
   incrementQuizAttemptsLimit: (step = PROFILE_ACTIVITY_PAGE_SIZE) =>
     set((state) => ({ quizAttemptsLimit: state.quizAttemptsLimit + step })),
   incrementLearningHistoryLimit: (step = PROFILE_ACTIVITY_PAGE_SIZE) =>
@@ -136,9 +130,6 @@ export function useProfileViewState() {
     useShallow((state) => ({
       activeTab: state.activeTab,
       setActiveTab: state.setActiveTab,
-      imageFailed: state.imageFailed,
-      setImageFailed: state.setImageFailed,
-      resetImageFailure: state.resetImageFailure,
       isSendingVerification: state.isSendingVerification,
       setIsSendingVerification: state.setIsSendingVerification,
     }))

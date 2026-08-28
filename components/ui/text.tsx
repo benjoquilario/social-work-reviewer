@@ -14,33 +14,37 @@ const textVariants = cva(
     })
   ),
   {
+    /**
+     * The app's typographic roles, each pinned to one step of the ramp in
+     * tailwind.config.js.
+     *
+     * These replace the shadcn-for-web set (h1–h4, p, blockquote, code,
+     * lead, …) the primitive shipped with, which was never used once — every
+     * screen hand-rolled `text-[11px] font-black uppercase …` instead, which
+     * is how 18 distinct font sizes ended up in the codebase.
+     */
     variants: {
       variant: {
+        /** Body copy. */
         default: "",
-        h1: cn(
-          "text-center text-4xl font-extrabold tracking-tight",
-          Platform.select({ web: "scroll-m-20 text-balance" })
-        ),
-        h2: cn(
-          "border-b border-border pb-2 text-3xl font-semibold tracking-tight",
-          Platform.select({ web: "scroll-m-20 first:mt-0" })
-        ),
-        h3: cn(
-          "text-2xl font-semibold tracking-tight",
-          Platform.select({ web: "scroll-m-20" })
-        ),
-        h4: cn(
-          "text-xl font-semibold tracking-tight",
-          Platform.select({ web: "scroll-m-20" })
-        ),
-        p: "mt-3 leading-7 sm:mt-6",
-        blockquote: "mt-4 border-l-2 pl-3 italic sm:mt-6 sm:pl-6",
-        code: cn(
-          "relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold"
-        ),
-        lead: "text-xl text-muted-foreground",
-        large: "text-lg font-semibold",
-        small: "text-sm font-medium leading-none",
+        /** Screen title — one per screen, beside the back arrow. */
+        title: "text-xl font-extrabold leading-7",
+        /** Section and card title. */
+        heading: "text-lg font-extrabold leading-6",
+        /** Row title inside a card or list item. */
+        subheading: "text-base font-bold",
+        /** Secondary body — list subtitles, descriptions. */
+        callout: "text-sm leading-5",
+        /** Supporting line under a value or title. */
+        caption: "text-xs leading-[18px] text-muted-foreground",
+        /** Uppercase micro label above a value (StatTile, form fields). */
+        label:
+          "text-2xs font-bold uppercase tracking-[1px] text-muted-foreground",
+        /** Uppercase kicker above a section title, in brand teal. */
+        eyebrow: "text-2xs font-black uppercase tracking-[1.4px] text-primary",
+        /** Headline number — scores, streaks, percentages. */
+        metric: "text-3xl font-extrabold leading-9",
+        /** De-emphasised body. */
         muted: "text-sm text-muted-foreground",
       },
     },
@@ -55,19 +59,15 @@ type TextVariantProps = VariantProps<typeof textVariants>
 type TextVariant = NonNullable<TextVariantProps["variant"]>
 
 const ROLE: Partial<Record<TextVariant, Role>> = {
-  h1: "heading",
-  h2: "heading",
-  h3: "heading",
-  h4: "heading",
-  blockquote: Platform.select({ web: "blockquote" as Role }),
-  code: Platform.select({ web: "code" as Role }),
+  title: "heading",
+  heading: "heading",
+  subheading: "heading",
 }
 
 const ARIA_LEVEL: Partial<Record<TextVariant, string>> = {
-  h1: "1",
-  h2: "2",
-  h3: "3",
-  h4: "4",
+  title: "1",
+  heading: "2",
+  subheading: "3",
 }
 
 const TextClassContext = React.createContext<string | undefined>(undefined)

@@ -6,8 +6,16 @@ export const QUIZ_SCORE_MILESTONES = [70, 85, 100]
 export const MATERIAL_COMPLETION_MILESTONES = [1, 3, 5, 10, 25, 50]
 export const QUIZ_COMPLETION_MILESTONES = [1, 5, 10, 25, 50]
 
-export const ACTIVITY_QUERY_LIMIT = 30
-export const HISTORY_QUERY_LIMIT = 50
+/**
+ * Per-request ceilings for the activity lists.
+ *
+ * These must stay >= the highest limit a caller can ask for (every call site
+ * clamps its own limit to 100). When a ceiling sat below that clamp — 30 and 50
+ * — the query silently returned fewer rows than requested and "Load more"
+ * dead-ended partway through the list.
+ */
+export const ACTIVITY_QUERY_LIMIT = 100
+export const HISTORY_QUERY_LIMIT = 100
 
 export const STREAK_TIER_META: Record<number, { title: string; description: string }> = {
   3: {

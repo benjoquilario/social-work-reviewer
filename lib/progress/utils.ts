@@ -1,4 +1,12 @@
-import { DB_ID, Permission, Query, Role, tablesDB } from "../appwrite"
+import {
+  DB_ID,
+  isAppwriteConflictError,
+  isAppwriteNotFoundError,
+  Permission,
+  Query,
+  Role,
+  tablesDB,
+} from "../appwrite"
 import type { LearningHistoryDocument, UserProgressDocument } from "../schema"
 import type { ActivityLearningHistory } from "./types"
 
@@ -23,41 +31,140 @@ export function buildUserAnswerRowId(attemptId: string, questionIndex: number) {
   return `ans_${safeAttemptId}_${safeQuestionIndex.toString(36)}`
 }
 
-function hashStringToBase36(value: string) {
-  let hash = 0x811c9dc5
+const FNV_PRIME = 0x01000193
+
+/**
+ * One offset basis per hash pass.
+ *
+ * Salting the *input* instead (appending a different suffix per pass) looks
+ * equivalent but is not: FNV-1a is an iterated state function, so two keys that
+ * collide have identical internal state, and appending the same suffix to both
+ * keeps them colliding. Verified — suffix salting reproduced the 32-bit
+ * collision set exactly. Varying the starting state is what makes the passes
+ * independent.
+ *
+ * The first basis is the standard FNV-1a value, so the first word of a digest
+ * is byte-for-byte the old 32-bit digest — which is what
+ * `legacyHashStringToBase36` returns.
+ */
+const HASH_OFFSET_BASES = [0x811c9dc5, 0x01000193, 0x9dc5811c] as const
+
+function fnv1a32(value: string, offsetBasis: number) {
+  let hash = offsetBasis
 
   for (let index = 0; index < value.length; index += 1) {
     hash ^= value.charCodeAt(index)
-    hash = Math.imul(hash, 0x01000193)
+    hash = Math.imul(hash, FNV_PRIME)
   }
 
-  return (hash >>> 0).toString(36).padStart(7, "0")
+  return hash >>> 0
+}
+
+/** One 32-bit word as exactly 7 base36 characters. */
+function toBase36Word(value: number) {
+  return value.toString(36).padStart(7, "0")
+}
+
+/**
+ * 96-bit digest, 21 base36 characters.
+ *
+ * These digests are row IDs, so a collision did not raise an error — it
+ * silently pointed one user's write at another user's row. At 32 bits the
+ * chance of some collision reaches 50% around 77,000 rows, and
+ * `user_daily_activity` alone is one row per user per active day. At 96 bits
+ * that threshold is ~2^48 rows.
+ *
+ * With `buildDeterministicRowId`'s 12-character prefix cap this yields at most
+ * 34 characters, inside Appwrite's 36-character row ID limit.
+ */
+function hashStringToBase36(value: string) {
+  return HASH_OFFSET_BASES.map((basis) =>
+    toBase36Word(fnv1a32(value, basis))
+  ).join("")
+}
+
+/** The pre-widening 32-bit digest. Only used to find rows written before it. */
+function legacyHashStringToBase36(value: string) {
+  return toBase36Word(fnv1a32(value, HASH_OFFSET_BASES[0]))
+}
+
+function toSafePrefix(prefix: string) {
+  return prefix.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 12)
 }
 
 export function buildDeterministicRowId(prefix: string, parts: string[]) {
-  const safePrefix = prefix.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 12)
-  const hash = hashStringToBase36(parts.join("|"))
-
-  return `${safePrefix}_${hash}`
+  return `${toSafePrefix(prefix)}_${hashStringToBase36(parts.join("|"))}`
 }
 
-export function isAppwriteConflictError(error: unknown) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === 409
+/**
+ * The ID the same key would have had under the 32-bit scheme. Rows written
+ * before the widening still live at these IDs, so reads check here as a
+ * fallback — see `resolveDeterministicRow`.
+ */
+export function buildLegacyDeterministicRowId(
+  prefix: string,
+  parts: string[]
+) {
+  return `${toSafePrefix(prefix)}_${legacyHashStringToBase36(parts.join("|"))}`
+}
+
+export type ResolvedDeterministicRow<T> = {
+  /** The existing row, under either ID scheme. */
+  row: T | null
+  /** Where to write: the row we found, otherwise the new-scheme ID. */
+  rowId: string
+  /** True when the row was found under the old 32-bit ID. */
+  isLegacy: boolean
+}
+
+/**
+ * Look up a deterministic row, preferring the current ID scheme and falling
+ * back to the legacy one, so no migration window is needed: rows keep their old
+ * ID until something rewrites them, and new rows get the wide ID.
+ *
+ * `expectedUserId` is the safety net. A row whose `userId` does not match the
+ * caller is a hash collision (or a genuine bug), and continuing would overwrite
+ * another user's data — so it throws instead.
+ */
+export async function resolveDeterministicRow<T extends { userId?: string }>(
+  tableId: string,
+  prefix: string,
+  parts: string[],
+  expectedUserId?: string
+): Promise<ResolvedDeterministicRow<T>> {
+  const rowId = buildDeterministicRowId(prefix, parts)
+  const legacyRowId = buildLegacyDeterministicRowId(prefix, parts)
+
+  const assertOwned = (row: T | null, id: string) => {
+    if (row && expectedUserId && row.userId && row.userId !== expectedUserId) {
+      throw new Error(
+        `[progress] Row ID collision on ${tableId}: "${id}" belongs to user ${row.userId}, not ${expectedUserId}. Refusing to overwrite it.`
+      )
+    }
+
+    return row
+  }
+
+  const row = assertOwned(await getRowByIdSafe<T>(tableId, rowId), rowId)
+
+  if (row) {
+    return { row, rowId, isLegacy: false }
+  }
+
+  const legacyRow = assertOwned(
+    await getRowByIdSafe<T>(tableId, legacyRowId),
+    legacyRowId
   )
+
+  if (legacyRow) {
+    return { row: legacyRow, rowId: legacyRowId, isLegacy: true }
+  }
+
+  return { row: null, rowId, isLegacy: false }
 }
 
-export function isAppwriteNotFoundError(error: unknown) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === 404
-  )
-}
+// Re-exported from lib/appwrite.ts so every module shares one implementation.
+export { isAppwriteConflictError, isAppwriteNotFoundError }
 
 export function toDayStamp(value: string) {
   const date = new Date(value)

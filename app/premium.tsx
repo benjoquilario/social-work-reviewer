@@ -150,32 +150,32 @@ export default function PremiumSubscriptionScreen() {
           title="Premium"
           trailing={
             <View className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5">
-              <Text className="text-[10px] font-black uppercase tracking-[1.2px] text-primary">
+              <Text variant="eyebrow">
                 Premium Access
               </Text>
             </View>
           }
         />
 
-        <Card className="overflow-hidden rounded-[24px] border-0">
+        <Card className="overflow-hidden rounded-xl border-0">
           <CardContent
             className="gap-4 px-4 py-5"
             style={{ backgroundColor: withOpacity(theme.primary, 0.13) }}
           >
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-background">
+            <View className="h-12 w-12 items-center justify-center rounded-md bg-background">
               <Crown size={24} color={theme.primary} strokeWidth={2.2} />
             </View>
 
             <View className="gap-1.5">
-              <Text className="text-[11px] font-black uppercase tracking-[1.5px] text-primary">
+              <Text variant="eyebrow">
                 Premium Reviewer Access
               </Text>
-              <Text className="text-[24px] font-black leading-8 text-foreground">
+              <Text className="text-2xl font-black leading-8 text-foreground">
                 {isPremiumUser
                   ? "Premium is active"
                   : "Unlock the full reviewer library"}
               </Text>
-              <Text className="text-[13px] leading-6 text-muted-foreground">
+              <Text className="text-sm leading-6 text-muted-foreground">
                 {isPremiumUser
                   ? "Your account already has premium access. Continue and open all locked content."
                   : "Free users can browse the catalog, but premium unlocks locked lessons, topic tracks, and the full exam library."}
@@ -184,15 +184,15 @@ export default function PremiumSubscriptionScreen() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[20px]">
-          <CardContent className="gap-2.5 px-4 py-4">
+        <Card className="rounded-lg">
+          <CardContent className="gap-2.5">
             <View className="flex-row items-center gap-2">
               <LockKeyhole size={16} color={theme.primary} strokeWidth={2.2} />
               <Text className="text-sm font-black text-card-foreground">
                 Locked Item
               </Text>
             </View>
-            <Text className="text-[13px] leading-5 text-muted-foreground">
+            <Text className="text-sm leading-5 text-muted-foreground">
               {sourceLabel}: {lockedTitle}
             </Text>
           </CardContent>
@@ -200,8 +200,8 @@ export default function PremiumSubscriptionScreen() {
 
         <View className="gap-3">
           {pricingOptions.map((option) => (
-            <Card key={option.id} className="rounded-[20px]">
-              <CardContent className="gap-3 px-4 py-4">
+            <Card key={option.id} className="rounded-lg">
+              <CardContent className="gap-3">
                 <View className="flex-row items-start justify-between gap-3">
                   <View className="gap-1">
                     <View
@@ -214,7 +214,7 @@ export default function PremiumSubscriptionScreen() {
                       }}
                     >
                       <Text
-                        className="text-[10px] font-black uppercase tracking-[1px]"
+                        className="text-2xs font-bold uppercase tracking-[1px]"
                         style={{
                           color:
                             option.id === "yearly"
@@ -225,24 +225,24 @@ export default function PremiumSubscriptionScreen() {
                         {option.badge}
                       </Text>
                     </View>
-                    <Text className="text-[22px] font-black text-card-foreground">
+                    <Text className="text-xl font-black text-card-foreground">
                       {option.headline}
                     </Text>
-                    <Text className="text-[12px] font-semibold text-muted-foreground">
+                    <Text className="text-xs font-semibold text-muted-foreground">
                       {option.subheadline}
                     </Text>
                   </View>
 
                   {option.id === "yearly" ? (
                     <View className="rounded-full bg-primary/10 px-2.5 py-1">
-                      <Text className="text-[10px] font-black uppercase tracking-[1px] text-primary">
+                      <Text variant="eyebrow">
                         Best value
                       </Text>
                     </View>
                   ) : null}
                 </View>
 
-                <Text className="text-[13px] leading-5 text-muted-foreground">
+                <Text className="text-sm leading-5 text-muted-foreground">
                   {option.detail}
                 </Text>
               </CardContent>
@@ -250,8 +250,8 @@ export default function PremiumSubscriptionScreen() {
           ))}
         </View>
 
-        <Card className="rounded-[20px]">
-          <CardContent className="gap-3 px-4 py-4">
+        <Card className="rounded-lg">
+          <CardContent className="gap-3">
             <Text className="text-sm font-black text-card-foreground">
               What Premium Includes
             </Text>
@@ -260,7 +260,7 @@ export default function PremiumSubscriptionScreen() {
               {premiumHighlights.map((item) => (
                 <View key={item.label} className="flex-row items-start gap-2.5">
                   <View className="mt-0.5">{item.icon}</View>
-                  <Text className="flex-1 text-[13px] leading-6 text-muted-foreground">
+                  <Text className="flex-1 text-sm leading-6 text-muted-foreground">
                     {item.label}
                   </Text>
                 </View>
@@ -272,7 +272,7 @@ export default function PremiumSubscriptionScreen() {
         {!isPremiumUser ? (
           <View className="gap-2.5">
             <Button
-              className="h-11 rounded-2xl"
+              className="h-11 rounded-md"
               onPress={() => router.push("/(tabs)/profile")}
             >
               <Crown
@@ -287,7 +287,7 @@ export default function PremiumSubscriptionScreen() {
 
             <Button
               variant="outline"
-              className="h-11 rounded-2xl"
+              className="h-11 rounded-md"
               onPress={handleBackToContext}
             >
               <Text className="font-bold">Not now</Text>
@@ -295,14 +295,14 @@ export default function PremiumSubscriptionScreen() {
           </View>
         ) : (
           <View className="gap-2.5">
-            <View className="flex-row items-center justify-center gap-2 rounded-2xl border border-primary/25 bg-primary/10 px-3 py-2.5">
+            <View className="flex-row items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/10 px-3 py-2.5">
               <Check size={15} color={theme.primary} strokeWidth={2.4} />
               <Text className="text-xs font-bold text-primary">
                 Premium account confirmed
               </Text>
             </View>
 
-            <Button className="h-11 rounded-2xl" onPress={handleBackToContext}>
+            <Button className="h-11 rounded-md" onPress={handleBackToContext}>
               <Text className="font-bold text-primary-foreground">
                 Continue to Content
               </Text>

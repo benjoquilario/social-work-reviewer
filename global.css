@@ -5,12 +5,15 @@
 /*
  * Design tokens — KEEP IN SYNC with lib/theme.ts (the runtime source of truth).
  *
- * Derived from the "Social Work Sure Win!" logo:
- *   teal  #03979d  primary
- *   navy  #02275c  ink / dark surfaces
- *   blue  #226dc3  supporting / charts
- *   sky   #2892be  soft supporting
- *   amber #f8a716  accent
+ * Sampled from the "Social Work Sure Win!" logo:
+ *   blue  #0269ed  primary (light, deepened for AA)
+ *   teal  #019a9d  supporting hue — chart2
+ *   cyan  #21d5fe  the glow — brand surfaces
+ *   navy  #00246e  book cover / brand surfaces
+ *   sky   #07abf4  supporting
+ *   blue  #0269ed  supporting / charts
+ *   gold  #fec503  accent
+ *   ink   #01060d  the near-black the mark sits on
  *
  * At runtime the root layout injects NATIVEWIND_THEME_VARIABLES from
  * lib/theme.ts via nativewind's vars(), which overrides these values.
@@ -20,68 +23,68 @@
  */
 @layer base {
   :root {
-    --background: 204 46% 97%;
-    --foreground: 215 48% 15%;
+    --background: 200 50% 97%;
+    --foreground: 215 55% 13%;
     --card: 0 0% 100%;
-    --card-foreground: 215 48% 15%;
+    --card-foreground: 215 55% 13%;
     --popover: 0 0% 100%;
-    --popover-foreground: 215 48% 15%;
-    --primary: 183 95% 26%;
+    --popover-foreground: 215 55% 13%;
+    --primary: 214 98% 45%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 200 46% 92%;
-    --secondary-foreground: 215 52% 24%;
-    --muted: 204 40% 94%;
-    --muted-foreground: 210 18% 42%;
-    --accent: 38 94% 53%;
-    --accent-foreground: 215 60% 13%;
-    --accent-text: 30 88% 36%;
-    --destructive: 0 72% 46%;
+    --secondary: 198 52% 92%;
+    --secondary-foreground: 214 52% 22%;
+    --muted: 200 44% 94%;
+    --muted-foreground: 208 20% 40%;
+    --accent: 45 99% 51%;
+    --accent-foreground: 215 60% 12%;
+    --accent-text: 32 92% 34%;
+    --destructive: 0 74% 45%;
     --destructive-foreground: 0 0% 100%;
-    --border: 205 32% 87%;
-    --input: 205 34% 91%;
-    --ring: 183 95% 26%;
-    --success: 162 82% 27%;
+    --border: 203 34% 87%;
+    --input: 203 38% 92%;
+    --ring: 214 98% 45%;
+    --success: 165 88% 26%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 94% 53%;
-    --warning-foreground: 215 60% 13%;
-    --chart-1: 183 95% 30%;
-    --chart-2: 212 70% 45%;
-    --chart-3: 38 94% 53%;
-    --chart-4: 262 62% 56%;
-    --chart-5: 344 72% 52%;
-    --radius: 0.875rem;
+    --warning: 40 99% 50%;
+    --warning-foreground: 215 60% 12%;
+    --chart-1: 214 92% 48%;
+    --chart-2: 184 98% 30%;
+    --chart-3: 38 98% 40%;
+    --chart-4: 262 70% 56%;
+    --chart-5: 340 78% 52%;
+    --radius: 1rem;
   }
 
   .dark {
-    --background: 215 50% 7%;
-    --foreground: 204 34% 94%;
-    --card: 215 42% 11%;
-    --card-foreground: 204 34% 94%;
-    --popover: 215 42% 11%;
-    --popover-foreground: 204 34% 94%;
-    --primary: 182 72% 46%;
-    --primary-foreground: 215 60% 8%;
-    --secondary: 214 36% 17%;
-    --secondary-foreground: 204 34% 94%;
-    --muted: 214 32% 18%;
-    --muted-foreground: 206 22% 68%;
-    --accent: 38 95% 58%;
-    --accent-foreground: 215 60% 10%;
-    --accent-text: 38 95% 62%;
-    --destructive: 2 76% 62%;
-    --destructive-foreground: 215 60% 8%;
-    --border: 213 28% 22%;
-    --input: 214 30% 16%;
-    --ring: 182 72% 46%;
-    --success: 160 66% 45%;
-    --success-foreground: 215 60% 8%;
-    --warning: 38 95% 58%;
-    --warning-foreground: 215 60% 10%;
-    --chart-1: 182 72% 50%;
-    --chart-2: 212 82% 66%;
-    --chart-3: 38 95% 58%;
-    --chart-4: 262 78% 72%;
-    --chart-5: 344 80% 68%;
-    --radius: 0.875rem;
+    --background: 210 55% 5%;
+    --foreground: 200 32% 94%;
+    --card: 211 44% 9%;
+    --card-foreground: 200 32% 94%;
+    --popover: 211 40% 12%;
+    --popover-foreground: 200 32% 94%;
+    --primary: 212 96% 68%;
+    --primary-foreground: 212 70% 7%;
+    --secondary: 212 34% 16%;
+    --secondary-foreground: 200 32% 94%;
+    --muted: 212 30% 17%;
+    --muted-foreground: 203 20% 66%;
+    --accent: 45 96% 58%;
+    --accent-foreground: 215 70% 8%;
+    --accent-text: 45 96% 62%;
+    --destructive: 2 80% 65%;
+    --destructive-foreground: 212 70% 7%;
+    --border: 209 30% 20%;
+    --input: 212 32% 15%;
+    --ring: 212 96% 68%;
+    --success: 160 70% 48%;
+    --success-foreground: 212 70% 7%;
+    --warning: 45 96% 58%;
+    --warning-foreground: 215 70% 8%;
+    --chart-1: 212 96% 68%;
+    --chart-2: 188 92% 58%;
+    --chart-3: 45 96% 58%;
+    --chart-4: 262 82% 74%;
+    --chart-5: 342 84% 68%;
+    --radius: 1rem;
   }
 }
