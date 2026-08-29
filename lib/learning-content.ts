@@ -14,6 +14,7 @@ import {
 } from "./appwrite"
 import { getReviewLibraryByCategoryId } from "../data/review-content-data"
 import { CATEGORIES } from "../data/reviewer-data"
+import { resolveCmsAssetUrl } from "./db"
 import {
   type LearningMaterialDocument,
   type LearningMaterialType,
@@ -22,6 +23,30 @@ import {
 } from "./schema"
 
 const CONTENT_QUERY_LIMIT = 500
+
+/**
+ * The columns a material **list** needs.
+ *
+ * Deliberately without `content` and `fileUrl`. A list renders a title, a type
+ * icon and a lock — it has never needed the body — but the read used to pull
+ * every premium lesson's full HTML down and then blank it in the mapper. The
+ * member never saw it; it was simply sitting on their device, which for a paid
+ * reviewer is the entire product.
+ *
+ * The detail read still asks for everything, and premium detail still goes
+ * through the server function when one is configured.
+ */
+const MATERIAL_LIST_FIELDS = [
+  "$id",
+  "topicId",
+  "subjectId",
+  "title",
+  "type",
+  "order",
+  "isPremium",
+  "isPublished",
+  "createdAt",
+]
 const CONTENT_IN_QUERY_CHUNK_SIZE = 50
 const LEARNING_RESOURCES = [
   COLLECTIONS.SUBJECTS,
@@ -63,11 +88,36 @@ export type LearningMaterial = {
   title: string
   order: number
   type: LearningMaterialType
+  /**
+   * Empty in every **list**. Only a detail read carries the body — see
+   * `MATERIAL_LIST_FIELDS`, and `describeMaterialType` for what a row shows
+   * instead.
+   */
   fileUrl: string | null
   content: string
   isPremium: boolean
   isLocked: boolean
   createdAt: string
+}
+
+/** What a list row says about a material, now that it has no body to preview. */
+export function describeMaterialType(material: {
+  type: LearningMaterialType
+  isLocked: boolean
+}) {
+  if (material.isLocked) {
+    return "Part of the membership"
+  }
+
+  switch (material.type) {
+    case "pdf":
+      return "PDF handout"
+    case "video":
+      return "Video lesson"
+    case "note":
+    default:
+      return "Reading"
+  }
 }
 
 export type LearningTopicDetail = {
@@ -136,8 +186,8 @@ function mapSubjectDocument(
     id: subject.$id,
     name: subject.name,
     description: subject.description ?? "",
-    iconUrl: subject.iconUrl ?? null,
-    order: subject.order,
+    iconUrl: resolveCmsAssetUrl(subject.iconUrl),
+    order: subject.order ?? 1,
     topicCount,
     materialCount: stats.total,
     freeMaterialCount: stats.free,
@@ -158,7 +208,7 @@ function mapTopicDocument(
     subjectId: topic.subjectId,
     title: topic.title,
     description: topic.description ?? "",
-    order: topic.order,
+    order: topic.order ?? 1,
     materialCount: stats.total,
     freeMaterialCount: stats.free,
     premiumMaterialCount: stats.premium,
@@ -178,9 +228,9 @@ function mapMaterialDocument(
     id: material.$id,
     topicId: material.topicId,
     title: material.title,
-    order: material.order,
+    order: material.order ?? 1,
     type: material.type,
-    fileUrl: isLocked ? null : (material.fileUrl ?? null),
+    fileUrl: isLocked ? null : resolveCmsAssetUrl(material.fileUrl),
     content: isLocked ? "" : (material.content ?? ""),
     isPremium: material.isPremium,
     isLocked,
@@ -197,7 +247,7 @@ function mapPremiumMaterialPayload(
     title: material.title,
     order: material.order ?? 1,
     type: material.type,
-    fileUrl: material.fileUrl,
+    fileUrl: resolveCmsAssetUrl(material.fileUrl),
     content: material.content,
     isPremium: material.isPremium,
     isLocked: false,
@@ -257,13 +307,15 @@ function shouldUseFreeCatalogFallback(
 }
 
 function sortTopics(topics: TopicDocument[]) {
-  return [...topics].sort((left, right) => left.order - right.order)
+  return [...topics].sort(
+    (left, right) => (left.order ?? 0) - (right.order ?? 0)
+  )
 }
 
 function sortMaterials(materials: LearningMaterialDocument[]) {
   return [...materials].sort((left, right) => {
     if (left.order !== right.order) {
-      return left.order - right.order
+      return (left.order ?? 0) - (right.order ?? 0)
     }
 
     return (
@@ -389,7 +441,11 @@ async function getLearningSnapshot() {
       .listRows({
         databaseId: DB_ID,
         tableId: COLLECTIONS.TOPICS,
-        queries: [Query.orderAsc("order"), Query.limit(CONTENT_QUERY_LIMIT)],
+        queries: [
+          Query.equal("isPublished", true),
+          Query.orderAsc("order"),
+          Query.limit(CONTENT_QUERY_LIMIT),
+        ],
       })
       .then((result) => result.rows as unknown as TopicDocument[]),
     listRemoteMaterials(),
@@ -414,6 +470,7 @@ async function getLearningSnapshot() {
 
 function listRemoteSubjects() {
   return listContentDocuments<SubjectDocument>(COLLECTIONS.SUBJECTS, [
+    Query.equal("isPublished", true),
     Query.orderAsc("order"),
     Query.limit(CONTENT_QUERY_LIMIT),
   ])
@@ -422,6 +479,7 @@ function listRemoteSubjects() {
 function listRemoteTopicsBySubjectId(subjectId: string) {
   return listContentDocuments<TopicDocument>(COLLECTIONS.TOPICS, [
     Query.equal("subjectId", subjectId),
+    Query.equal("isPublished", true),
     Query.orderAsc("order"),
     Query.limit(CONTENT_QUERY_LIMIT),
   ])
@@ -429,6 +487,8 @@ function listRemoteTopicsBySubjectId(subjectId: string) {
 
 function listRemoteMaterials() {
   return listContentDocuments<LearningMaterialDocument>(COLLECTIONS.LEARNING_MATERIALS, [
+    Query.equal("isPublished", true),
+    Query.select(MATERIAL_LIST_FIELDS),
     Query.orderAsc("order"),
     Query.orderAsc("createdAt"),
     Query.limit(CONTENT_QUERY_LIMIT),
@@ -438,6 +498,8 @@ function listRemoteMaterials() {
 function listRemoteMaterialsByTopicId(topicId: string) {
   return listContentDocuments<LearningMaterialDocument>(COLLECTIONS.LEARNING_MATERIALS, [
     Query.equal("topicId", topicId),
+    Query.equal("isPublished", true),
+    Query.select(MATERIAL_LIST_FIELDS),
     Query.orderAsc("order"),
     Query.orderAsc("createdAt"),
     Query.limit(CONTENT_QUERY_LIMIT),
@@ -472,6 +534,8 @@ async function listRemoteMaterialsByTopicIds(
         COLLECTIONS.LEARNING_MATERIALS,
         [
           Query.equal("topicId", chunk),
+          Query.equal("isPublished", true),
+          Query.select(MATERIAL_LIST_FIELDS),
           Query.orderAsc("order"),
           Query.orderAsc("createdAt"),
           Query.limit(CONTENT_QUERY_LIMIT),
@@ -710,6 +774,45 @@ export async function getLearningTopicDetail(
   }
 }
 
+/**
+ * Reads a material, asking for the body only when the viewer may have it.
+ *
+ * Two requests for a free lesson opened by a free member, one for a locked
+ * one — which is the right way round, because the second request only ever
+ * happens once entitlement is established.
+ */
+async function readMaterialForViewer(
+  materialId: string,
+  viewerIsPremium: boolean
+): Promise<LearningMaterialDocument> {
+  if (viewerIsPremium) {
+    return (await tablesDB.getRow({
+      databaseId: DB_ID,
+      tableId: COLLECTIONS.LEARNING_MATERIALS,
+      rowId: materialId,
+    })) as unknown as LearningMaterialDocument
+  }
+
+  const metadata = (await tablesDB.getRow({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.LEARNING_MATERIALS,
+    rowId: materialId,
+    queries: [Query.select(MATERIAL_LIST_FIELDS)],
+  })) as unknown as LearningMaterialDocument
+
+  // Paid, and they are not. The body stays on the server; if a premium access
+  // function is deployed, that is what decides whether they get it after all.
+  if (metadata.isPremium) {
+    return metadata
+  }
+
+  return (await tablesDB.getRow({
+    databaseId: DB_ID,
+    tableId: COLLECTIONS.LEARNING_MATERIALS,
+    rowId: materialId,
+  })) as unknown as LearningMaterialDocument
+}
+
 export async function getLearningMaterialDetail(
   materialId: string,
   options: LearningAccessOptions = {}
@@ -717,12 +820,13 @@ export async function getLearningMaterialDetail(
   const viewerIsPremium = options.viewerIsPremium === true
 
   try {
-    // Step 1: fetch material
-    const material = (await tablesDB.getRow({
-      databaseId: DB_ID,
-      tableId: COLLECTIONS.LEARNING_MATERIALS,
-      rowId: materialId,
-    })) as unknown as LearningMaterialDocument
+    // Step 1: fetch material.
+    //
+    // A member who is not paying gets the metadata first, without the body.
+    // The old order fetched the whole row and blanked `content` in the mapper,
+    // so a locked lesson's full text still travelled to the device — the render
+    // hid it, the network did not.
+    const material = await readMaterialForViewer(materialId, viewerIsPremium)
 
     // Step 2: fetch topic + sibling materials in parallel (both only need material.topicId)
     const [topic, topicMaterials] = await Promise.all([

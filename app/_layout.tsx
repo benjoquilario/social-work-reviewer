@@ -1,10 +1,15 @@
 import { ThemeProvider } from "@react-navigation/native"
 import { PortalHost } from "@rn-primitives/portal"
 import { useFonts } from "expo-font"
-import { Stack, useRouter, useSegments } from "expo-router"
+import {
+  Stack,
+  useGlobalSearchParams,
+  useRouter,
+  useSegments,
+} from "expo-router"
 import * as SplashScreen from "expo-splash-screen"
 import { StatusBar } from "expo-status-bar"
-import { BookOpenText, ListChecks, Timer } from "lucide-react-native"
+import { BookOpenText, ListChecks } from "lucide-react-native"
 import { vars } from "nativewind"
 
 import "react-native-reanimated"
@@ -23,6 +28,7 @@ import {
 } from "@/lib/app-preferences"
 import { APP_FONTS } from "@/lib/fonts"
 import { configureNotifications } from "@/lib/notifications"
+import { useStudyReminder } from "@/hooks/use-study-reminder"
 import { AppQueryProvider } from "@/lib/query-client"
 import { NATIVEWIND_THEME_VARIABLES, NAV_THEME } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
@@ -163,6 +169,9 @@ export default function RootLayout() {
 function RootNavigator() {
   const router = useRouter()
   const segments = useSegments()
+  // Global rather than local: this is a layout, and `useLocalSearchParams`
+  // reports the layout's own params, not the child route's.
+  const globalParams = useGlobalSearchParams<{ replay?: string }>()
   const [fontsLoaded] = useFonts({
     PlusJakartaSans_400Regular: require("../assets/fonts/PlusJakartaSans_400Regular.ttf"),
     PlusJakartaSans_500Medium: require("../assets/fonts/PlusJakartaSans_500Medium.ttf"),
@@ -175,6 +184,9 @@ function RootNavigator() {
     (state) => state.preferences.hasCompletedOnboarding
   )
   const authState = useAuth((state) => state.authState)
+  // Keeps the daily reminder in step with user_settings — including turning it
+  // off, which is why it runs here rather than only from the settings screen.
+  useStudyReminder()
   const colorScheme = useColorScheme()
   const navTheme = colorScheme === "dark" ? NAV_THEME.dark : NAV_THEME.light
   const nativewindThemeVariables = useMemo(
@@ -218,6 +230,11 @@ function RootNavigator() {
 
     const inAuthGroup = segments[0] === "(auth)"
     const inOnboarding = segments[0] === "onboarding"
+    // Onboarding opened deliberately from Settings, rather than shown before
+    // the first sign-in. Without this the guard below bounces a signed-in
+    // member to Home the instant the screen mounts, so the Help entry would
+    // look broken rather than replayed.
+    const isOnboardingReplay = inOnboarding && globalParams.replay === "1"
     const isPublicRoute =
       segments[0] === "verify-email" || segments[0] === "verify-email-bridge"
 
@@ -233,13 +250,15 @@ function RootNavigator() {
 
     if (
       authState.status === "authenticated" &&
-      (inAuthGroup || inOnboarding)
+      (inAuthGroup || inOnboarding) &&
+      !isOnboardingReplay
     ) {
       router.replace("/(tabs)")
     }
   }, [
     authState.status,
     fontsLoaded,
+    globalParams.replay,
     hasCompletedOnboarding,
     isReady,
     router,
@@ -258,6 +277,7 @@ function RootNavigator() {
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+            <Stack.Screen name="welcome" options={{ headerShown: false }} />
             <Stack.Screen name="diagnostics" options={{ headerShown: false }} />
             <Stack.Screen name="settings" options={{ headerShown: false }} />
             <Stack.Screen

@@ -51,6 +51,8 @@ import {
   MaterialTypeIcon,
 } from "@/components/learn"
 import { ScreenHeader } from "@/components/screen-header"
+import { toAchievementSnapshot } from "@/lib/member/profile"
+import { useIsPremium } from "@/hooks/use-membership"
 
 const SHORT_DATETIME_FMT = new Intl.DateTimeFormat("en-PH", {
   dateStyle: "medium",
@@ -119,7 +121,9 @@ export default function LessonDetailScreen() {
   const openedMaterialIdRef = useRef<string | null>(null)
 
   const lessonId = params.lessonId ?? ""
-  const isPremiumUser = profile?.isPremium === true
+  // Flag *and* date — the cached flag alone keeps a lapsed member premium
+  // until a server sweep catches up (section 6).
+  const isPremiumUser = useIsPremium()
 
   useEffect(() => {
     if (isAuthenticated && !profile) {
@@ -233,12 +237,7 @@ export default function LessonDetailScreen() {
       subjectId: materialDetail.subject.id,
       topicId: materialDetail.topic.id,
       learningMaterialId: materialDetail.material.id,
-      profileSnapshot: {
-        fullName: profile?.fullName,
-        schoolName: profile?.schoolName,
-        reviewType: profile?.reviewType,
-        avatarUrl: profile?.avatarUrl,
-      },
+      profileSnapshot: toAchievementSnapshot(profile),
     })
   }, [materialDetail, profile, user])
 
@@ -261,12 +260,7 @@ export default function LessonDetailScreen() {
         topicId: materialDetail.topic.id,
         learningMaterialId: materialDetail.material.id,
         secondsSpent,
-        profileSnapshot: {
-          fullName: profile?.fullName,
-          schoolName: profile?.schoolName,
-          reviewType: profile?.reviewType,
-          avatarUrl: profile?.avatarUrl,
-        },
+        profileSnapshot: toAchievementSnapshot(profile),
       })
     }
   }, [materialDetail, profile, user])
@@ -288,12 +282,7 @@ export default function LessonDetailScreen() {
         subjectId: materialDetail.subject.id,
         topicId: materialDetail.topic.id,
         learningMaterialId: materialDetail.material.id,
-        profileSnapshot: {
-          fullName: profile?.fullName,
-          schoolName: profile?.schoolName,
-          reviewType: profile?.reviewType,
-          avatarUrl: profile?.avatarUrl,
-        },
+        profileSnapshot: toAchievementSnapshot(profile),
       })
     }
   }
@@ -317,12 +306,7 @@ export default function LessonDetailScreen() {
         subjectId: materialDetail.subject.id,
         topicId: materialDetail.topic.id,
         learningMaterialId: materialDetail.material.id,
-        profileSnapshot: {
-          fullName: profile?.fullName,
-          schoolName: profile?.schoolName,
-          reviewType: profile?.reviewType,
-          avatarUrl: profile?.avatarUrl,
-        },
+        profileSnapshot: toAchievementSnapshot(profile),
       })
 
       const completedStatus: LearningMaterialStatusSnapshot = {

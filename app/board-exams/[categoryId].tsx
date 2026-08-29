@@ -1,183 +1,149 @@
-import { useMemo } from "react"
-import { useAuth } from "@/contexts/auth-context"
+import { useCallback, useMemo } from "react"
 import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list"
-import { useQuery } from "@tanstack/react-query"
 import { Stack, useLocalSearchParams, useRouter } from "expo-router"
-import { FileQuestion, LockKeyhole } from "lucide-react-native"
-import { Pressable, View } from "react-native"
+import { View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
+import { getCategoryDestination } from "@/lib/content/exam-categories"
+import type { QuestionSet } from "@/lib/content/question-sets"
 import {
-  listBoardExamSetsByCategoryId,
-  type BoardExamSetSummary,
-} from "@/lib/board-exams"
-import { THEME } from "@/lib/theme"
-import { useColorScheme } from "@/hooks/use-color-scheme"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
+  useExamCategory,
+  useQuestionSets,
+} from "@/hooks/use-exam-content"
+import { QuestionSetCard } from "@/components/exam/set-card"
+import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
+import { PaperSetupScreen } from "@/components/exam/paper-setup-screen"
+
+/**
+ * A category, routed by its own counts.
+ *
+ * `setCount > 0` opens the set picker. `setCount === 0` means the questions sit
+ * directly under the category, and the member goes straight to the setup —
+ * making them tap through an empty picker to get there would be a step that
+ * exists only because the data has two shapes.
+ */
 
 const LIST_CONTENT_STYLE = { paddingHorizontal: 16, paddingVertical: 16 }
 
-function BoardExamSetCard({
-  set,
-  onPress,
-  theme,
-}: {
-  set: BoardExamSetSummary
-  onPress: () => void
-  theme: (typeof THEME)["light"] | (typeof THEME)["dark"]
-}) {
-  const isUnavailable = set.totalQuestionCount === 0
-
-  return (
-    <Pressable onPress={onPress} disabled={isUnavailable}>
-      <Card
-        className="rounded-xl"
-        style={{
-          borderWidth: 1,
-          borderColor: theme.border,
-          opacity: isUnavailable ? 0.64 : 1,
-          backgroundColor: theme.card,
-        }}
-      >
-        <CardContent className="gap-3">
-          <View className="flex-row items-start justify-between gap-3">
-            <View className="flex-1 gap-0.5">
-              <Text className="text-sm font-black text-card-foreground">
-                {set.title}
-              </Text>
-              <Text className="text-xs text-muted-foreground">
-                {set.description || "Board exam set"}
-              </Text>
-            </View>
-            <Badge tone="primary" size="sm">
-              <Text className="text-2xs font-bold uppercase tracking-[1px]">
-                {set.setCode}
-              </Text>
-            </Badge>
-          </View>
-
-          <View className="flex-row flex-wrap items-center gap-3">
-            <View className="flex-row items-center gap-1.5">
-              <FileQuestion size={13} color={theme.primary} />
-              <Text variant="eyebrow">
-                {set.totalQuestionCount} questions
-              </Text>
-            </View>
-            {set.hasPremiumQuestions ? (
-              <View className="flex-row items-center gap-1.5">
-                <LockKeyhole size={13} color={theme.accent} />
-                <Text
-                  className="text-2xs font-bold uppercase tracking-[1px]"
-                  style={{ color: theme.accent }}
-                >
-                  {set.freeQuestionCount} free · {set.premiumQuestionCount}{" "}
-                  locked
-                </Text>
-              </View>
-            ) : null}
-            {isUnavailable ? (
-              <Text variant="label">
-                No questions yet
-              </Text>
-            ) : null}
-          </View>
-        </CardContent>
-      </Card>
-    </Pressable>
-  )
-}
-
-export default function BoardExamSetsScreen() {
+export default function ExamCategoryScreen() {
   const router = useRouter()
-  const profile = useAuth((state) => state.profile)
-  const colorScheme = useColorScheme()
-  const theme = colorScheme === "dark" ? THEME.dark : THEME.light
   const params = useLocalSearchParams<{ categoryId?: string }>()
   const categoryId = params.categoryId ?? ""
-  const isPremiumUser = profile?.isPremium === true
 
-  const setsQuery = useQuery({
-    queryKey: ["board-exam-sets", categoryId, isPremiumUser],
-    enabled: Boolean(categoryId),
-    queryFn: () =>
-      listBoardExamSetsByCategoryId(categoryId, {
-        viewerIsPremium: isPremiumUser,
-      }),
-  })
+  const categoryQuery = useExamCategory(categoryId)
+  const category = categoryQuery.data ?? null
 
-  const category = setsQuery.data?.category ?? null
-  const sets = useMemo(() => setsQuery.data?.sets ?? [], [setsQuery.data?.sets])
-
-  const errorMessage =
-    setsQuery.error instanceof Error
-      ? setsQuery.error.message
-      : setsQuery.error
-        ? "Unable to load board exam sets. Please try again later."
-        : null
-
-  const renderSet = ({ item }: ListRenderItemInfo<BoardExamSetSummary>) => (
-    <BoardExamSetCard
-      set={item}
-      theme={theme}
-      onPress={() =>
-        router.push({
-          pathname: "/board-exams/[categoryId]/[setId]",
-          params: {
-            categoryId,
-            setId: item.id,
-          },
-        })
-      }
-    />
+  const destination = useMemo(
+    () => (category ? getCategoryDestination(category) : null),
+    [category]
   )
+
+  const setsQuery = useQuestionSets(categoryId, destination?.kind === "sets")
+
+  const openSet = useCallback(
+    (setId: string) => {
+      router.push({
+        pathname: "/board-exams/[categoryId]/[setId]",
+        params: { categoryId, setId },
+      })
+    },
+    [categoryId, router]
+  )
+
+  const renderSet = useCallback(
+    ({ item }: ListRenderItemInfo<QuestionSet>) => (
+      <QuestionSetCard set={item} onPress={() => openSet(item.id)} />
+    ),
+    [openSet]
+  )
+
+  const title = category?.title ?? "Board exams"
+
+  if (categoryQuery.isLoading) {
+    return (
+      <SafeAreaView
+        edges={["left", "right", "bottom"]}
+        className="flex-1 gap-3 bg-background px-4 py-4"
+      >
+        <Stack.Screen options={{ title }} />
+        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-24 rounded-xl" />
+      </SafeAreaView>
+    )
+  }
+
+  if (!category) {
+    return (
+      <SafeAreaView
+        edges={["left", "right", "bottom"]}
+        className="flex-1 bg-background px-4 py-4"
+      >
+        <Stack.Screen options={{ title }} />
+        <EmptyState
+          tone="destructive"
+          title="Category not found"
+          description="This category is no longer published."
+          action={
+            <Button size="sm" variant="outline" onPress={() => router.back()}>
+              <Text>Go back</Text>
+            </Button>
+          }
+        />
+      </SafeAreaView>
+    )
+  }
+
+  if (destination?.kind !== "sets") {
+    return <PaperSetupScreen category={category} set={null} />
+  }
 
   return (
     <SafeAreaView
       edges={["left", "right", "bottom"]}
       className="flex-1 bg-background"
     >
-      <Stack.Screen options={{ title: category?.title ?? "Board Exams" }} />
+      <Stack.Screen options={{ title }} />
+
       <FlashList
-        data={sets}
-        extraData={theme}
+        data={setsQuery.data ?? []}
         keyExtractor={(item) => item.id}
         renderItem={renderSet}
         contentContainerStyle={LIST_CONTENT_STYLE}
         showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View className="h-3" />}
+        ItemSeparatorComponent={ListSeparator}
         ListHeaderComponent={
-          <View className="pb-3">
-            {setsQuery.isLoading ? (
-              <View className="gap-3 px-4">
-                <Skeleton className="h-24 rounded-xl" />
-                <Skeleton className="h-24 rounded-xl" />
-              </View>
-            ) : null}
-
-            {errorMessage ? (
-              <View className="px-4">
-                <EmptyState
-                  tone="destructive"
-                  title="Board exam sets unavailable"
-                  description={errorMessage}
-                />
-              </View>
+          <View className="gap-1 pb-4">
+            <Text variant="label">
+              {destination.setCount} {destination.setCount === 1 ? "set" : "sets"}
+              {" · "}
+              {category.questionCount} questions
+            </Text>
+            {category.description ? (
+              <Text variant="caption">{category.description}</Text>
             ) : null}
           </View>
         }
         ListEmptyComponent={
-          !setsQuery.isLoading && !errorMessage ? (
+          setsQuery.isLoading ? (
+            <View className="gap-3">
+              <Skeleton className="h-24 rounded-xl" />
+              <Skeleton className="h-24 rounded-xl" />
+            </View>
+          ) : (
             <EmptyState
-              title="No sets yet for this category"
-              description="No sets are available for this category yet. Check back later for updates."
+              title="No sets published yet"
+              description="The team is still preparing this category. Check back soon."
             />
-          ) : null
+          )
         }
       />
     </SafeAreaView>
   )
+}
+
+function ListSeparator() {
+  return <View className="h-3" />
 }

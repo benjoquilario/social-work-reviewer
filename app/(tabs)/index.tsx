@@ -21,10 +21,11 @@ import {
   getGreetingSalutation,
 } from "@/lib/study-dashboard"
 import { listLearningSubjects } from "@/lib/learning-content"
-import { hasUnreadNews } from "@/lib/news-unread"
 import { getStaggerDelay } from "@/lib/motion"
 import { getUserActivityFeed } from "@/lib/progress"
 import { getThemeChartPalette } from "@/lib/theme"
+import { useAnnouncements } from "@/hooks/use-announcements"
+import { useResumableSessions } from "@/hooks/use-resumable-sessions"
 import { useThemePalette } from "@/hooks/use-theme"
 import { DatePickerDialog } from "@/components/ui/date-picker-dialog"
 import { FadeInView } from "@/components/ui/motion"
@@ -36,10 +37,12 @@ import {
   HomeTopBar,
   QuickActionsSection,
   RecentActivitySection,
+  ResumeAnsweringSection,
   StudyProgressCard,
   type SubjectRailItem,
   type QuickAction,
 } from "@/components/home"
+import { useIsPremium } from "@/hooks/use-membership"
 
 /** How many subjects the rail shows before deferring to the Learn tab. */
 const SUBJECT_PREVIEW_COUNT = 6
@@ -52,13 +55,12 @@ export default function ReviewerHomeScreen() {
   const profile = useAuth((state) => state.profile)
   const isAuthenticated = useAuth((state) => state.isAuthenticated)
   const refreshProfile = useAuth((state) => state.refreshProfile)
-  const isPremiumUser = profile?.isPremium === true
+  // Flag *and* date — the cached flag alone keeps a lapsed member premium
+  // until a server sweep catches up (section 6).
+  const isPremiumUser = useIsPremium()
 
   const examDate = useAppPreferences((state) => state.preferences.examDate)
   const setPreference = useAppPreferences((state) => state.setPreference)
-  const seenNewsIds = useAppPreferences(
-    (state) => state.preferences.seenNewsIds
-  )
   const [isExamPickerOpen, setIsExamPickerOpen] = useState(false)
 
   useEffect(() => {
@@ -81,7 +83,7 @@ export default function ReviewerHomeScreen() {
       getUserActivityFeed(
         { userId: user?.$id ?? "" },
         {
-          quizAttemptsLimit: 80,
+          sessionsLimit: 80,
           learningHistoryLimit: 80,
           achievementsLimit: 6,
         }
@@ -93,6 +95,9 @@ export default function ReviewerHomeScreen() {
     queryKey: ["home-review-subjects", isPremiumUser],
     queryFn: () => listLearningSubjects({ viewerIsPremium: isPremiumUser }),
   })
+
+  const resumable = useResumableSessions()
+  const announcements = useAnnouncements()
 
   // ─── Derived ────────────────────────────────────────────────────
 
@@ -113,10 +118,9 @@ export default function ReviewerHomeScreen() {
         : null
 
   const salutation = useMemo(() => getGreetingSalutation(), [])
-  const showNewsBadge = useMemo(
-    () => hasUnreadNews(seenNewsIds),
-    [seenNewsIds]
-  )
+  // The dot and the list come from the same query, so the badge can never
+  // light up for something the Updates screen will not show.
+  const showNewsBadge = announcements.hasUnread
   const countdown = useMemo(
     () => buildExamCountdown(examDate),
     [examDate]
@@ -294,6 +298,7 @@ export default function ReviewerHomeScreen() {
           onPressMenu={goToSettings}
           onPressNotifications={goToNews}
           onPressAvatar={goToProfile}
+          onPressSearch={() => router.push("/search")}
         />
 
         <FadeInView delay={getStaggerDelay(0)}>
@@ -324,6 +329,29 @@ export default function ReviewerHomeScreen() {
         <FadeInView delay={getStaggerDelay(3)}>
           <QuickActionsSection actions={quickActions} />
         </FadeInView>
+
+        {/* Only rendered when there is something to continue: an empty
+            section would still occupy a slot in the feed's gap rhythm and
+            read as a double gap. */}
+        {resumable.hasResumableWork || resumable.isLoading ? (
+          <FadeInView delay={getStaggerDelay(4)}>
+            <ResumeAnsweringSection
+              theme={theme}
+              items={resumable.cards}
+              isLoading={resumable.isLoading}
+              errorMessage={
+                resumable.error instanceof Error
+                  ? resumable.error.message
+                  : null
+              }
+              onPressItem={(item) => {
+                if (item.onPressParams) {
+                  router.push(item.onPressParams)
+                }
+              }}
+            />
+          </FadeInView>
+        ) : null}
 
         <FadeInView delay={getStaggerDelay(4)}>
           <SubjectProgressSection

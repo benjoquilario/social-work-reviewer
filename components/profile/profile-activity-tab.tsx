@@ -93,7 +93,7 @@ export const ProfileActivityTab = memo(function ProfileActivityTab({
   }
 
   const hasMoreSources =
-    activityFeed.quizAttemptsHasMore || activityFeed.learningHistoryHasMore
+    activityFeed.sessionsHasMore || activityFeed.learningHistoryHasMore
 
   return (
     <View className="gap-3">
@@ -120,7 +120,7 @@ export const ProfileActivityTab = memo(function ProfileActivityTab({
         <CardContent size="compact" className="gap-0.5">
           <Text variant="label">Completed</Text>
           <Text variant="callout" className="font-semibold">
-            {activityFeed.completedQuizzes} quizzes ·{" "}
+            {activityFeed.completedSessions} sittings ·{" "}
             {activityFeed.completedMaterials} materials
           </Text>
           <Text variant="caption">
@@ -232,14 +232,14 @@ export const ProfileActivityTab = memo(function ProfileActivityTab({
 
       {hasMoreSources ? (
         <View className="flex-row gap-2.5">
-          {activityFeed.quizAttemptsHasMore ? (
+          {activityFeed.sessionsHasMore ? (
             <Button
               size="sm"
               variant="outline"
               className="flex-1"
               onPress={onLoadMoreQuizData}
             >
-              <Text numberOfLines={1}>More quiz data</Text>
+              <Text numberOfLines={1}>More sittings</Text>
             </Button>
           ) : null}
 

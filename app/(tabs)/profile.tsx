@@ -41,6 +41,13 @@ import {
   getAchievementBadgeMeta,
   type AchievementCardItem,
 } from "@/components/profile"
+import { getMembership } from "@/lib/member/membership"
+import { getMemberTypeDisplay } from "@/lib/member/profile"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { MemberIdentityRows } from "@/components/member/member-identity-row"
+import { MembershipCard } from "@/components/member/membership-card"
+import { useIsPremium, useSubscription } from "@/hooks/use-membership"
 
 const SUBJECT_PREVIEW_COUNT = 6
 const ACHIEVEMENT_PREVIEW_COUNT = 6
@@ -63,7 +70,9 @@ function ProfileScreenContent() {
 
   const examDate = useAppPreferences((state) => state.preferences.examDate)
   const [isSendingVerification, setIsSendingVerification] = useState(false)
-  const isPremiumUser = profile?.isPremium === true
+  // Flag *and* date — the cached flag alone keeps a lapsed member premium
+  // until a server sweep catches up (section 6).
+  const isPremiumUser = useIsPremium()
 
   const {
     isEditOpen,
@@ -75,10 +84,12 @@ function ProfileScreenContent() {
     setIsUploadingAvatar,
     fullName,
     setFullName,
-    schoolName,
-    setSchoolName,
-    reviewType,
-    setReviewType,
+    memberType,
+    setMemberType,
+    schoolOrEmployer,
+    setSchoolOrEmployer,
+    licenseNumber,
+    setLicenseNumber,
     avatarUrl,
     setAvatarUrl,
     clearAvatarUrl,
@@ -99,8 +110,14 @@ function ProfileScreenContent() {
     [displayName, profile?.avatarUrl]
   )
 
-  const roleLabel = profile?.reviewType?.trim() || "Board Exam Reviewer"
-  const school = profile?.schoolName?.trim()
+  // Who they said they are, or "Not said" — never a guess, and never a role.
+  const roleLabel = getMemberTypeDisplay(profile)
+  // The paywall answer, date included — never the cached flag on its own.
+  const membership = useMemo(() => getMembership(profile), [profile])
+  // The row the server actually reads, rather than the four fields it caches
+  // onto the profile afterwards. Empty for anybody who has never subscribed.
+  const subscription = useSubscription()
+  const school = profile?.schoolOrEmployer ?? undefined
 
   // ─── Data ───────────────────────────────────────────────────────
 
@@ -111,7 +128,7 @@ function ProfileScreenContent() {
       getUserActivityFeed(
         { userId: user?.$id ?? "" },
         {
-          quizAttemptsLimit: 80,
+          sessionsLimit: 80,
           learningHistoryLimit: 80,
           achievementsLimit: 12,
         }
@@ -213,16 +230,18 @@ function ProfileScreenContent() {
   const openEditDialog = useCallback(() => {
     openProfileEditDialog({
       fullName: profile?.fullName ?? user?.name ?? "",
-      schoolName: profile?.schoolName ?? "",
-      reviewType: profile?.reviewType ?? "",
+      memberType: profile?.memberType ?? null,
+      schoolOrEmployer: profile?.schoolOrEmployer ?? "",
+      licenseNumber: profile?.licenseNumber ?? "",
       avatarUrl: profile?.avatarUrl ?? "",
     })
   }, [
     openProfileEditDialog,
     profile?.avatarUrl,
     profile?.fullName,
-    profile?.reviewType,
-    profile?.schoolName,
+    profile?.licenseNumber,
+    profile?.memberType,
+    profile?.schoolOrEmployer,
     user?.name,
   ])
 
@@ -284,7 +303,13 @@ function ProfileScreenContent() {
   const handleSaveProfile = useCallback(async () => {
     setIsSubmitting(true)
     try {
-      await updateProfile({ fullName, schoolName, reviewType, avatarUrl })
+      await updateProfile({
+        fullName,
+        memberType,
+        schoolOrEmployer,
+        licenseNumber,
+        avatarUrl,
+      })
       setIsEditOpen(false)
       Alert.alert("Profile updated", "Your profile details were saved.")
     } catch (error) {
@@ -300,8 +325,9 @@ function ProfileScreenContent() {
   }, [
     avatarUrl,
     fullName,
-    reviewType,
-    schoolName,
+    licenseNumber,
+    memberType,
+    schoolOrEmployer,
     setIsEditOpen,
     setIsSubmitting,
     updateProfile,
@@ -403,6 +429,31 @@ function ProfileScreenContent() {
         </FadeInView>
 
         <FadeInView delay={getStaggerDelay(2)}>
+          <MembershipCard
+            membership={membership}
+            subscriptionDetail={subscription.description?.detail}
+            onUpgrade={() => router.push("/premium")}
+          />
+        </FadeInView>
+
+        <FadeInView delay={getStaggerDelay(3)}>
+          <Card>
+            <CardContent className="gap-2">
+              <Text variant="label">About you</Text>
+              <MemberIdentityRows profile={profile} />
+              <Button
+                size="sm"
+                variant="outline"
+                className="self-start"
+                onPress={openEditDialog}
+              >
+                <Text>Edit details</Text>
+              </Button>
+            </CardContent>
+          </Card>
+        </FadeInView>
+
+        <FadeInView delay={getStaggerDelay(4)}>
           <ProfileProgressCard
             theme={theme}
             isLoading={activityQuery.isLoading || subjectsQuery.isLoading}
@@ -453,16 +504,18 @@ function ProfileScreenContent() {
         initials={initials}
         avatarPreview={avatarUrl || profile?.avatarUrl || avatarSource}
         fullName={fullName}
-        schoolName={schoolName}
-        reviewType={reviewType}
+        memberType={memberType}
+        schoolOrEmployer={schoolOrEmployer}
+        licenseNumber={licenseNumber}
         isUploadingAvatar={isUploadingAvatar}
         isSubmitting={isSubmitting}
         onOpenChange={setIsEditOpen}
         onPickPhoto={() => void handlePickProfilePhoto()}
         onClearAvatar={clearAvatarUrl}
         onChangeFullName={setFullName}
-        onChangeSchoolName={setSchoolName}
-        onChangeReviewType={setReviewType}
+        onChangeMemberType={setMemberType}
+        onChangeSchoolOrEmployer={setSchoolOrEmployer}
+        onChangeLicenseNumber={setLicenseNumber}
         onSave={() => void handleSaveProfile()}
       />
     </SafeAreaView>

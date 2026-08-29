@@ -1,4 +1,4 @@
-import { COLLECTIONS, DB_ID, tablesDB } from "../appwrite"
+import { createRow } from "../db"
 import type { LearningAchievementDocument } from "../schema"
 import {
   MATERIAL_COMPLETION_MILESTONES,
@@ -11,18 +11,14 @@ import {
   STREAK_TIER_META,
 } from "./constants"
 import type { AchievementProfileSnapshot, AwardMilestoneParams } from "./types"
-import {
-  getUserOwnedPermissions,
-  isAppwriteConflictError,
-  resolveDeterministicRow,
-} from "./utils"
+import { isAppwriteConflictError, resolveDeterministicRow } from "./utils"
 
 function buildAchievementKeyParts(params: {
   userId: string
   achievementType: LearningAchievementDocument["achievementType"]
   title: string
   learningMaterialId?: string
-  examId?: string
+  referenceId?: string
   badgeKey?: string
   periodStartDate?: string
 }) {
@@ -31,7 +27,7 @@ function buildAchievementKeyParts(params: {
     params.achievementType,
     params.title,
     params.badgeKey ?? "",
-    params.examId ?? "",
+    params.referenceId ?? "",
     params.learningMaterialId ?? "",
     params.periodStartDate ?? "",
   ]
@@ -48,7 +44,7 @@ export async function createAchievementIfMissing(params: {
   subjectId?: string
   topicId?: string
   learningMaterialId?: string
-  examId?: string
+  referenceId?: string
   badgeKey?: string
   metricKey?: string
   thresholdValue?: number
@@ -62,10 +58,8 @@ export async function createAchievementIfMissing(params: {
   // Look before writing. A create-and-swallow-409 would no longer recognise an
   // achievement stored under the pre-widening row ID, and would award the badge
   // a second time under the new ID.
-  const { row: existing, rowId } = await resolveDeterministicRow<
-    LearningAchievementDocument & { userId?: string }
-  >(
-    COLLECTIONS.LEARNING_ACHIEVEMENTS,
+  const { row: existing, rowId } = await resolveDeterministicRow(
+    "learning_achievements",
     "achieve",
     buildAchievementKeyParts(params),
     params.userId
@@ -76,36 +70,38 @@ export async function createAchievementIfMissing(params: {
   }
 
   try {
-    await tablesDB.createRow({
-      databaseId: DB_ID,
-      tableId: COLLECTIONS.LEARNING_ACHIEVEMENTS,
-      rowId,
-      permissions: getUserOwnedPermissions(params.userId),
-      data: {
+    // `title` is shown as written, like `user_activity_log.title`. The
+    // wording is decided here and stored — rebuilding the sentence from
+    // `achievementType` at render time silently rewords old badges the next
+    // time the copy ships.
+    await createRow(
+      "learning_achievements",
+      {
         userId: params.userId,
-        fullName: params.profileSnapshot?.fullName ?? null,
-        schoolName: params.profileSnapshot?.schoolName ?? null,
-        reviewType: params.profileSnapshot?.reviewType ?? null,
-        avatarUrl: params.profileSnapshot?.avatarUrl ?? null,
-        subjectId: params.subjectId ?? null,
-        topicId: params.topicId ?? null,
-        learningMaterialId: params.learningMaterialId ?? null,
+        fullName: params.profileSnapshot?.fullName ?? "",
+        schoolName: params.profileSnapshot?.schoolName ?? "",
+        reviewType: params.profileSnapshot?.reviewType ?? "",
+        avatarUrl: params.profileSnapshot?.avatarUrl ?? "",
+        subjectId: params.subjectId ?? "",
+        topicId: params.topicId ?? "",
+        learningMaterialId: params.learningMaterialId ?? "",
         achievementType: params.achievementType,
-        badgeKey: params.badgeKey ?? null,
+        badgeKey: params.badgeKey ?? "",
         title: params.title,
         description: params.description,
         metricValue: params.metricValue,
-        thresholdValue: params.thresholdValue ?? null,
-        metricKey: params.metricKey ?? null,
+        thresholdValue: params.thresholdValue ?? params.metricValue,
+        metricKey: params.metricKey ?? "",
         periodType: params.periodType ?? "instant",
-        periodStartDate: params.periodStartDate ?? null,
-        periodEndDate: params.periodEndDate ?? null,
+        periodStartDate: params.periodStartDate ?? "",
+        periodEndDate: params.periodEndDate ?? "",
         dayStreak: params.dayStreak,
         weeklyAverageScore: params.weeklyAverageScore,
         earnedAt: nowIso,
         createdAt: nowIso,
       },
-    })
+      { rowId, ownerId: params.userId }
+    )
     return true
   } catch (error) {
     if (!isAppwriteConflictError(error)) {
@@ -176,7 +172,7 @@ export async function awardMilestoneIfEligible(params: {
     periodEndDate: payload.periodEndDate,
     subjectId: payload.subjectId,
     topicId: payload.topicId,
-    examId: payload.examId,
+    referenceId: payload.referenceId,
     dayStreak: payload.dayStreak,
     weeklyAverageScore: payload.weeklyAverageScore,
     profileSnapshot: payload.profileSnapshot,
@@ -215,7 +211,7 @@ export async function awardQuizScoreMilestones(
       topicId: payload.topicId,
       dayStreak: payload.dayStreak,
       weeklyAverageScore: payload.weeklyAverageScore,
-      examId: payload.examId,
+      referenceId: payload.referenceId,
       profileSnapshot: payload.profileSnapshot,
     })
 

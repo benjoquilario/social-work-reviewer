@@ -7,21 +7,21 @@ export type CmsFieldKind =
   | "boolean"
   | "datetime"
   | "enum"
-  | "string[]"
+  | "string[]";
 
 export type CmsFieldDefinition = {
-  key: string
-  label: string
-  kind: CmsFieldKind
-  required?: boolean
-  description?: string
-  placeholder?: string
-  size?: number
-  min?: number
-  max?: number
-  array?: boolean
-  options?: readonly string[]
-  defaultValue?: string | number | boolean
+  key: string;
+  label: string;
+  kind: CmsFieldKind;
+  required?: boolean;
+  description?: string;
+  placeholder?: string;
+  size?: number;
+  min?: number;
+  max?: number;
+  array?: boolean;
+  options?: readonly string[];
+  defaultValue?: string | number | boolean;
   /**
    * Maintained by the system, not by a person.
    *
@@ -29,31 +29,31 @@ export type CmsFieldDefinition = {
    * an editor can type into is a field an editor will type into - and a
    * hand-edited question count is worse than no question count.
    */
-  readOnly?: boolean
+  readOnly?: boolean;
   /**
    * Plain-language labels for enum values, keyed by the stored value.
    *
    * The stored value is a machine word (`board_exam`); the person picking it
    * should read "Board exam".
    */
-  optionLabels?: Readonly<Record<string, string>>
-}
+  optionLabels?: Readonly<Record<string, string>>;
+};
 
-export type CmsIndexType = "key" | "unique" | "fulltext"
+export type CmsIndexType = "key" | "unique" | "fulltext";
 
 export type CmsIndexDefinition = {
-  key: string
-  type: CmsIndexType
+  key: string;
+  type: CmsIndexType;
   /** Column keys, in order. Order matters for multi-column indexes. */
-  columns: readonly string[]
-  orders?: readonly ("ASC" | "DESC")[]
-  description?: string
-}
+  columns: readonly string[];
+  orders?: readonly ("ASC" | "DESC")[];
+  description?: string;
+};
 
 export type CmsTableDefinition = {
-  tableId: string
-  name: string
-  description: string
+  tableId: string;
+  name: string;
+  description: string;
   group:
     | "auth"
     | "billing"
@@ -62,7 +62,7 @@ export type CmsTableDefinition = {
     | "progress"
     | "achievements"
     | "community"
-    | "cms"
+    | "cms";
   /**
    * Who writes this table, and therefore what the dashboard offers.
    *
@@ -81,15 +81,25 @@ export type CmsTableDefinition = {
    * `domain`, which decides *who* may do it. A table permits an action only
    * when both agree.
    */
-  access?: CmsTableAccess
+  access?: CmsTableAccess;
+  /**
+   * What Appwrite permits the mobile app to do, enforced server-side.
+   *
+   * Required, with no default on purpose. A default here would be a default
+   * for a security boundary, and the failure is silent in both directions:
+   * too tight and the app 401s on a screen the CMS renders fine, too loose
+   * and every member can read every other member's rows. Naming one is the
+   * cheapest moment to think about it.
+   */
+  accessModel: CmsAccessModel;
   /**
    * Which area of the product this table belongs to, for permission checks.
    *
    * Roles are granted per domain rather than per table, so adding a table to
    * an area everyone already has access to needs no role change anywhere.
    */
-  domain: CmsPermissionDomain
-  fields: readonly CmsFieldDefinition[]
+  domain: CmsPermissionDomain;
+  fields: readonly CmsFieldDefinition[];
   /**
    * Indexes this table needs to function.
    *
@@ -97,11 +107,11 @@ export type CmsTableDefinition = {
    * create them and so a missing one is a diff, not something you discover
    * from a slow query months later.
    */
-  indexes?: readonly CmsIndexDefinition[]
-}
+  indexes?: readonly CmsIndexDefinition[];
+};
 
 function defineTable<const T extends CmsTableDefinition>(definition: T) {
-  return definition
+  return definition;
 }
 
 /* -------------------------------------------------------------------------- *
@@ -128,7 +138,7 @@ export type CmsPermissionDomain =
   | "members"
   | "billing"
   | "community"
-  | "staff"
+  | "staff";
 
 /**
  * Everything a person can be allowed to do in the dashboard.
@@ -156,7 +166,8 @@ export const cmsPermissionCatalog = {
   "questions.import": "Upload a filled-in Excel or CSV of questions",
   "questions.publish": "Publish or unpublish exam content",
 
-  "members.view": "See member accounts and the activity collected from them",
+  "members.view":
+    "See member accounts and the activity collected from them",
   "members.delete": "Permanently delete collected member records",
 
   "billing.view": "See plans, subscriptions, and Google Play purchases",
@@ -172,13 +183,13 @@ export const cmsPermissionCatalog = {
 
   "staff.view": "See who has dashboard access",
   "staff.manage": "Grant and revoke dashboard access",
-} as const
+} as const;
 
-export type CmsPermission = keyof typeof cmsPermissionCatalog
+export type CmsPermission = keyof typeof cmsPermissionCatalog;
 
 export const cmsPermissionKeys = Object.keys(
-  cmsPermissionCatalog
-) as CmsPermission[]
+  cmsPermissionCatalog,
+) as CmsPermission[];
 
 /**
  * A role someone can hold.
@@ -205,7 +216,7 @@ export type CmsRole =
   | "encoder"
   | "moderator"
   | "admin"
-  | "super_admin"
+  | "super_admin";
 
 const encoderPermissions: readonly CmsPermission[] = [
   "dashboard.view",
@@ -217,7 +228,7 @@ const encoderPermissions: readonly CmsPermission[] = [
   "questions.edit",
   "questions.import",
   "media.upload",
-]
+];
 
 const moderatorPermissions: readonly CmsPermission[] = [
   ...encoderPermissions,
@@ -231,7 +242,7 @@ const moderatorPermissions: readonly CmsPermission[] = [
   "community.moderate",
   "media.delete",
   "staff.view",
-]
+];
 
 /**
  * Everything except erasing the records we have collected about members.
@@ -241,8 +252,8 @@ const moderatorPermissions: readonly CmsPermission[] = [
  * recreate.
  */
 const adminPermissions: readonly CmsPermission[] = cmsPermissionKeys.filter(
-  (permission) => permission !== "members.delete"
-)
+  (permission) => permission !== "members.delete",
+);
 
 /**
  * The roles, in order of rank.
@@ -295,7 +306,7 @@ export const cmsRoleDefinitions = {
       "The owner. The only role that can appoint admins or erase collected member records.",
     permissions: cmsPermissionKeys as readonly CmsPermission[],
   },
-} as const
+} as const;
 
 /** Lowest rank first, so a picker reads as a ladder. */
 export const cmsRoleOrder: readonly CmsRole[] = [
@@ -305,10 +316,10 @@ export const cmsRoleOrder: readonly CmsRole[] = [
   "moderator",
   "admin",
   "super_admin",
-]
+];
 
 export function isCmsRole(value: unknown): value is CmsRole {
-  return typeof value === "string" && value in cmsRoleDefinitions
+  return typeof value === "string" && value in cmsRoleDefinitions;
 }
 
 /**
@@ -318,7 +329,7 @@ export function isCmsRole(value: unknown): value is CmsRole {
  * a role nobody recognises must never be treated as a role somebody does.
  */
 export function toCmsRole(value: unknown): CmsRole {
-  return isCmsRole(value) ? value : "student"
+  return isCmsRole(value) ? value : "student";
 }
 
 /**
@@ -336,7 +347,7 @@ export type MemberType =
   | "professional"
   | "instructor"
   | "institution"
-  | "other"
+  | "other";
 
 export const memberTypeLabels: Record<MemberType, string> = {
   student: "Student",
@@ -346,7 +357,7 @@ export const memberTypeLabels: Record<MemberType, string> = {
   instructor: "Instructor",
   institution: "School or review centre",
   other: "Other",
-}
+};
 
 export const memberTypeOrder: readonly MemberType[] = [
   "student",
@@ -356,40 +367,40 @@ export const memberTypeOrder: readonly MemberType[] = [
   "instructor",
   "institution",
   "other",
-]
+];
 
 export function isMemberType(value: unknown): value is MemberType {
-  return typeof value === "string" && value in memberTypeLabels
+  return typeof value === "string" && value in memberTypeLabels;
 }
 
 /** Blank is the common case, so it reads as "not said" rather than "other". */
 export function getMemberTypeLabel(value: unknown) {
-  return isMemberType(value) ? memberTypeLabels[value] : "Not said"
+  return isMemberType(value) ? memberTypeLabels[value] : "Not said";
 }
 
 export function getRoleDefinition(role: CmsRole) {
-  return cmsRoleDefinitions[role]
+  return cmsRoleDefinitions[role];
 }
 
 export function getRoleLabel(role: CmsRole) {
-  return cmsRoleDefinitions[role].label
+  return cmsRoleDefinitions[role].label;
 }
 
 export function getRoleRank(role: CmsRole) {
-  return cmsRoleDefinitions[role].rank
+  return cmsRoleDefinitions[role].rank;
 }
 
 export function getRolePermissions(role: CmsRole): readonly CmsPermission[] {
-  return cmsRoleDefinitions[role].permissions
+  return cmsRoleDefinitions[role].permissions;
 }
 
 export function roleHasPermission(role: CmsRole, permission: CmsPermission) {
-  return cmsRoleDefinitions[role].permissions.includes(permission)
+  return cmsRoleDefinitions[role].permissions.includes(permission);
 }
 
 /** Anyone who belongs in the dashboard at all. */
 export function isStaffRole(role: CmsRole) {
-  return roleHasPermission(role, "dashboard.view")
+  return roleHasPermission(role, "dashboard.view");
 }
 
 /**
@@ -400,15 +411,15 @@ export function isStaffRole(role: CmsRole) {
  * counted as staff.
  */
 export function isAudienceRole(role: CmsRole) {
-  return !isStaffRole(role)
+  return !isStaffRole(role);
 }
 
 export const audienceRoles: readonly CmsRole[] = cmsRoleOrder.filter(
-  (role) => !cmsRoleDefinitions[role].permissions.length
-)
+  (role) => !cmsRoleDefinitions[role].permissions.length,
+);
 
 /** What a revoked staff member goes back to being. */
-export const DEFAULT_ROLE: CmsRole = "student"
+export const DEFAULT_ROLE: CmsRole = "student";
 
 /**
  * May `actor` set someone's role to `target`?
@@ -420,14 +431,14 @@ export const DEFAULT_ROLE: CmsRole = "student"
  */
 export function canGrantRole(actor: CmsRole, target: CmsRole) {
   if (!roleHasPermission(actor, "staff.manage")) {
-    return false
+    return false;
   }
 
   if (actor === "super_admin") {
-    return true
+    return true;
   }
 
-  return getRoleRank(target) < getRoleRank(actor)
+  return getRoleRank(target) < getRoleRank(actor);
 }
 
 /**
@@ -439,14 +450,14 @@ export function canGrantRole(actor: CmsRole, target: CmsRole) {
  */
 export function canManageStaffMember(actor: CmsRole, subject: CmsRole) {
   if (!roleHasPermission(actor, "staff.manage")) {
-    return false
+    return false;
   }
 
   if (actor === "super_admin") {
-    return true
+    return true;
   }
 
-  return getRoleRank(subject) < getRoleRank(actor)
+  return getRoleRank(subject) < getRoleRank(actor);
 }
 
 /** What each domain's four table actions require. `null` means nobody may. */
@@ -500,20 +511,95 @@ const domainTablePermissions: Record<
     edit: "staff.manage",
     delete: "staff.manage",
   },
+};
+
+export type CmsTableAccess = "manage" | "review" | "readonly" | "hidden";
+
+/**
+ * Who Appwrite itself lets touch a table, as opposed to `access`, which only
+ * decides what the dashboard renders.
+ *
+ * These are enforced by the server on every request from the mobile app; the
+ * dashboard is unaffected either way, because it reads through an API key and
+ * an API key bypasses permissions entirely. That asymmetry is why this belongs
+ * in the schema: a table created without permissions looks perfectly healthy
+ * in the CMS and returns `user_unauthorized` to every member.
+ *
+ * - `server_only`    no client access at all. Written by the CMS or a
+ *   function, holding its own API key. Money, roles, and audit trails.
+ * - `app_readonly`   any signed-in member reads it, nobody writes it from a
+ *   client. The CMS-authored content tables.
+ * - `member_private` a member creates rows and sees only their own. Row
+ *   security carries the ownership; the table grants nothing but `create`.
+ * - `member_public`  same, but every member reads every row: the profile
+ *   behind a forum post has to be readable by whoever is reading the post.
+ * - `member_shared`  `member_public` plus table-level `update`, for the
+ *   denormalised counters one member increments on another member's row.
+ * - `member_submit`  create-only, with no read at all. A report a member
+ *   files and can never read back.
+ * - `server_private` the server writes rows and grants each one to its owner.
+ *   The table grants nothing; the rows carry the read.
+ *
+ * Row-security models (`member_*` except `member_submit`, and `server_private`)
+ * require the writer to attach row permissions at create time. See
+ * MOBILE-SCHEMA-NOTES-v4.md section 11.
+ */
+export type CmsAccessModel =
+  | "server_only"
+  | "app_readonly"
+  | "member_private"
+  | "member_public"
+  | "member_shared"
+  | "member_submit"
+  | "server_private";
+
+/** Literal Appwrite permission strings, so nothing here needs the SDK. */
+export const cmsAccessModelPermissions = {
+  server_only: { rowSecurity: false, permissions: [] },
+  app_readonly: { rowSecurity: false, permissions: ['read("users")'] },
+  member_private: { rowSecurity: true, permissions: ['create("users")'] },
+  member_public: {
+    rowSecurity: true,
+    permissions: ['create("users")', 'read("users")'],
+  },
+  member_shared: {
+    rowSecurity: true,
+    permissions: ['create("users")', 'read("users")', 'update("users")'],
+  },
+  member_submit: { rowSecurity: false, permissions: ['create("users")'] },
+  server_private: { rowSecurity: true, permissions: [] },
+} as const satisfies Record<
+  CmsAccessModel,
+  { rowSecurity: boolean; permissions: readonly string[] }
+>;
+
+export function getAccessModelPermissions(model: CmsAccessModel) {
+  return cmsAccessModelPermissions[model];
 }
 
-export type CmsTableAccess = "manage" | "review" | "readonly" | "hidden"
-
-export type CmsTableAction = "view" | "create" | "edit" | "delete"
+export type CmsTableAction = "view" | "create" | "edit" | "delete";
 
 export const reviewerCmsSchema = {
   user_profiles: defineTable({
     tableId: "user_profiles",
+    /**
+     * `member_private`, not `member_public`, since v4.
+     *
+     * This table carries `email`, `licenseNumber`, `schoolOrEmployer` and the
+     * cached membership fields. While it was `member_public` every signed-in
+     * member could read all of that for every other member with one SDK call -
+     * a PRC licence number and an email address per row, enumerable in bulk.
+     *
+     * Rendering a post needs a display name and an avatar, not any of that.
+     * Those three columns live in `user_public_profiles` now, and this table
+     * went back to being the member's own.
+     */
+    accessModel: "member_private",
     domain: "members",
     access: "review",
     name: "User Profiles",
     description:
-      "One row per person who uses the app - students, graduates sitting the board, retakers, practising social workers, instructors. Profile and premium access, from Appwrite Auth.",
+      "One row per person who uses the app - students, graduates sitting the board, retakers, practising social workers, instructors. Private: the member's own contact details, licence and membership. What other members may see is in User Public Profiles.",
     group: "auth",
     fields: [
       {
@@ -676,6 +762,7 @@ export const reviewerCmsSchema = {
   }),
   user_roles: defineTable({
     tableId: "user_roles",
+    accessModel: "server_only",
     domain: "staff",
     name: "Staff Access",
     description:
@@ -775,6 +862,7 @@ export const reviewerCmsSchema = {
   }),
   staff_activity: defineTable({
     tableId: "staff_activity",
+    accessModel: "server_only",
     domain: "staff",
     access: "readonly",
     name: "Staff Activity",
@@ -902,6 +990,7 @@ export const reviewerCmsSchema = {
   }),
   user_settings: defineTable({
     tableId: "user_settings",
+    accessModel: "member_private",
     domain: "members",
     access: "hidden",
     name: "Member Settings",
@@ -1076,8 +1165,7 @@ export const reviewerCmsSchema = {
         required: false,
         size: 64,
         defaultValue: "Asia/Manila",
-        description:
-          "IANA name, so the reminder fires at the right local hour.",
+        description: "IANA name, so the reminder fires at the right local hour.",
       },
       {
         key: "notifyAnnouncements",
@@ -1190,6 +1278,7 @@ export const reviewerCmsSchema = {
   // is for the admin's own reporting.
   subscription_plans: defineTable({
     tableId: "subscription_plans",
+    accessModel: "app_readonly",
     domain: "billing",
     name: "Plans",
     description:
@@ -1346,11 +1435,14 @@ export const reviewerCmsSchema = {
         type: "key",
         columns: ["isActive", "order"],
         orders: ["ASC", "ASC"],
+        description:
+          "Backs the plan picker: what is on sale, in the order it should be shown.",
       },
     ],
   }),
   access_codes: defineTable({
     tableId: "access_codes",
+    accessModel: "server_only",
     domain: "billing",
     name: "Access Codes",
     description:
@@ -1382,8 +1474,7 @@ export const reviewerCmsSchema = {
         required: false,
         readOnly: true,
         size: 120,
-        description:
-          "Copied from the plan so a redeemed code reads on its own.",
+        description: "Copied from the plan so a redeemed code reads on its own.",
       },
       {
         key: "batchLabel",
@@ -1455,6 +1546,7 @@ export const reviewerCmsSchema = {
   }),
   subscriptions: defineTable({
     tableId: "subscriptions",
+    accessModel: "server_private",
     domain: "billing",
     access: "review",
     name: "Subscriptions",
@@ -1668,6 +1760,7 @@ export const reviewerCmsSchema = {
   }),
   payments: defineTable({
     tableId: "payments",
+    accessModel: "server_only",
     domain: "billing",
     access: "review",
     name: "Purchases",
@@ -1816,6 +1909,7 @@ export const reviewerCmsSchema = {
   // deliberately not connected to any of this - see the assessment block.
   subjects: defineTable({
     tableId: "subjects",
+    accessModel: "app_readonly",
     domain: "content",
     name: "Subjects",
     description:
@@ -1890,9 +1984,26 @@ export const reviewerCmsSchema = {
           "Every material across this subject's topics. Counted automatically.",
       },
     ],
+    indexes: [
+      {
+        key: "idx_subject_published_order",
+        type: "key",
+        columns: ["isPublished", "order"],
+        orders: ["ASC", "ASC"],
+        description:
+          "Backs the published-subjects listing, which is the first read the app makes on launch.",
+      },
+      {
+        key: "idx_subject_search",
+        type: "fulltext",
+        columns: ["name"],
+        description: "Backs searching subjects by name.",
+      },
+    ],
   }),
   topics: defineTable({
     tableId: "topics",
+    accessModel: "app_readonly",
     domain: "content",
     name: "Topics",
     description:
@@ -1963,10 +2074,18 @@ export const reviewerCmsSchema = {
         orders: ["ASC", "ASC"],
         description: "Backs listing a subject's topics in order.",
       },
+      {
+        key: "idx_topic_search",
+        type: "fulltext",
+        columns: ["title"],
+        description:
+          "Backs Query.search on topic titles. Fulltext is the only index type Appwrite will accept a search against; without one the call is an error, not a slow query.",
+      },
     ],
   }),
   learning_materials: defineTable({
     tableId: "learning_materials",
+    accessModel: "app_readonly",
     domain: "content",
     name: "Learning Materials",
     description:
@@ -2085,6 +2204,22 @@ export const reviewerCmsSchema = {
         description:
           "Backs listing everything in a subject without first collecting its topic ids.",
       },
+      {
+        key: "idx_material_search",
+        type: "fulltext",
+        columns: ["title"],
+        description: "Backs searching the library by lesson title.",
+      },
+      {
+        // Separate from the title index on purpose. `content` is a 20,000
+        // character column and the one most likely to be refused; keeping it
+        // apart means a failure here still leaves title search working.
+        key: "idx_material_content_search",
+        type: "fulltext",
+        columns: ["content"],
+        description:
+          "Backs searching inside lessons - the query a member actually types, which is a phrase they half-remember rather than a title.",
+      },
     ],
   }),
   // --- Assessment content ---------------------------------------------------
@@ -2106,6 +2241,7 @@ export const reviewerCmsSchema = {
   // a matching subject.
   exam_categories: defineTable({
     tableId: "exam_categories",
+    accessModel: "app_readonly",
     domain: "questions",
     name: "Exam Categories",
     description:
@@ -2245,10 +2381,17 @@ export const reviewerCmsSchema = {
         orders: ["ASC", "ASC"],
         description: "Backs the published-categories listing.",
       },
+      {
+        key: "idx_category_search",
+        type: "fulltext",
+        columns: ["title"],
+        description: "Backs searching exam categories by name.",
+      },
     ],
   }),
   questionnaires: defineTable({
     tableId: "questionnaires",
+    accessModel: "app_readonly",
     domain: "questions",
     name: "Sets (optional)",
     description:
@@ -2368,6 +2511,7 @@ export const reviewerCmsSchema = {
   }),
   questions: defineTable({
     tableId: "questions",
+    accessModel: "app_readonly",
     domain: "questions",
     name: "Questions",
     description:
@@ -2532,6 +2676,13 @@ export const reviewerCmsSchema = {
         description:
           "One item number per destination. This is what makes concurrent uploads safe.",
       },
+      {
+        key: "idx_question_search",
+        type: "fulltext",
+        columns: ["prompt"],
+        description:
+          "Backs searching the question bank by wording. `I remember an item about the Social Work Law` had no answer before this except scrolling.",
+      },
     ],
   }),
   // --- Member history -------------------------------------------------------
@@ -2544,6 +2695,7 @@ export const reviewerCmsSchema = {
   // `user_daily_activity` is too coarse to explain.
   study_sessions: defineTable({
     tableId: "study_sessions",
+    accessModel: "member_private",
     domain: "members",
     access: "review",
     name: "Study Sessions",
@@ -2694,6 +2846,7 @@ export const reviewerCmsSchema = {
   }),
   user_activity_log: defineTable({
     tableId: "user_activity_log",
+    accessModel: "member_private",
     domain: "members",
     access: "review",
     name: "Activity Log",
@@ -2791,6 +2944,7 @@ export const reviewerCmsSchema = {
   }),
   learning_history: defineTable({
     tableId: "learning_history",
+    accessModel: "member_private",
     domain: "members",
     access: "review",
     name: "Learning History",
@@ -2889,6 +3043,7 @@ export const reviewerCmsSchema = {
   }),
   user_answers: defineTable({
     tableId: "user_answers",
+    accessModel: "member_private",
     domain: "members",
     access: "review",
     name: "User Answers",
@@ -3014,6 +3169,7 @@ export const reviewerCmsSchema = {
   }),
   user_progress: defineTable({
     tableId: "user_progress",
+    accessModel: "member_private",
     domain: "members",
     access: "review",
     name: "User Progress",
@@ -3210,6 +3366,7 @@ export const reviewerCmsSchema = {
   }),
   user_daily_activity: defineTable({
     tableId: "user_daily_activity",
+    accessModel: "member_private",
     domain: "members",
     access: "review",
     name: "User Daily Activity",
@@ -3368,6 +3525,7 @@ export const reviewerCmsSchema = {
   }),
   user_weekly_reports: defineTable({
     tableId: "user_weekly_reports",
+    accessModel: "member_private",
     domain: "members",
     access: "review",
     name: "User Weekly Reports",
@@ -3532,6 +3690,7 @@ export const reviewerCmsSchema = {
   }),
   learning_achievements: defineTable({
     tableId: "learning_achievements",
+    accessModel: "member_private",
     domain: "members",
     access: "review",
     name: "Learning Achievements",
@@ -3707,9 +3866,262 @@ export const reviewerCmsSchema = {
         required: true,
       },
     ],
+    indexes: [
+      {
+        key: "idx_achievement_member",
+        type: "key",
+        columns: ["userId", "earnedAt"],
+        orders: ["ASC", "DESC"],
+        description:
+          "Backs a member's badge list, newest first. This is the only read the app makes on the table.",
+      },
+      {
+        key: "idx_achievement_member_badge",
+        type: "key",
+        columns: ["userId", "badgeKey"],
+        description:
+          "Answers `does this member already have this badge` without pulling every row they have earned. Deliberately not unique: a weekly badge is earned again each week, and the period columns are what tell those apart.",
+      },
+    ],
+  }),
+  user_bookmarks: defineTable({
+    tableId: "user_bookmarks",
+    accessModel: "member_private",
+    domain: "members",
+    access: "review",
+    name: "User Bookmarks",
+    description:
+      "Questions a member saved for later. This is what makes `bookmarked` in user_settings.questionSource mean something.",
+    group: "progress",
+    fields: [
+      {
+        key: "userId",
+        label: "User ID",
+        kind: "string",
+        required: true,
+        size: 64,
+      },
+      {
+        key: "questionSku",
+        label: "Question SKU",
+        kind: "string",
+        required: true,
+        size: 64,
+        description:
+          "The SKU, not the row id - the same identity user_answers records, so a bookmark survives the question being re-uploaded.",
+      },
+      {
+        key: "categoryId",
+        label: "Exam category",
+        kind: "string",
+        required: false,
+        size: 64,
+        description:
+          "Denormalised so a bookmarked-only session can be scoped to one category without first reading every saved question.",
+      },
+      {
+        key: "createdAt",
+        label: "Saved At",
+        kind: "datetime",
+        required: true,
+      },
+    ],
+    indexes: [
+      {
+        key: "idx_bookmark_member",
+        type: "unique",
+        columns: ["userId", "questionSku"],
+        description:
+          "Saving twice is a no-op instead of a duplicate, and the race between two taps is settled by the database rather than by the app.",
+      },
+      {
+        key: "idx_bookmark_recent",
+        type: "key",
+        columns: ["userId", "createdAt"],
+        orders: ["ASC", "DESC"],
+        description: "Backs the saved list, newest first.",
+      },
+      {
+        key: "idx_bookmark_category",
+        type: "key",
+        columns: ["userId", "categoryId"],
+        description: "Backs a bookmarked-only session inside one category.",
+      },
+    ],
+  }),
+  user_public_profiles: defineTable({
+    tableId: "user_public_profiles",
+    accessModel: "member_public",
+    domain: "members",
+    access: "review",
+    name: "User Public Profiles",
+    description:
+      "The part of a member other members are allowed to see: a name, a picture, and what kind of member they are. Nothing here is private, because everything here is readable by every signed-in account.",
+    group: "auth",
+    fields: [
+      {
+        key: "userId",
+        label: "Appwrite User ID",
+        kind: "string",
+        required: true,
+        size: 64,
+      },
+      {
+        key: "displayName",
+        label: "Display name",
+        kind: "string",
+        required: true,
+        size: 255,
+        description:
+          "What appears above a post. Usually the member's full name, but it is theirs to change and it is not proof of identity.",
+      },
+      {
+        key: "avatarUrl",
+        label: "Avatar",
+        kind: "string",
+        required: false,
+        size: 2048,
+      },
+      {
+        key: "memberType",
+        label: "Member type",
+        kind: "enum",
+        required: false,
+        options: [
+          "student",
+          "graduate",
+          "retaker",
+          "professional",
+          "instructor",
+          "institution",
+          "other",
+        ],
+        optionLabels: {
+          student: "Student",
+          graduate: "Graduate sitting the board",
+          retaker: "Retaker",
+          professional: "Licensed social worker",
+          instructor: "Instructor",
+          institution: "School or review centre",
+          other: "Other",
+        },
+        description:
+          "Shown as a badge beside a post. A fact about the member, never a permission - see the note at the top of this file.",
+      },
+      {
+        key: "createdAt",
+        label: "Created At",
+        kind: "datetime",
+        required: true,
+      },
+    ],
+    indexes: [
+      {
+        key: "idx_public_profile_user",
+        type: "unique",
+        columns: ["userId"],
+        description:
+          "One public row per account, and the column every author lookup joins on.",
+      },
+    ],
+  }),
+  user_blocks: defineTable({
+    tableId: "user_blocks",
+    accessModel: "member_private",
+    domain: "community",
+    access: "review",
+    name: "User Blocks",
+    description:
+      "Members a member does not want to see. One-directional and private to whoever made it - the blocked person is never told.",
+    group: "community",
+    fields: [
+      {
+        key: "userId",
+        label: "Blocked by",
+        kind: "string",
+        required: true,
+        size: 64,
+      },
+      {
+        key: "blockedUserId",
+        label: "Blocked member",
+        kind: "string",
+        required: true,
+        size: 64,
+      },
+      {
+        key: "createdAt",
+        label: "Blocked At",
+        kind: "datetime",
+        required: true,
+      },
+    ],
+    indexes: [
+      {
+        key: "idx_block_member",
+        type: "unique",
+        columns: ["userId", "blockedUserId"],
+        description:
+          "One block per pair. Blocking twice is a no-op rather than a second row.",
+      },
+    ],
+  }),
+  announcement_reads: defineTable({
+    tableId: "announcement_reads",
+    accessModel: "member_private",
+    domain: "members",
+    access: "review",
+    name: "Announcement Reads",
+    description:
+      "Which announcements a member has already seen. This is what an unread badge counts, and what makes it survive a reinstall or a second device.",
+    group: "cms",
+    fields: [
+      {
+        key: "userId",
+        label: "User ID",
+        kind: "string",
+        required: true,
+        size: 64,
+      },
+      {
+        key: "announcementId",
+        label: "Announcement",
+        kind: "string",
+        required: true,
+        size: 64,
+      },
+      {
+        key: "readAt",
+        label: "Read At",
+        kind: "datetime",
+        required: true,
+      },
+    ],
+    indexes: [
+      {
+        key: "idx_read_member",
+        type: "unique",
+        columns: ["userId", "announcementId"],
+        description:
+          "One row per member per announcement. Marking read twice is a 409, not a duplicate.",
+      },
+    ],
   }),
   posts: defineTable({
     tableId: "posts",
+    /**
+     * `member_public`, not `member_shared`, since v4.
+     *
+     * `member_shared` granted table-level `update` to every member, because
+     * `likesCount` was a counter one member incremented on another member's
+     * row and Appwrite cannot scope a grant to a single column. The cost was
+     * that any signed-in account could rewrite any other member's words, with
+     * nothing in the app offering it and nothing recording that it happened.
+     *
+     * The counter is a reconciled cache now (see `likesCount`), so nobody has
+     * to write anybody else's row and the grant is gone with the need for it.
+     */
+    accessModel: "member_public",
     domain: "community",
     access: "review",
     name: "Posts",
@@ -3760,13 +4172,45 @@ export const reviewerCmsSchema = {
         size: 2048,
       },
       {
+        /**
+         * A cache of `post_likes` / `comment_likes`, not a field anybody edits.
+         *
+         * The like row is the truth. This is maintained by
+         * `pnpm appwrite:bootstrap --recount` and read for feed rendering,
+         * where one number per row beats one query per row. The app adds its
+         * own optimistic delta for likes made in the current session, and a
+         * screen that needs an exact number counts the like table directly.
+         *
+         * Read-only is what lets these three tables be `member_public`: as
+         * soon as no member needs to write another member's row, table-level
+         * `update` can go.
+         */
         key: "likesCount",
         label: "Likes Count",
         kind: "integer",
         required: true,
+        readOnly: true,
         defaultValue: 0,
         min: 0,
         max: 100000,
+      },
+      {
+        /**
+         * A soft delete, because a hard one leaves a thread nobody can clear.
+         *
+         * Delete is owner-only on these tables, so when an author removes a
+         * post the comments other members wrote underneath it survive with a
+         * `postId` pointing at nothing - and neither the author nor the app
+         * has permission to remove them. Hiding the row instead keeps the
+         * thread whole and lets the CMS purge it properly later.
+         */
+        key: "isDeleted",
+        label: "Deleted",
+        kind: "boolean",
+        required: true,
+        defaultValue: false,
+        description:
+          "Hidden from the app. The row survives so its replies are not orphaned.",
       },
       {
         key: "createdAt",
@@ -3775,9 +4219,55 @@ export const reviewerCmsSchema = {
         required: true,
       },
     ],
+    indexes: [
+      {
+        key: "idx_posts_visible",
+        type: "key",
+        columns: ["isDeleted", "createdAt"],
+        orders: ["ASC", "DESC"],
+        description:
+          "Backs the community feed: live posts, newest first, paged with a cursor. `isDeleted` leads because every feed read filters on it.",
+      },
+      {
+        key: "idx_posts_created",
+        type: "key",
+        columns: ["createdAt"],
+        orders: ["DESC"],
+        description:
+          "Backs the community feed: every post newest first, paged with a cursor. The feed ran without it only because the table was small.",
+      },
+      {
+        key: "idx_posts_member",
+        type: "key",
+        columns: ["userId", "createdAt"],
+        orders: ["ASC", "DESC"],
+        description:
+          "Backs a member's own posts, and the account-deletion sweep that has to find everything they wrote.",
+      },
+      {
+        key: "idx_posts_subject",
+        type: "key",
+        columns: ["subjectId", "createdAt"],
+        orders: ["ASC", "DESC"],
+        description: "Backs the feed filtered to one subject.",
+      },
+    ],
   }),
   comments: defineTable({
     tableId: "comments",
+    /**
+     * `member_public`, not `member_shared`, since v4.
+     *
+     * `member_shared` granted table-level `update` to every member, because
+     * `likesCount` was a counter one member incremented on another member's
+     * row and Appwrite cannot scope a grant to a single column. The cost was
+     * that any signed-in account could rewrite any other member's words, with
+     * nothing in the app offering it and nothing recording that it happened.
+     *
+     * The counter is a reconciled cache now (see `likesCount`), so nobody has
+     * to write anybody else's row and the grant is gone with the need for it.
+     */
+    accessModel: "member_public",
     domain: "community",
     access: "review",
     name: "Comments",
@@ -3806,13 +4296,45 @@ export const reviewerCmsSchema = {
         size: 4000,
       },
       {
+        /**
+         * A cache of `post_likes` / `comment_likes`, not a field anybody edits.
+         *
+         * The like row is the truth. This is maintained by
+         * `pnpm appwrite:bootstrap --recount` and read for feed rendering,
+         * where one number per row beats one query per row. The app adds its
+         * own optimistic delta for likes made in the current session, and a
+         * screen that needs an exact number counts the like table directly.
+         *
+         * Read-only is what lets these three tables be `member_public`: as
+         * soon as no member needs to write another member's row, table-level
+         * `update` can go.
+         */
         key: "likesCount",
         label: "Likes Count",
         kind: "integer",
         required: true,
+        readOnly: true,
         defaultValue: 0,
         min: 0,
         max: 100000,
+      },
+      {
+        /**
+         * A soft delete, because a hard one leaves a thread nobody can clear.
+         *
+         * Delete is owner-only on these tables, so when an author removes a
+         * post the comments other members wrote underneath it survive with a
+         * `postId` pointing at nothing - and neither the author nor the app
+         * has permission to remove them. Hiding the row instead keeps the
+         * thread whole and lets the CMS purge it properly later.
+         */
+        key: "isDeleted",
+        label: "Deleted",
+        kind: "boolean",
+        required: true,
+        defaultValue: false,
+        description:
+          "Hidden from the app. The row survives so its replies are not orphaned.",
       },
       {
         key: "createdAt",
@@ -3821,9 +4343,48 @@ export const reviewerCmsSchema = {
         required: true,
       },
     ],
+    indexes: [
+      {
+        key: "idx_comments_visible",
+        type: "key",
+        columns: ["postId", "isDeleted", "createdAt"],
+        orders: ["ASC", "ASC", "ASC"],
+        description:
+          "Backs a post's live comment thread in the order it was written.",
+      },
+      {
+        key: "idx_comments_post",
+        type: "key",
+        columns: ["postId", "createdAt"],
+        orders: ["ASC", "ASC"],
+        description:
+          "Backs a post's comment thread in the order it was written. Oldest first, because a conversation read newest-first is not a conversation.",
+      },
+      {
+        key: "idx_comments_member",
+        type: "key",
+        columns: ["userId", "createdAt"],
+        orders: ["ASC", "DESC"],
+        description:
+          "Backs the account-deletion sweep, which has to find a member's comments across every post.",
+      },
+    ],
   }),
   replies: defineTable({
     tableId: "replies",
+    /**
+     * `member_public`, not `member_shared`, since v4.
+     *
+     * `member_shared` granted table-level `update` to every member, because
+     * `likesCount` was a counter one member incremented on another member's
+     * row and Appwrite cannot scope a grant to a single column. The cost was
+     * that any signed-in account could rewrite any other member's words, with
+     * nothing in the app offering it and nothing recording that it happened.
+     *
+     * The counter is a reconciled cache now (see `likesCount`), so nobody has
+     * to write anybody else's row and the grant is gone with the need for it.
+     */
+    accessModel: "member_public",
     domain: "community",
     access: "review",
     name: "Replies",
@@ -3852,13 +4413,45 @@ export const reviewerCmsSchema = {
         size: 4000,
       },
       {
+        /**
+         * A cache of `post_likes` / `comment_likes`, not a field anybody edits.
+         *
+         * The like row is the truth. This is maintained by
+         * `pnpm appwrite:bootstrap --recount` and read for feed rendering,
+         * where one number per row beats one query per row. The app adds its
+         * own optimistic delta for likes made in the current session, and a
+         * screen that needs an exact number counts the like table directly.
+         *
+         * Read-only is what lets these three tables be `member_public`: as
+         * soon as no member needs to write another member's row, table-level
+         * `update` can go.
+         */
         key: "likesCount",
         label: "Likes Count",
         kind: "integer",
         required: true,
+        readOnly: true,
         defaultValue: 0,
         min: 0,
         max: 100000,
+      },
+      {
+        /**
+         * A soft delete, because a hard one leaves a thread nobody can clear.
+         *
+         * Delete is owner-only on these tables, so when an author removes a
+         * post the comments other members wrote underneath it survive with a
+         * `postId` pointing at nothing - and neither the author nor the app
+         * has permission to remove them. Hiding the row instead keeps the
+         * thread whole and lets the CMS purge it properly later.
+         */
+        key: "isDeleted",
+        label: "Deleted",
+        kind: "boolean",
+        required: true,
+        defaultValue: false,
+        description:
+          "Hidden from the app. The row survives so its replies are not orphaned.",
       },
       {
         key: "createdAt",
@@ -3867,9 +4460,33 @@ export const reviewerCmsSchema = {
         required: true,
       },
     ],
+    indexes: [
+      {
+        key: "idx_replies_visible",
+        type: "key",
+        columns: ["commentId", "isDeleted", "createdAt"],
+        orders: ["ASC", "ASC", "ASC"],
+        description: "Backs a comment's live replies in order.",
+      },
+      {
+        key: "idx_replies_comment",
+        type: "key",
+        columns: ["commentId", "createdAt"],
+        orders: ["ASC", "ASC"],
+        description: "Backs a comment's replies in the order they were written.",
+      },
+      {
+        key: "idx_replies_member",
+        type: "key",
+        columns: ["userId", "createdAt"],
+        orders: ["ASC", "DESC"],
+        description: "Backs the account-deletion sweep.",
+      },
+    ],
   }),
   post_likes: defineTable({
     tableId: "post_likes",
+    accessModel: "member_public",
     domain: "community",
     access: "hidden",
     name: "Post Likes",
@@ -3891,30 +4508,32 @@ export const reviewerCmsSchema = {
         size: 64,
       },
     ],
+    indexes: [
+      {
+        key: "idx_post_like_member",
+        type: "unique",
+        columns: ["userId", "postId"],
+        description:
+          "One like per member per post, enforced here rather than in a race between two taps. A second like comes back 409, which the app reads as already liked.",
+      },
+      {
+        key: "idx_post_like_post",
+        type: "key",
+        columns: ["postId"],
+        description: "Backs counting a post's likes and listing who liked it.",
+      },
+    ],
   }),
   comment_likes: defineTable({
     tableId: "comment_likes",
+    accessModel: "member_public",
     domain: "community",
     access: "hidden",
     name: "Comment Likes",
     description:
-      "User likes recorded on a comment or reply. Fill one target field.",
+      "Likes recorded on a comment or a reply. One row per member per target.",
     group: "community",
     fields: [
-      {
-        key: "commentId",
-        label: "Comment ID",
-        kind: "string",
-        required: false,
-        size: 64,
-      },
-      {
-        key: "replyId",
-        label: "Reply ID",
-        kind: "string",
-        required: false,
-        size: 64,
-      },
       {
         key: "userId",
         label: "User ID",
@@ -3922,10 +4541,57 @@ export const reviewerCmsSchema = {
         required: true,
         size: 64,
       },
+      {
+        /**
+         * Which table `targetId` points at.
+         *
+         * This replaced a pair of nullable `commentId` / `replyId` columns.
+         * That shape could not be made unique: the unused one is blank on
+         * every row, so a unique index over both would collide on the first
+         * two blanks and reject the second like anyone ever made. A
+         * discriminator plus one id is always populated, so the guarantee
+         * becomes expressible.
+         */
+        key: "targetType",
+        label: "Target Type",
+        kind: "enum",
+        required: true,
+        options: ["comment", "reply"],
+        optionLabels: {
+          comment: "Comment",
+          reply: "Reply",
+        },
+        defaultValue: "comment",
+      },
+      {
+        key: "targetId",
+        label: "Target ID",
+        kind: "string",
+        required: true,
+        size: 64,
+        description: "The comment's row id, or the reply's.",
+      },
+    ],
+    indexes: [
+      {
+        key: "idx_comment_like_member",
+        type: "unique",
+        columns: ["userId", "targetType", "targetId"],
+        description:
+          "One like per member per target, enforced by the database. A second like comes back 409, which the app reads as already liked.",
+      },
+      {
+        key: "idx_comment_like_target",
+        type: "key",
+        columns: ["targetType", "targetId"],
+        description:
+          "Backs counting the likes on one comment or reply, and listing who left them.",
+      },
     ],
   }),
   announcements: defineTable({
     tableId: "announcements",
+    accessModel: "app_readonly",
     domain: "announcements",
     name: "Announcements",
     description: "Admin announcements shown to users by role or audience.",
@@ -3991,12 +4657,32 @@ export const reviewerCmsSchema = {
         required: false,
       },
     ],
+    indexes: [
+      {
+        key: "idx_ann_published",
+        type: "key",
+        columns: ["publishedAt"],
+        orders: ["DESC"],
+        description:
+          "Backs the Updates tab: everything already published, newest first. Ordering without this index is an error rather than a slow read.",
+      },
+      {
+        key: "idx_ann_audience",
+        type: "key",
+        columns: ["audience", "publishedAt"],
+        orders: ["ASC", "DESC"],
+        description:
+          "Backs narrowing to one audience server-side. It saves bandwidth; it is not privacy - the table is readable by every member, so audience is a targeting hint and never a secret.",
+      },
+    ],
   }),
   flagged_content: defineTable({
     tableId: "flagged_content",
+    accessModel: "member_submit",
     domain: "community",
     name: "Flagged Content",
-    description: "Moderation queue for reported posts, comments, and replies.",
+    description:
+      "The moderation queue. Members report a post, comment, reply, question or material; the team triages it here.",
     group: "cms",
     fields: [
       {
@@ -4004,8 +4690,17 @@ export const reviewerCmsSchema = {
         label: "Content Type",
         kind: "enum",
         required: true,
-        options: ["post", "comment", "reply"],
+        options: ["post", "comment", "reply", "question", "material"],
+        optionLabels: {
+          post: "Post",
+          comment: "Comment",
+          reply: "Reply",
+          question: "Question",
+          material: "Learning material",
+        },
         defaultValue: "post",
+        description:
+          "`question` and `material` are what turn a community tool into a content-quality pipeline. A reviewer app's credibility is its answer key, and a member who finds a wrong one now has somewhere to put it other than a one-star review.",
       },
       {
         key: "contentId",
@@ -4013,6 +4708,8 @@ export const reviewerCmsSchema = {
         kind: "string",
         required: true,
         size: 64,
+        description:
+          "The row id for community content. For a question, its SKU instead - that is the stable identity, and the one an encoder can search for.",
       },
       {
         key: "reportedBy",
@@ -4036,28 +4733,90 @@ export const reviewerCmsSchema = {
         options: ["pending", "reviewing", "resolved", "dismissed"],
         defaultValue: "pending",
       },
+      {
+        key: "createdAt",
+        label: "Reported At",
+        kind: "datetime",
+        required: true,
+        description:
+          "Sent by the app. The queue is worked oldest first, and an ordering column the schema owns beats $createdAt, which no index in this file can reference.",
+      },
+      {
+        key: "reviewedBy",
+        label: "Reviewed By",
+        kind: "string",
+        required: false,
+        size: 64,
+        readOnly: true,
+        description: "The staff account that closed the report.",
+      },
+      {
+        key: "reviewedAt",
+        label: "Reviewed At",
+        kind: "datetime",
+        required: false,
+        readOnly: true,
+      },
+      {
+        key: "resolutionNote",
+        label: "What was done",
+        kind: "text",
+        required: false,
+        size: 2000,
+        placeholder:
+          "Optional. Fixed the answer key, or why this was dismissed.",
+      },
+    ],
+    indexes: [
+      {
+        key: "idx_flag_status",
+        type: "key",
+        columns: ["status", "createdAt"],
+        orders: ["ASC", "ASC"],
+        description: "Backs the triage queue: pending reports, oldest first.",
+      },
+      {
+        key: "idx_flag_target",
+        type: "key",
+        columns: ["contentType", "contentId"],
+        description:
+          "Every report filed against one question or post. Three members reporting the same item is the difference between a wrong answer key and a grudge.",
+      },
+      {
+        /**
+         * Members can create here but never read, so the app cannot check for
+         * an existing report before filing one. The constraint is the only
+         * channel that can tell it: a 409 means already reported, and the
+         * honest thing to show for that is a thank-you, not an error.
+         */
+        key: "idx_flag_reporter",
+        type: "unique",
+        columns: ["reportedBy", "contentType", "contentId"],
+        description:
+          "One report per member per target, which keeps the queue a list of problems rather than a list of taps.",
+      },
     ],
   }),
-} as const
+} as const;
 
-export type ReviewerTableKey = keyof typeof reviewerCmsSchema
+export type ReviewerTableKey = keyof typeof reviewerCmsSchema;
 
 export const reviewerTableEntries = Object.entries(reviewerCmsSchema) as [
   ReviewerTableKey,
   (typeof reviewerCmsSchema)[ReviewerTableKey],
-][]
+][];
 
 export function isReviewerTableKey(value: string): value is ReviewerTableKey {
-  return value in reviewerCmsSchema
+  return value in reviewerCmsSchema;
 }
 
 export function getReviewerTableDefinition(tableKey: ReviewerTableKey) {
-  return reviewerCmsSchema[tableKey]
+  return reviewerCmsSchema[tableKey];
 }
 
 type Prettify<T> = {
-  [K in keyof T]: T[K]
-} & {}
+  [K in keyof T]: T[K];
+} & {};
 
 type CmsFieldValue<F extends CmsFieldDefinition> = F["kind"] extends
   | "string"
@@ -4075,72 +4834,72 @@ type CmsFieldValue<F extends CmsFieldDefinition> = F["kind"] extends
           ? F["options"] extends readonly string[]
             ? F["options"][number]
             : string
-          : never
+          : never;
 
 type RequiredCmsFields<T extends CmsTableDefinition> = Extract<
   T["fields"][number],
   { required: true }
->
+>;
 
 type OptionalCmsFields<T extends CmsTableDefinition> = Exclude<
   T["fields"][number],
   { required: true }
->
+>;
 
 export type AppwriteMeta = {
-  $id: string
-  $createdAt: string
-  $updatedAt: string
-}
+  $id: string;
+  $createdAt: string;
+  $updatedAt: string;
+};
 
 export type ReviewerTableData<K extends ReviewerTableKey> = Prettify<
   {
     [F in RequiredCmsFields<
       (typeof reviewerCmsSchema)[K]
-    > as F["key"]]: CmsFieldValue<F>
+    > as F["key"]]: CmsFieldValue<F>;
   } & {
     [F in OptionalCmsFields<
       (typeof reviewerCmsSchema)[K]
-    > as F["key"]]?: CmsFieldValue<F> | null
+    > as F["key"]]?: CmsFieldValue<F> | null;
   }
->
+>;
 
 export type ReviewerTableDocument<K extends ReviewerTableKey> = AppwriteMeta &
-  ReviewerTableData<K>
+  ReviewerTableData<K>;
 
 export type ReviewerCreateInput<K extends ReviewerTableKey> =
-  ReviewerTableData<K>
+  ReviewerTableData<K>;
 
 export type ReviewerUpdateInput<K extends ReviewerTableKey> = Partial<
   ReviewerCreateInput<K>
->
+>;
 
-export type UserProfileDocument = ReviewerTableDocument<"user_profiles">
-export type UserRoleDocument = ReviewerTableDocument<"user_roles">
-export type SubjectDocument = ReviewerTableDocument<"subjects">
-export type TopicDocument = ReviewerTableDocument<"topics">
+export type UserProfileDocument = ReviewerTableDocument<"user_profiles">;
+export type UserRoleDocument = ReviewerTableDocument<"user_roles">;
+export type SubjectDocument = ReviewerTableDocument<"subjects">;
+export type TopicDocument = ReviewerTableDocument<"topics">;
 export type LearningMaterialDocument =
-  ReviewerTableDocument<"learning_materials">
-export type ExamCategoryDocument = ReviewerTableDocument<"exam_categories">
-export type QuestionnaireRowDocument = ReviewerTableDocument<"questionnaires">
-export type QuestionDocument = ReviewerTableDocument<"questions">
-export type UserAnswerDocument = ReviewerTableDocument<"user_answers">
-export type UserProgressDocument = ReviewerTableDocument<"user_progress">
+  ReviewerTableDocument<"learning_materials">;
+export type ExamCategoryDocument = ReviewerTableDocument<"exam_categories">;
+export type QuestionnaireRowDocument = ReviewerTableDocument<"questionnaires">;
+export type QuestionDocument = ReviewerTableDocument<"questions">;
+export type UserAnswerDocument = ReviewerTableDocument<"user_answers">;
+export type UserProgressDocument = ReviewerTableDocument<"user_progress">;
 export type UserDailyActivityDocument =
-  ReviewerTableDocument<"user_daily_activity">
+  ReviewerTableDocument<"user_daily_activity">;
 export type UserWeeklyReportDocument =
-  ReviewerTableDocument<"user_weekly_reports">
-export type LearningHistoryDocument = ReviewerTableDocument<"learning_history">
-export type PostDocument = ReviewerTableDocument<"posts">
-export type CommentDocument = ReviewerTableDocument<"comments">
-export type ReplyDocument = ReviewerTableDocument<"replies">
-export type PostLikeDocument = ReviewerTableDocument<"post_likes">
-export type CommentLikeDocument = ReviewerTableDocument<"comment_likes">
+  ReviewerTableDocument<"user_weekly_reports">;
+export type LearningHistoryDocument = ReviewerTableDocument<"learning_history">;
+export type PostDocument = ReviewerTableDocument<"posts">;
+export type CommentDocument = ReviewerTableDocument<"comments">;
+export type ReplyDocument = ReviewerTableDocument<"replies">;
+export type PostLikeDocument = ReviewerTableDocument<"post_likes">;
+export type CommentLikeDocument = ReviewerTableDocument<"comment_likes">;
 export type LearningAchievementDocument =
-  ReviewerTableDocument<"learning_achievements">
-export type AnnouncementDocument = ReviewerTableDocument<"announcements">
-export type UserSettingsDocument = ReviewerTableDocument<"user_settings">
-export type UserSettings = ReviewerTableData<"user_settings">
+  ReviewerTableDocument<"learning_achievements">;
+export type AnnouncementDocument = ReviewerTableDocument<"announcements">;
+export type UserSettingsDocument = ReviewerTableDocument<"user_settings">;
+export type UserSettings = ReviewerTableData<"user_settings">;
 
 /**
  * What a student gets before they have ever opened Settings.
@@ -4152,41 +4911,43 @@ export type UserSettings = ReviewerTableData<"user_settings">
 export const DEFAULT_USER_SETTINGS = Object.fromEntries(
   (reviewerCmsSchema.user_settings.fields as readonly CmsFieldDefinition[])
     .filter((field) => field.defaultValue !== undefined)
-    .map((field) => [field.key, field.defaultValue])
-) as Record<string, string | number | boolean>
+    .map((field) => [field.key, field.defaultValue]),
+) as Record<string, string | number | boolean>;
 
 /** Merges a stored settings row over the defaults, filling any gap. */
 export function resolveUserSettings(
-  row?: Partial<UserSettings> | null
+  row?: Partial<UserSettings> | null,
 ): Record<string, string | number | boolean> {
-  const resolved = { ...DEFAULT_USER_SETTINGS }
+  const resolved = { ...DEFAULT_USER_SETTINGS };
 
   for (const [key, value] of Object.entries(row ?? {})) {
     if (value !== null && value !== undefined && key in resolved) {
-      resolved[key] = value as string | number | boolean
+      resolved[key] = value as string | number | boolean;
     }
   }
 
-  return resolved
+  return resolved;
 }
 
 export type SubscriptionPlanDocument =
-  ReviewerTableDocument<"subscription_plans">
-export type SubscriptionDocument = ReviewerTableDocument<"subscriptions">
-export type PaymentDocument = ReviewerTableDocument<"payments">
-export type AccessCodeDocument = ReviewerTableDocument<"access_codes">
-export type StudySessionDocument = ReviewerTableDocument<"study_sessions">
-export type UserActivityDocument = ReviewerTableDocument<"user_activity_log">
+  ReviewerTableDocument<"subscription_plans">;
+export type SubscriptionDocument = ReviewerTableDocument<"subscriptions">;
+export type PaymentDocument = ReviewerTableDocument<"payments">;
+export type AccessCodeDocument = ReviewerTableDocument<"access_codes">;
+export type StudySessionDocument = ReviewerTableDocument<"study_sessions">;
+export type UserActivityDocument = ReviewerTableDocument<"user_activity_log">;
 
 /** "pending" | "active" | "expired" | "cancelled" | "refunded" */
 export type SubscriptionStatus = NonNullable<
   ReviewerTableData<"subscriptions">["status"]
->
+>;
 /** "pending" | "paid" | "failed" | "refunded" */
-export type PaymentStatus = NonNullable<ReviewerTableData<"payments">["status"]>
+export type PaymentStatus = NonNullable<
+  ReviewerTableData<"payments">["status"]
+>;
 export type ActivityType = NonNullable<
   ReviewerTableData<"user_activity_log">["type"]
->
+>;
 
 /**
  * Whole pesos to a readable amount: 299 -> "PHP 299".
@@ -4197,7 +4958,7 @@ export type ActivityType = NonNullable<
  * mattered.
  */
 export function formatMoney(amount: number, currency = "PHP") {
-  return `${currency} ${(Number(amount) || 0).toLocaleString()}`
+  return `${currency} ${(Number(amount) || 0).toLocaleString()}`;
 }
 
 /**
@@ -4209,36 +4970,36 @@ export function formatMoney(amount: number, currency = "PHP") {
  */
 export function hasActivePremium(
   profile: { isPremium?: boolean | null; premiumUntil?: string | null },
-  now: Date = new Date()
+  now: Date = new Date(),
 ) {
   if (!profile.isPremium) {
-    return false
+    return false;
   }
 
   if (!profile.premiumUntil) {
-    return true
+    return true;
   }
 
-  const until = new Date(profile.premiumUntil)
+  const until = new Date(profile.premiumUntil);
 
-  return Number.isNaN(until.getTime()) ? false : until.getTime() > now.getTime()
+  return Number.isNaN(until.getTime()) ? false : until.getTime() > now.getTime();
 }
-export type FlaggedContentDocument = ReviewerTableDocument<"flagged_content">
+export type FlaggedContentDocument = ReviewerTableDocument<"flagged_content">;
 
 export type LearningMaterialType =
-  ReviewerTableData<"learning_materials">["type"]
+  ReviewerTableData<"learning_materials">["type"];
 
 /** "quiz" | "board_exam" — where a category surfaces in the app. */
 export type QuestionnaireMode = NonNullable<
   ReviewerTableData<"exam_categories">["mode"]
->
+>;
 /**
  * A set label: "A", "B", ... "Z", "AA", "AB", and so on without limit.
  *
  * A string rather than a union, because the set after Z has to be expressible
  * and no fixed list survives contact with a category that needs one more.
  */
-export type QuestionnaireSetCode = string
+export type QuestionnaireSetCode = string;
 
 /** Normalizes what someone typed into a set label: "set f" and "f" both give "F". */
 export function normalizeSetCode(value: string): string {
@@ -4246,9 +5007,9 @@ export function normalizeSetCode(value: string): string {
     .trim()
     .replace(/^set\s+/i, "")
     .toUpperCase()
-    .replace(/[^A-Z]/g, "")
+    .replace(/[^A-Z]/g, "");
 
-  return cleaned
+  return cleaned;
 }
 
 /**
@@ -4258,28 +5019,26 @@ export function normalizeSetCode(value: string): string {
  * left by a deleted set before moving on.
  */
 export function nextFreeSetCode(taken: readonly string[]): string {
-  const used = new Set(
-    taken.map((code) => normalizeSetCode(code)).filter(Boolean)
-  )
+  const used = new Set(taken.map((code) => normalizeSetCode(code)).filter(Boolean));
 
   for (let index = 0; index < 10000; index += 1) {
-    const candidate = toChoiceLabel(index)
+    const candidate = toChoiceLabel(index);
 
     if (!used.has(candidate)) {
-      return candidate
+      return candidate;
     }
   }
 
-  return toChoiceLabel(taken.length)
+  return toChoiceLabel(taken.length);
 }
 /** "multiple_choice" | "true_false" */
 export type QuestionType = NonNullable<
   ReviewerTableData<"questions">["questionType"]
->
+>;
 /** "easy" | "medium" | "hard" */
 export type QuestionDifficulty = NonNullable<
   ReviewerTableData<"questions">["difficulty"]
->
+>;
 /**
  * Display label for a choice at a given position: 0 -> A, 25 -> Z, 26 -> AA.
  *
@@ -4289,35 +5048,35 @@ export type QuestionDifficulty = NonNullable<
  */
 export function toChoiceLabel(index: number): string {
   if (!Number.isFinite(index) || index < 0) {
-    return ""
+    return "";
   }
 
-  let remaining = Math.floor(index)
-  let label = ""
+  let remaining = Math.floor(index);
+  let label = "";
 
   while (remaining >= 0) {
-    label = String.fromCharCode(65 + (remaining % 26)) + label
-    remaining = Math.floor(remaining / 26) - 1
+    label = String.fromCharCode(65 + (remaining % 26)) + label;
+    remaining = Math.floor(remaining / 26) - 1;
   }
 
-  return label
+  return label;
 }
 
 /** `"C"` -> 2, `"AA"` -> 26. Returns null for anything that is not a label. */
 export function fromChoiceLabel(label: string): number | null {
-  const normalized = label.trim().toUpperCase()
+  const normalized = label.trim().toUpperCase();
 
   if (!/^[A-Z]+$/.test(normalized)) {
-    return null
+    return null;
   }
 
-  let index = 0
+  let index = 0;
 
   for (const character of normalized) {
-    index = index * 26 + (character.charCodeAt(0) - 64)
+    index = index * 26 + (character.charCodeAt(0) - 64);
   }
 
-  return index - 1
+  return index - 1;
 }
 
 /**
@@ -4341,53 +5100,53 @@ export function fromChoiceLabel(label: string): number | null {
  * server maintains - rollup counts and the like - are left out.
  */
 export function newRowDefaults(
-  tableKey: ReviewerTableKey
+  tableKey: ReviewerTableKey,
 ): Record<string, string | number | boolean | string[]> {
-  const values: Record<string, string | number | boolean | string[]> = {}
+  const values: Record<string, string | number | boolean | string[]> = {};
 
   // Widened deliberately: `as const` narrows each entry to a literal type
   // that does not carry the optional keys.
   const fields = reviewerCmsSchema[tableKey]
-    .fields as readonly CmsFieldDefinition[]
+    .fields as readonly CmsFieldDefinition[];
 
   for (const field of fields) {
     if (field.readOnly) {
-      continue
+      continue;
     }
 
     if (field.defaultValue !== undefined) {
-      values[field.key] = field.defaultValue
-      continue
+      values[field.key] = field.defaultValue;
+      continue;
     }
 
     // Only required fields need inventing; an optional one may stay absent.
     if (!field.required) {
-      continue
+      continue;
     }
 
     switch (field.kind) {
       case "integer":
       case "float":
-        values[field.key] = field.min ?? 0
-        break
+        values[field.key] = field.min ?? 0;
+        break;
       case "boolean":
-        values[field.key] = false
-        break
+        values[field.key] = false;
+        break;
       case "datetime":
-        values[field.key] = new Date().toISOString()
-        break
+        values[field.key] = new Date().toISOString();
+        break;
       case "string[]":
-        values[field.key] = []
-        break
+        values[field.key] = [];
+        break;
       case "enum":
-        values[field.key] = String(field.options?.[0] ?? "")
-        break
+        values[field.key] = String(field.options?.[0] ?? "");
+        break;
       default:
-        values[field.key] = ""
+        values[field.key] = "";
     }
   }
 
-  return values
+  return values;
 }
 
 /**
@@ -4397,7 +5156,68 @@ export function newRowDefaults(
 export function requiredColumnsFor(tableKey: ReviewerTableKey) {
   return (reviewerCmsSchema[tableKey].fields as readonly CmsFieldDefinition[])
     .filter((field) => field.required)
-    .map((field) => field.key)
+    .map((field) => field.key);
+}
+
+/**
+ * The permissions a member's own row has to be created with.
+ *
+ * Appwrite grants a new row nothing unless the create says otherwise - not the
+ * creator's access, not the table's. A row written without these is invisible
+ * to the person who just wrote it, and the symptom is not an error but an
+ * empty list on the next screen.
+ *
+ * Returned as plain permission strings rather than `Permission.read(...)` so
+ * this file keeps its promise of having no imports: the strings are the wire
+ * format, and both the web and mobile SDKs accept them directly.
+ */
+export function ownedRowPermissions(userId: string): string[] {
+  if (!userId) {
+    throw new Error("ownedRowPermissions needs a user id.");
+  }
+
+  return [
+    `read("user:${userId}")`,
+    `update("user:${userId}")`,
+    `delete("user:${userId}")`,
+  ];
+}
+
+/**
+ * The permission a row written *by the server, about a member* is created with.
+ *
+ * Read, and nothing else. A subscription, a payment record or a billing entry
+ * in the activity log is a fact about the account rather than the member's own
+ * content, and a record its subject can edit or delete is not a record. The
+ * app gets to show it; only the API key gets to change it.
+ *
+ * Without this the row is invisible instead of read-only, which is the same
+ * failure `ownedRowPermissions` exists to prevent - just arriving from the
+ * other side of the wire.
+ */
+export function serverOwnedRowPermissions(userId: string): string[] {
+  if (!userId) {
+    throw new Error("serverOwnedRowPermissions needs a user id.");
+  }
+
+  return [`read("user:${userId}")`];
+}
+
+/** The access model a table was configured with. */
+export function getTableAccessModel(tableKey: ReviewerTableKey) {
+  return reviewerCmsSchema[tableKey].accessModel;
+}
+
+/**
+ * Whether a create on this table must carry `ownedRowPermissions`.
+ *
+ * True for every table whose rows are owned by the member who wrote them. The
+ * check is derived rather than listed, so a table that changes access model
+ * does not leave a stale list behind in the app.
+ */
+export function tableNeedsRowPermissions(tableKey: ReviewerTableKey) {
+  return getAccessModelPermissions(reviewerCmsSchema[tableKey].accessModel)
+    .rowSecurity;
 }
 
 export const dashboardGroups = [
@@ -4409,20 +5229,18 @@ export const dashboardGroups = [
   { key: "achievements", label: "Achievements" },
   { key: "community", label: "Community" },
   { key: "cms", label: "Moderation" },
-] as const
+] as const;
 
 /** What the dashboard lets *anyone* do with a table. Defaults to full control. */
 export function getTableAccess(tableKey: ReviewerTableKey): CmsTableAccess {
   return (
     (reviewerCmsSchema[tableKey] as { access?: CmsTableAccess }).access ??
     "manage"
-  )
+  );
 }
 
-export function getTableDomain(
-  tableKey: ReviewerTableKey
-): CmsPermissionDomain {
-  return (reviewerCmsSchema[tableKey] as { domain: CmsPermissionDomain }).domain
+export function getTableDomain(tableKey: ReviewerTableKey): CmsPermissionDomain {
+  return (reviewerCmsSchema[tableKey] as { domain: CmsPermissionDomain }).domain;
 }
 
 /**
@@ -4437,25 +5255,25 @@ export function getTableDomain(
  */
 export function getTablePermission(
   tableKey: ReviewerTableKey,
-  action: CmsTableAction
+  action: CmsTableAction,
 ): CmsPermission | null {
-  const access = getTableAccess(tableKey)
+  const access = getTableAccess(tableKey);
 
   if (access === "hidden") {
-    return null
+    return null;
   }
 
   if (action !== "view") {
     if (access === "readonly") {
-      return null
+      return null;
     }
 
     if (access === "review" && action !== "delete") {
-      return null
+      return null;
     }
   }
 
-  return domainTablePermissions[getTableDomain(tableKey)][action]
+  return domainTablePermissions[getTableDomain(tableKey)][action];
 }
 
 /**
@@ -4468,15 +5286,15 @@ export function getTablePermission(
 export function roleCanUseTable(
   role: CmsRole,
   tableKey: ReviewerTableKey,
-  action: CmsTableAction
+  action: CmsTableAction,
 ) {
-  const permission = getTablePermission(tableKey, action)
-  return permission !== null && roleHasPermission(role, permission)
+  const permission = getTablePermission(tableKey, action);
+  return permission !== null && roleHasPermission(role, permission);
 }
 
 /** Tables a role may open, in schema order. Drives the sidebar. */
 export function listTablesForRole(role: CmsRole) {
   return reviewerTableEntries
     .map(([tableKey]) => tableKey)
-    .filter((tableKey) => roleCanUseTable(role, tableKey, "view"))
+    .filter((tableKey) => roleCanUseTable(role, tableKey, "view"));
 }

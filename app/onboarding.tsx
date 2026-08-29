@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { useRouter } from "expo-router"
+import { useLocalSearchParams, useRouter } from "expo-router"
 import {
   BookOpenText,
   ListChecks,
@@ -58,6 +58,17 @@ const SLIDES: OnboardingSlide[] = [
 
 export default function OnboardingScreen() {
   const router = useRouter()
+  /**
+   * Replayed from Settings rather than shown before the first sign-in.
+   *
+   * The slides are the same; what changes is where the exits go. A first run
+   * ends by handing somebody to register or login, because that is the next
+   * thing they need. A replay ends by putting them back where they were — a
+   * member three weeks in who taps "How this app works" and lands on a login
+   * screen has been thrown out of their own app.
+   */
+  const { replay } = useLocalSearchParams<{ replay?: string }>()
+  const isReplay = replay === "1"
   const { theme } = useTheme()
   const setPreference = useAppPreferences((state) => state.setPreference)
   const { width } = useWindowDimensions()
@@ -67,6 +78,11 @@ export default function OnboardingScreen() {
   const isLastSlide = index === SLIDES.length - 1
 
   function finish(target: "/(auth)/register" | "/(auth)/login") {
+    if (isReplay) {
+      router.back()
+      return
+    }
+
     setPreference("hasCompletedOnboarding", true)
     router.replace(target)
   }
@@ -93,13 +109,13 @@ export default function OnboardingScreen() {
       {/* Skip */}
       <View className="flex-row items-center justify-between px-6 pt-2">
         <View className="flex-row items-center gap-2">
-          <BrandLogo size="sm" className="h-8 w-8 rounded-xs" />
-          <Text className="text-sm font-black text-foreground">
-            Social Work Sure Win
-          </Text>
+          <BrandLogo size="sm" />
+          <BrandLogo size="sm" variant="wordmark" />
         </View>
         <Pressable onPress={() => finish("/(auth)/login")} hitSlop={12}>
-          <Text className="text-sm font-bold text-muted-foreground">Skip</Text>
+          <Text className="text-sm font-bold text-muted-foreground">
+            {isReplay ? "Done" : "Skip"}
+          </Text>
         </Pressable>
       </View>
 
@@ -174,18 +190,22 @@ export default function OnboardingScreen() {
           ))}
         </View>
         <Button size="lg" onPress={handleNext}>
-          <Text>{isLastSlide ? "Get Started" : "Continue"}</Text>
-        </Button>
-        <Pressable
-          onPress={() => finish("/(auth)/login")}
-          className="items-center"
-          hitSlop={8}
-        >
-          <Text className="text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Text className="text-sm font-bold text-primary">Sign in</Text>
+          <Text>
+            {isLastSlide ? (isReplay ? "Done" : "Get Started") : "Continue"}
           </Text>
-        </Pressable>
+        </Button>
+        {isReplay ? null : (
+          <Pressable
+            onPress={() => finish("/(auth)/login")}
+            className="items-center"
+            hitSlop={8}
+          >
+            <Text className="text-sm text-muted-foreground">
+              Already have an account?{" "}
+              <Text className="text-sm font-bold text-primary">Sign in</Text>
+            </Text>
+          </Pressable>
+        )}
       </View>
     </SafeAreaView>
   )

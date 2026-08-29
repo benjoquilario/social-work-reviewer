@@ -14,6 +14,8 @@ import {
   TablesDB,
 } from "react-native-appwrite"
 
+import { reviewerCmsSchema } from "./schema"
+
 const FALLBACK_ENDPOINT = "https://sgp.cloud.appwrite.io/v1"
 const FALLBACK_ANDROID_PACKAGE = "com.horfi.socialwork"
 const FALLBACK_IOS_BUNDLE_ID = "com.horfi.socialwork"
@@ -29,11 +31,18 @@ export const APPWRITE_CONFIG = {
     process.env.EXPO_PUBLIC_APPWRITE_PROFILE_IMAGES_BUCKET_ID ?? "",
   communityPostImagesBucketId:
     process.env.EXPO_PUBLIC_APPWRITE_COMMUNITY_POST_IMAGES_BUCKET_ID ?? "",
+  /**
+   * Where CMS-uploaded images and files live.
+   *
+   * `questions.imageUrl` and `learning_materials.fileUrl` store a path like
+   * `/api/assets/<fileId>` when the file came through the dashboard, and an
+   * absolute URL when somebody pasted a link. This is what turns the first
+   * kind into something an `<Image>` can load (gotcha 8).
+   */
+  cmsBaseUrl: process.env.EXPO_PUBLIC_CMS_BASE_URL ?? "",
   // No literal resource IDs here. A hard-coded fallback survives pointing the
   // app at a different Appwrite project and silently reads the old project's
   // bucket/function instead of failing — set these in .env instead.
-  questionnaireBucketId:
-    process.env.EXPO_PUBLIC_APPWRITE_QUESTIONNAIRE_BUCKET_ID ?? "",
   communityPostLikeFunctionId:
     process.env.EXPO_PUBLIC_APPWRITE_COMMUNITY_POST_LIKE_FUNCTION_ID ?? "",
   premiumMaterialAccessFunctionId:
@@ -89,8 +98,8 @@ export function assertAppwriteConfigured() {
 
 /**
  * Optional resources. Each caller already degrades gracefully when one is
- * missing (bundled questionnaires, direct-write like fallback, …), which is
- * exactly why an unset value is easy to miss — so say so once at startup.
+ * missing (a direct-write like fallback, a blank image, …), which is exactly
+ * why an unset value is easy to miss — so say so once at startup.
  */
 const OPTIONAL_APPWRITE_RESOURCES: {
   value: string
@@ -98,9 +107,9 @@ const OPTIONAL_APPWRITE_RESOURCES: {
   usedFor: string
 }[] = [
   {
-    value: APPWRITE_CONFIG.questionnaireBucketId,
-    envVar: "EXPO_PUBLIC_APPWRITE_QUESTIONNAIRE_BUCKET_ID",
-    usedFor: "remote board-exam questionnaires (falls back to bundled content)",
+    value: APPWRITE_CONFIG.cmsBaseUrl,
+    envVar: "EXPO_PUBLIC_CMS_BASE_URL",
+    usedFor: "images and files uploaded through the CMS (they render blank without it)",
   },
   {
     value: APPWRITE_CONFIG.communityPostLikeFunctionId,
@@ -155,30 +164,45 @@ export const avatars = new Avatars(client)
 
 export const DB_ID = APPWRITE_CONFIG.databaseId
 
+/**
+ * Table IDs, read off the schema rather than retyped.
+ *
+ * A table renamed in the CMS has to become a compile error here, not an empty
+ * list at runtime — which is why every value below comes from
+ * `reviewerCmsSchema` and none of them is a string literal.
+ *
+ * New code should prefer `TABLES` / `tableId()` from `lib/db`, which is keyed
+ * by the schema's own table keys. This SCREAMING_CASE map exists for the
+ * modules written before that.
+ */
 export const COLLECTIONS = {
-  USER_PROFILES: "user_profiles",
-  USER_ROLES: "user_roles",
-  SUBJECTS: "subjects",
-  TOPICS: "topics",
-  LEARNING_MATERIALS: "learning_materials",
-  // Assessment content. Questionnaires are authored in the dashboard and
-  // imported from Excel; they are not derived from SUBJECTS/TOPICS.
-  EXAM_CATEGORIES: "exam_categories",
-  QUESTIONNAIRES: "questionnaires",
-  QUESTIONS: "questions",
-  USER_ANSWERS: "user_answers",
-  USER_PROGRESS: "user_progress",
-  USER_DAILY_ACTIVITY: "user_daily_activity",
-  USER_WEEKLY_REPORTS: "user_weekly_reports",
-  LEARNING_HISTORY: "learning_history",
-  LEARNING_ACHIEVEMENTS: "learning_achievements",
-  POSTS: "posts",
-  COMMENTS: "comments",
-  REPLIES: "replies",
-  POST_LIKES: "post_likes",
-  COMMENT_LIKES: "comment_likes",
-  ANNOUNCEMENTS: "announcements",
-  FLAGGED_CONTENT: "flagged_content",
+  USER_PROFILES: reviewerCmsSchema.user_profiles.tableId,
+  USER_ROLES: reviewerCmsSchema.user_roles.tableId,
+  SUBJECTS: reviewerCmsSchema.subjects.tableId,
+  TOPICS: reviewerCmsSchema.topics.tableId,
+  LEARNING_MATERIALS: reviewerCmsSchema.learning_materials.tableId,
+  // Assessment content. Categories, sets and questions are authored in the
+  // dashboard and imported from Excel; they are not derived from
+  // SUBJECTS/TOPICS, and nothing joins the two halves (section 1).
+  EXAM_CATEGORIES: reviewerCmsSchema.exam_categories.tableId,
+  QUESTIONNAIRES: reviewerCmsSchema.questionnaires.tableId,
+  QUESTIONS: reviewerCmsSchema.questions.tableId,
+  USER_ANSWERS: reviewerCmsSchema.user_answers.tableId,
+  USER_PROGRESS: reviewerCmsSchema.user_progress.tableId,
+  USER_DAILY_ACTIVITY: reviewerCmsSchema.user_daily_activity.tableId,
+  USER_WEEKLY_REPORTS: reviewerCmsSchema.user_weekly_reports.tableId,
+  USER_SETTINGS: reviewerCmsSchema.user_settings.tableId,
+  STUDY_SESSIONS: reviewerCmsSchema.study_sessions.tableId,
+  USER_ACTIVITY_LOG: reviewerCmsSchema.user_activity_log.tableId,
+  LEARNING_HISTORY: reviewerCmsSchema.learning_history.tableId,
+  LEARNING_ACHIEVEMENTS: reviewerCmsSchema.learning_achievements.tableId,
+  POSTS: reviewerCmsSchema.posts.tableId,
+  COMMENTS: reviewerCmsSchema.comments.tableId,
+  REPLIES: reviewerCmsSchema.replies.tableId,
+  POST_LIKES: reviewerCmsSchema.post_likes.tableId,
+  COMMENT_LIKES: reviewerCmsSchema.comment_likes.tableId,
+  ANNOUNCEMENTS: reviewerCmsSchema.announcements.tableId,
+  FLAGGED_CONTENT: reviewerCmsSchema.flagged_content.tableId,
 } as const
 
 export type CollectionKey = (typeof COLLECTIONS)[keyof typeof COLLECTIONS]

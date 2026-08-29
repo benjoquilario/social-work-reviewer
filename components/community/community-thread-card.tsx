@@ -1,6 +1,6 @@
 import { memo, useState } from "react"
 import { Image } from "expo-image"
-import { Heart, MessageSquare, Share2 } from "lucide-react-native"
+import { Heart, MessageSquare, MoreHorizontal } from "lucide-react-native"
 import { Pressable, View } from "react-native"
 
 import { type CommunityPostItem } from "@/lib/community"
@@ -15,6 +15,8 @@ type CommunityThreadCardProps = {
   liking: boolean
   onLike: (post: CommunityPostItem) => void
   onOpen: (postId: string) => void
+  /** Opens the actions sheet — report, block, or delete when it is theirs. */
+  onOpenActions: (post: CommunityPostItem) => void
   theme: ThemePalette
 }
 
@@ -23,6 +25,7 @@ export const CommunityThreadCard = memo(function CommunityThreadCard({
   liking,
   onLike,
   onOpen,
+  onOpenActions,
   theme,
 }: CommunityThreadCardProps) {
   const [imageFailed, setImageFailed] = useState(false)
@@ -176,10 +179,15 @@ export const CommunityThreadCard = memo(function CommunityThreadCard({
             Comment
           </Text>
         </Pressable>
-        <Pressable className="flex-1 flex-row items-center justify-center gap-2 py-2.5">
-          <Share2 size={18} color={theme.mutedForeground} />
+        <Pressable
+          className="flex-1 flex-row items-center justify-center gap-2 py-2.5"
+          onPress={() => onOpenActions(post)}
+          accessibilityRole="button"
+          accessibilityLabel="More actions for this post"
+        >
+          <MoreHorizontal size={18} color={theme.mutedForeground} />
           <Text className="text-xs font-semibold text-muted-foreground">
-            Share
+            More
           </Text>
         </Pressable>
       </View>

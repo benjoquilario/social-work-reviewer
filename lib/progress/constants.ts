@@ -1,5 +1,16 @@
-export const GLOBAL_PROGRESS_SUBJECT_ID = "__global__"
+/**
+ * The sentinel destination for the one `user_progress` row per member that
+ * carries streak, active days and total minutes — numbers that belong to no
+ * single category, set, subject or topic.
+ *
+ * Kept on `subjectId`/`topicId` rather than `categoryId` so it can never
+ * collide with a real exam category, whose rows are keyed the other way.
+ */
+export const GLOBAL_PROGRESS_CATEGORY_ID = "__global__"
 export const GLOBAL_PROGRESS_TOPIC_ID = "__activity__"
+
+/** @deprecated Use GLOBAL_PROGRESS_CATEGORY_ID. */
+export const GLOBAL_PROGRESS_SUBJECT_ID = GLOBAL_PROGRESS_CATEGORY_ID
 
 export const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100]
 export const QUIZ_SCORE_MILESTONES = [70, 85, 100]

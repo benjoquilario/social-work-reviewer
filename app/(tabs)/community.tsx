@@ -25,7 +25,16 @@ import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 import { CommunityComposerDialog } from "@/components/community/community-composer-dialog"
 import { CommunityFeedHeader } from "@/components/community/community-feed-header"
 import { CommunityLoading } from "@/components/community/community-loading"
+import { useIsPremium } from "@/hooks/use-membership"
+import { useCommunityModeration } from "@/hooks/use-community-moderation"
+import { useReport } from "@/hooks/use-report"
+import {
+  PostActionsMenu,
+  type PostAction,
+} from "@/components/community/post-actions-menu"
 import { CommunityThreadCard } from "@/components/community/community-thread-card"
+import { ReportDialog } from "@/components/report"
+import { getMemberByline } from "@/lib/member/profile"
 
 function ThreadSeparator() {
   return <View className="h-2 bg-muted/30" />
@@ -93,9 +102,13 @@ export default function CommunityScreen() {
     }
   }, [isAuthenticated, profile, refreshProfile])
 
+  // This used to pass `viewerIsPremium: true` outright, which unlocked every
+  // premium subject for every member in the composer's subject picker.
+  const isPremiumUser = useIsPremium()
+
   const subjectsQuery = useQuery({
-    queryKey: ["community-subjects"],
-    queryFn: () => listLearningSubjects({ viewerIsPremium: true }),
+    queryKey: ["community-subjects", isPremiumUser],
+    queryFn: () => listLearningSubjects({ viewerIsPremium: isPremiumUser }),
   })
 
   const currentAvatarSeed = useMemo(() => {
@@ -156,11 +169,7 @@ export default function CommunityScreen() {
     const author = {
       id: user.$id,
       name,
-      subtitle:
-        profile?.reviewType ??
-        profile?.email ??
-        user.email ??
-        "Community member",
+      subtitle: getMemberByline(profile, user.email ?? "Community member"),
       avatarSeed: toCommunityAvatarSeed(name),
       avatarUrl: profile?.avatarUrl?.trim() || null,
     }
@@ -265,6 +274,45 @@ export default function CommunityScreen() {
     ]
   )
 
+  // Filing a report, and saying so. The confirmation has to be explicit
+  // because nothing else will change: `flagged_content` is create-only from a
+  // client, so the post stays exactly where it was until the team acts on it.
+  const report = useReport()
+
+  // Report, block and delete all hang off one sheet. They are different
+  // promises — see `useCommunityModeration` — so the sheet names each of them
+  // rather than offering a single ambiguous "…".
+  const [actionsPost, setActionsPost] = useState<CommunityPostItem | null>(null)
+  const moderation = useCommunityModeration({
+    // With the user id, or the refreshed feed comes back without this member's
+    // own like state and every heart appears to reset.
+    onChanged: () => void refreshFeed(user?.$id),
+  })
+
+  const handleAction = useCallback(
+    (action: PostAction) => {
+      const post = actionsPost
+      setActionsPost(null)
+
+      if (!post) {
+        return
+      }
+
+      if (action === "report") {
+        report.open({ contentType: "post", contentId: post.id })
+        return
+      }
+
+      if (action === "block") {
+        moderation.confirmBlock({ userId: post.userId, name: post.author.name })
+        return
+      }
+
+      moderation.confirmDelete({ table: "posts", rowId: post.id })
+    },
+    [actionsPost, moderation, report]
+  )
+
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<CommunityPostItem>) => (
       <CommunityThreadCard
@@ -272,6 +320,7 @@ export default function CommunityScreen() {
         liking={togglingLikePostId === item.id}
         onLike={handleLike}
         onOpen={handleOpenPost}
+        onOpenActions={setActionsPost}
         theme={theme}
       />
     ),
@@ -384,6 +433,29 @@ export default function CommunityScreen() {
         subjects={subjectsQuery.data ?? []}
         theme={theme}
         titleDraft={titleDraft}
+      />
+
+      <PostActionsMenu
+        open={actionsPost !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setActionsPost(null)
+          }
+        }}
+        isOwn={moderation.isOwn(actionsPost?.userId ?? "")}
+        authorName={actionsPost?.author.name ?? "This member"}
+        onSelect={handleAction}
+      />
+
+      <ReportDialog
+        open={report.isOpen}
+        contentType={report.contentType}
+        onOpenChange={(open) => {
+          if (!open) {
+            report.close()
+          }
+        }}
+        onSubmit={report.submit}
       />
     </SafeAreaView>
   )

@@ -1,5 +1,5 @@
 import { COLLECTIONS, DB_ID, Query, tablesDB } from "./appwrite"
-import { listBoardExamCatalogCategories } from "./board-exam-catalog"
+import { countRows, listAll } from "./db"
 import type {
   LearningAchievementDocument,
   SubjectDocument,
@@ -203,6 +203,22 @@ async function listSubjects() {
   return rows as unknown as SubjectDocument[]
 }
 
+/**
+ * Exam categories, for naming the breakdown.
+ *
+ * "Subject performance" is measured over `user_answers.categoryId`, and a
+ * category is a row in `exam_categories` — a different table from
+ * `subjects`, with no join between them (section 1). Both name maps are built
+ * so a breakdown row can be labelled whichever side it came from.
+ */
+async function listAnsweredCategories() {
+  return listAll(
+    "exam_categories",
+    [Query.equal("isPublished", true), Query.orderAsc("order")],
+    { label: "exam categories" }
+  )
+}
+
 async function listUserAnswers(userId: string) {
   const { rows } = await tablesDB.listRows({
     databaseId: DB_ID,
@@ -273,16 +289,15 @@ async function listUserProgressRows(userId: string) {
   return rows as unknown as UserProgressDocument[]
 }
 
-function getBoardExamQuestionTotal() {
-  return listBoardExamCatalogCategories().reduce((total, category) => {
-    return (
-      total +
-      category.sets.reduce(
-        (setTotal, set) => setTotal + set.loadLocal().questions.length,
-        0
-      )
-    )
-  }, 0)
+/**
+ * Every published item in the bank.
+ *
+ * Counted from the database rather than summed from the category rollups:
+ * `questionCount` is denormalised and only accurate as of the last CMS write,
+ * which is fine on a card and wrong as a denominator (gotcha 9).
+ */
+function getQuestionBankTotal() {
+  return countRows("questions", [])
 }
 
 function computeBestStreak(answerRows: UserAnswerDocument[]) {
@@ -318,15 +333,18 @@ function computeBestStreak(answerRows: UserAnswerDocument[]) {
   return bestStreak
 }
 
-function buildSubjectNameMap(subjects: SubjectDocument[]) {
+function buildSubjectNameMap(
+  subjects: SubjectDocument[],
+  categories: { $id: string; title: string }[] = []
+) {
   const map = new Map<string, string>()
 
   for (const subject of subjects) {
     map.set(subject.$id, subject.name)
   }
 
-  for (const category of listBoardExamCatalogCategories()) {
-    map.set(category.id, category.title)
+  for (const category of categories) {
+    map.set(category.$id, category.title)
   }
 
   return map
@@ -341,7 +359,8 @@ function buildSubjectBreakdown(
   let highestPercent = -1
 
   for (const row of answerRows) {
-    const subjectId = row.subjectId?.trim()
+    // The exam side keys on `categoryId`; `user_answers` has no `subjectId`.
+    const subjectId = row.categoryId?.trim()
     if (!subjectId) {
       continue
     }
@@ -626,12 +645,16 @@ function filterFocusableSubjects(subjects: SubjectPerformance[]) {
 export async function getOverallPerformanceStats(
   userId: string
 ): Promise<OverallPerformanceStats> {
-  const [subjects, answers] = await Promise.all([
+  const [subjects, categories, answers, totalQuestions] = await Promise.all([
     listSubjects(),
+    listAnsweredCategories(),
     listUserAnswers(userId),
+    getQuestionBankTotal(),
   ])
 
-  const uniqueQuestionIds = new Set(answers.map((row) => row.questionId))
+  // SKUs, not row IDs — a re-import reissues row IDs and would make the same
+  // item look like several (gotcha 5).
+  const uniqueQuestionIds = new Set(answers.map((row) => row.questionSku))
   const correctAnswers = answers.filter((row) => row.isCorrect).length
   const totalAnswered = answers.length
   const averageTimePerQuestion =
@@ -646,13 +669,16 @@ export async function getOverallPerformanceStats(
 
   return {
     uniqueQuestionsAnswered: uniqueQuestionIds.size,
-    totalQuestions: getBoardExamQuestionTotal(),
+    totalQuestions,
     correctAnswers,
     totalAnswered,
     correctPercent: calculatePercent(correctAnswers, totalAnswered),
     averageTimePerQuestion,
     bestStreak: computeBestStreak(answers),
-    subjectBreakdown: buildSubjectBreakdown(buildSubjectNameMap(subjects), answers),
+    subjectBreakdown: buildSubjectBreakdown(
+      buildSubjectNameMap(subjects, categories),
+      answers
+    ),
   }
 }
 

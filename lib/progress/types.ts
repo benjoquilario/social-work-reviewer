@@ -1,34 +1,105 @@
 import type { LearningAchievementDocument } from "../schema"
+import type { StudyStatus } from "../session/study-session"
 
-export type QuizResultPayload = {
-  userId: string
-  examId: string
-  score: number
-  totalItems: number
-  timeTaken: number // seconds
-  status: "ongoing" | "done"
-  subjectId?: string
-  topicId?: string
-  profileSnapshot?: AchievementProfileSnapshot
+/**
+ * ─── Progress vocabulary ──────────────────────────────────────────────────
+ *
+ * Everything here now speaks the schema's nouns. The previous version used
+ * `examId`, `questionnaireKey`, `setName: "Set A"` and `sourceQuestionId` —
+ * none of which are columns any more, and two of which could not survive a
+ * sixth set or a content re-import.
+ *
+ * The mapping, for anyone reading old code:
+ *
+ *   examId            → categoryId, or categoryId + questionnaireId
+ *   questionnaireKey  → questionnaireId (the row ID of the set)
+ *   setName           → the set's `setCode`, which is display-only
+ *   questionId        → questionSku
+ *   attemptId         → sessionId
+ */
+
+export type LearningHistoryStatus = "in_progress" | "paused" | "completed"
+
+/**
+ * A snapshot of who earned a badge, copied onto the badge row.
+ *
+ * Copied rather than joined so a name change next year does not rewrite what a
+ * certificate said when it was issued.
+ */
+export type AchievementProfileSnapshot = {
+  fullName?: string | null
+  schoolName?: string | null
+  /** The member-type label at the time — "Retaker", "Licensed social worker". */
+  reviewType?: string | null
+  avatarUrl?: string | null
 }
 
-export type ExamAttempt = {
-  $id: string
+// ─── user_progress ──────────────────────────────────────────────────────────
+
+/**
+ * Where a member is in one paper, plus their running totals.
+ *
+ * Keyed by `userId` + `categoryId`, and `questionnaireId` as well when they are
+ * inside a set. The reading side reuses the same table keyed by
+ * `subjectId` + `topicId`, and the app keeps one "global" row for
+ * streak/lifetime numbers that belong to nothing in particular.
+ */
+export type UpsertUserProgressParams = {
   userId: string
-  examId: string
+  /** Exam side. */
+  categoryId?: string
+  questionnaireId?: string
+  /** Reading side. */
+  subjectId?: string
+  topicId?: string
+  nowIso?: string
+  averageScore?: number
+  completedMaterialsDelta?: number
+  answeredCountDelta?: number
+  correctCountDelta?: number
+  incorrectCountDelta?: number
+  scoreDelta?: number
+  totalStudyMinutesDelta?: number
+  achievementsCountDelta?: number
+  /** The row ID of the last item seen, for a "resume" jump. */
+  lastQuestionId?: string
+  /** Position in the run, 0-based. */
+  lastQuestionIndex?: number
+  /**
+   * **SKUs**, despite the column name. Row IDs do not survive a re-import, so
+   * storing them would orphan the list the next time content is re-uploaded.
+   */
+  answeredQuestionSkusToAdd?: string[]
+}
+
+export type UserProgressUpsertData = {
+  userId: string
+  categoryId: string | null
+  questionnaireId: string | null
+  subjectId: string | null
+  topicId: string | null
+  completedMaterials: number
+  averageScore: number
+  lastStudied: string
+  lastQuestionId: string | null
+  lastQuestionIndex: number
   score: number
-  totalItems: number
-  timeTaken: number
-  status: "ongoing" | "done"
-  startedAt: string
-  finishedAt: string | null
-  currentQuestionIndex: number
-  isResumable: boolean
-  lastAnsweredAt: string | null
+  answeredCount: number
+  correctCount: number
+  incorrectCount: number
+  accuracyRate: number
+  answeredQuestionIds: string[]
+  dayStreak: number
+  weeklyAverageScore: number
+  lastActiveAt: string
+  totalStudyMinutes: number
+  activeDaysCount: number
+  achievementsCount: number
 }
 
 export type UserProgressSummary = {
-  examId: string
+  categoryId: string
+  questionnaireId: string | null
   totalAttempts: number
   totalCorrect: number
   totalItems: number
@@ -36,87 +107,32 @@ export type UserProgressSummary = {
   lastStudied: string | null
 }
 
-export type LearningHistoryStatus = "in_progress" | "paused" | "completed"
-
-export type AchievementProfileSnapshot = {
-  fullName?: string | null
-  schoolName?: string | null
-  reviewType?: string | null
-  avatarUrl?: string | null
-}
-
-export type StartQuizAttemptPayload = {
-  userId: string
-  examId: string
-  totalItems: number
-}
-
-export type RecordQuizAnswerPayload = {
-  attemptId: string
-  userId?: string
-  questionId: string
-  choiceId: string
-  selectedAnswerKey: string
-  selectedAnswerText: string
-  correctAnswerKey: string
-  correctAnswerText: string
-  isCorrect: boolean
-  currentQuestionIndex: number
-  totalItems: number
-  subjectId?: string
-  topicId?: string
-  questionnaireKey?: string
-  setName?: "Set A" | "Set B" | "Set C" | "Set D"
-  sourceQuestionId?: number
-  responseTimeSeconds?: number
-}
-
-export type CompleteQuizAttemptPayload = {
-  attemptId: string
-  userId: string
-  examId: string
-  score: number
-  totalItems: number
-  timeTaken: number
-  subjectId?: string
-  topicId?: string
-  profileSnapshot?: AchievementProfileSnapshot
-}
-
-export type LearningActivityPayload = {
-  userId: string
-  subjectId: string
-  topicId: string
-  learningMaterialId: string
-  profileSnapshot?: AchievementProfileSnapshot
-}
+// ─── Activity feed ──────────────────────────────────────────────────────────
 
 export type ActivityFeedOptions = {
-  quizAttemptsLimit?: number
+  sessionsLimit?: number
   learningHistoryLimit?: number
   achievementsLimit?: number
 }
 
-export type ResumableAttemptSummary = {
-  attemptId: string
-  examId: string
-  currentQuestionIndex: number
-  timeTaken: number
-  lastAnsweredAt: string | null
-}
-
-export type ActivityQuizAttempt = {
+/** One sitting, as the profile and home screens render it. */
+export type ActivitySession = {
   id: string
-  examId: string
-  examTitle: string
-  score: number
-  totalItems: number
+  sessionId: string
+  categoryId: string
+  questionnaireId: string
+  /** Copied at the start of the sitting; shown as written. */
+  title: string
+  correctCount: number
+  questionCount: number
+  answeredCount: number
   percent: number
-  timeTaken: number
-  status: "ongoing" | "done"
+  durationSeconds: number
+  status: StudyStatus
   startedAt: string
-  finishedAt: string | null
-  currentQuestionIndex: number
+  endedAt: string | null
+  /** The stored `order` of the last item seen — where "resume" picks up. */
+  lastQuestionOrder: number
 }
 
 export type ActivityLearningHistory = {
@@ -125,7 +141,7 @@ export type ActivityLearningHistory = {
   materialTitle: string
   subjectId: string | null
   topicId: string | null
-  status: "in_progress" | "paused" | "completed"
+  status: LearningHistoryStatus
   progressPercent: number
   lastPosition: number
   lastAccessedAt: string
@@ -148,14 +164,24 @@ export type UserActivityFeed = {
   weeklyAverageScore: number
   lastActiveAt: string | null
   completedMaterials: number
-  completedQuizzes: number
-  averageQuizScore: number
+  completedSessions: number
+  averageSessionScore: number
   learningHistory: ActivityLearningHistory[]
   learningHistoryHasMore: boolean
-  quizAttempts: ActivityQuizAttempt[]
-  quizAttemptsHasMore: boolean
+  sessions: ActivitySession[]
+  sessionsHasMore: boolean
   achievements: ActivityAchievement[]
   achievementsHasMore: boolean
+}
+
+// ─── Reading side ───────────────────────────────────────────────────────────
+
+export type LearningActivityPayload = {
+  userId: string
+  subjectId: string
+  topicId: string
+  learningMaterialId: string
+  profileSnapshot?: AchievementProfileSnapshot
 }
 
 export type LearningHistoryListOptions = {
@@ -170,76 +196,13 @@ export type LearningHistoryListResult = {
 
 export type LearningMaterialStatusSnapshot = {
   learningMaterialId: string
-  status: "in_progress" | "paused" | "completed"
+  status: LearningHistoryStatus
   progressPercent: number
   lastAccessedAt: string
   completedAt: string | null
 }
 
-export type UpsertUserProgressParams = {
-  userId: string
-  subjectId: string
-  topicId: string
-  nowIso?: string
-  averageScore?: number
-  completedMaterialsDelta?: number
-  answeredCountDelta?: number
-  correctCountDelta?: number
-  incorrectCountDelta?: number
-  scoreDelta?: number
-  totalStudyMinutesDelta?: number
-  achievementsCountDelta?: number
-  questionnaireKey?: string
-  setName?: "Set A" | "Set B" | "Set C" | "Set D"
-  lastQuestionId?: string
-  lastQuestionIndex?: number
-  lastSourceQuestionId?: number
-  answeredQuestionIdsToAdd?: string[]
-}
-
-export type UserProgressUpsertData = {
-  userId: string
-  subjectId: string
-  topicId: string
-  questionnaireKey: string | null
-  completedMaterials: number
-  averageScore: number
-  lastStudied: string
-  lastQuestionId: string | null
-  lastQuestionIndex: number
-  score: number
-  answeredCount: number
-  correctCount: number
-  incorrectCount: number
-  accuracyRate: number
-  lastSourceQuestionId: number | null
-  answeredQuestionIds: string[]
-  setName: "Set A" | "Set B" | "Set C" | "Set D"
-  dayStreak: number
-  weeklyAverageScore: number
-  lastActiveAt: string
-  totalStudyMinutes: number
-  activeDaysCount: number
-  achievementsCount: number
-}
-
-export type UserAnswerRowData = {
-  userId: string
-  sessionId: string
-  questionId: string
-  sourceQuestionId?: number | null
-  subjectId?: string | null
-  topicId?: string | null
-  questionnaireKey?: string | null
-  setName?: "Set A" | "Set B" | "Set C" | "Set D" | null
-  selectedAnswerKey: string
-  selectedAnswerText: string
-  correctAnswerKey: string
-  correctAnswerText: string
-  isCorrect: boolean
-  answeredAt: string
-  responseTimeSeconds?: number | null
-}
+// ─── Aggregates ─────────────────────────────────────────────────────────────
 
 export type AwardMilestoneParams = {
   userId: string
@@ -247,7 +210,8 @@ export type AwardMilestoneParams = {
   dayStreak: number
   weeklyAverageScore: number
   profileSnapshot?: AchievementProfileSnapshot
-  examId?: string
+  /** What the badge is about — a category, a set, a material. */
+  referenceId?: string
   subjectId?: string
   topicId?: string
   metricKey?: string
@@ -271,10 +235,10 @@ export type ActivityCounters = {
 export type RecordDailyActivityParams = {
   userId: string
   nowIso?: string
+  categoryId?: string
+  questionnaireId?: string
   subjectId?: string
   topicId?: string
-  questionnaireKey?: string
-  setName?: "Set A" | "Set B" | "Set C" | "Set D"
   counters: ActivityCounters
 }
 

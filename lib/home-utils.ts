@@ -7,7 +7,7 @@ import type {
 } from "@/lib/home-types"
 import type {
   ActivityLearningHistory,
-  ActivityQuizAttempt,
+  ActivitySession,
   UserActivityFeed,
 } from "@/lib/progress"
 
@@ -49,23 +49,6 @@ export function formatRelativeDateLabel(value: string | null) {
 
   const deltaDays = Math.floor(deltaHours / 24)
   return `${deltaDays}d ago`
-}
-
-export function parseBoardExamAttemptExamId(examId: string) {
-  if (!examId.startsWith("board-exam:")) {
-    return null
-  }
-
-  const [, setId = "", totalQuestions = "", minutes = ""] = examId.split(":")
-  if (!setId || !totalQuestions || !minutes) {
-    return null
-  }
-
-  return {
-    setId,
-    totalQuestions,
-    minutes,
-  }
 }
 
 export function toDayKey(date: Date) {
@@ -144,7 +127,7 @@ function summarizeWeeklySnapshot(
 }
 
 function buildTrackingSnapshot(
-  attempts: ActivityQuizAttempt[],
+  sessions: ActivitySession[],
   learningHistory: ActivityLearningHistory[]
 ): TrackingSnapshot {
   const activityCountByDay = new Map<string, number>()
@@ -152,8 +135,8 @@ function buildTrackingSnapshot(
   const weeklyKeys = buildRecentDayKeys(7)
 
   collectActivityCounts(
-    attempts,
-    (attempt) => attempt.finishedAt ?? attempt.startedAt,
+    sessions,
+    (session) => session.endedAt ?? session.startedAt,
     activityCountByDay
   )
   collectActivityCounts(
@@ -181,11 +164,11 @@ export function buildTrackingMetrics(
     (metric) => metric.window === "week"
   )
   const trackingSnapshot = buildTrackingSnapshot(
-    activityFeed?.quizAttempts ?? [],
+    activityFeed?.sessions ?? [],
     activityFeed?.learningHistory ?? []
   )
   const hasActivityData = Boolean(
-    activityFeed?.quizAttempts || activityFeed?.learningHistory
+    activityFeed?.sessions || activityFeed?.learningHistory
   )
   const effectiveDayStreak = activityFeed?.dayStreak ?? DAILY_TRACKER.streakDays
   const effectiveWeeklyAverage = Math.round(
@@ -235,8 +218,8 @@ export function buildWeeklyCalendarSummary(
     { quizCount: number; learningCount: number }
   >()
 
-  for (const attempt of activityFeed?.quizAttempts ?? []) {
-    const dayKey = parseDayKey(attempt.finishedAt ?? attempt.startedAt)
+  for (const session of activityFeed?.sessions ?? []) {
+    const dayKey = parseDayKey(session.endedAt ?? session.startedAt)
     if (!dayKey) {
       continue
     }
@@ -286,63 +269,4 @@ export function buildWeeklyCalendarSummary(
     days,
     defaultSelectedDayKey: defaultSelectedDay?.key ?? null,
   }
-}
-
-export function fetchEnrichedResumableAttempts(
-  ongoingAttempts: {
-    $id: string
-    examId: string
-    timeTaken: number
-    currentQuestionIndex: number
-    totalItems: number
-    lastAnsweredAt: string | null
-    startedAt: string
-  }[],
-  getBoardExamSet: (setId: string) => Promise<{
-    title: string
-    setCode: string
-    categoryId: string
-  } | null>,
-  formatDuration: (seconds: number) => string
-) {
-  return Promise.all(
-    ongoingAttempts.map(async (attempt) => {
-      const boardExamMeta = parseBoardExamAttemptExamId(attempt.examId)
-
-      if (boardExamMeta) {
-        const set = await getBoardExamSet(boardExamMeta.setId).catch(() => null)
-
-        const params = set
-          ? {
-              source: "board-exam",
-              categoryId: set.categoryId,
-              setId: boardExamMeta.setId,
-              totalQuestions: boardExamMeta.totalQuestions,
-              minutes: boardExamMeta.minutes,
-            }
-          : null
-
-        return {
-          attempt,
-          title: set?.title ?? "Board Exam",
-          subtitle: set
-            ? `${set.setCode} • ${formatDuration(attempt.timeTaken)} elapsed`
-            : `${formatDuration(attempt.timeTaken)} elapsed`,
-          params: params
-            ? {
-                pathname: "/quiz" as const,
-                params,
-              }
-            : null,
-        }
-      }
-
-      return {
-        attempt,
-        title: "Board Exam Session",
-        subtitle: `${formatDuration(attempt.timeTaken)} elapsed`,
-        params: null,
-      }
-    })
-  )
 }

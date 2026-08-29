@@ -350,7 +350,6 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
         title,
         content,
         category: selectedCategory,
-        author,
         ...(selectedSubjectId ? { subjectId: selectedSubjectId } : {}),
         ...(photoUrlDraft.trim() ? { photoUrl: photoUrlDraft.trim() } : {}),
       }
@@ -414,8 +413,7 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
         userId,
         postId: activePostId,
         content,
-        author,
-      })
+        })
       set({ isCreatingComment: false })
     } catch {
       set({ isCreatingComment: false })
@@ -469,8 +467,7 @@ export const useCommunityStore = create<CommunityStore>((set, get) => ({
         userId,
         commentId,
         content: trimmed,
-        author,
-      })
+        })
       set({ isCreatingReply: false })
     } catch {
       set({ isCreatingReply: false })

@@ -1,12 +1,10 @@
-import { COLLECTIONS, DB_ID, Query, tablesDB } from "../appwrite"
+import { Query } from "../appwrite"
+import { createRow, listAll, listPage, updateRow } from "../db"
 import type { LearningHistoryDocument } from "../schema"
-import { HISTORY_QUERY_LIMIT } from "./constants"
-import {
-  countCompletedMaterials,
-  recordDailyActivity,
-  touchGlobalActivity,
-  upsertUserProgress,
-} from "./activity"
+import { GLOBAL_PROGRESS_CATEGORY_ID, GLOBAL_PROGRESS_TOPIC_ID, HISTORY_QUERY_LIMIT } from "./constants"
+import { recordDailyActivity, touchGlobalActivity } from "./daily-activity"
+import { countCompletedMaterials } from "./feed"
+import { upsertUserProgress } from "./user-progress"
 import { awardMilestoneIfEligible } from "./milestones"
 import type {
   LearningActivityPayload,
@@ -19,20 +17,19 @@ import {
   buildDeterministicRowId,
   clampNumber,
   fetchEntityTitleMap,
-  getUserOwnedPermissions,
   isAppwriteConflictError,
   listFirstRow,
+  mapLearningHistoryRowsToActivityItems,
   resolveDeterministicRow,
   uniqueStrings,
-  mapLearningHistoryRowsToActivityItems,
 } from "./utils"
 
 export async function findLearningHistoryRow(
   userId: string,
   learningMaterialId: string
 ) {
-  const { row } = await resolveDeterministicRow<LearningHistoryDocument>(
-    COLLECTIONS.LEARNING_HISTORY,
+  const { row } = await resolveDeterministicRow(
+    "learning_history",
     "history",
     [userId, learningMaterialId],
     userId
@@ -42,11 +39,14 @@ export async function findLearningHistoryRow(
     return row
   }
 
-  return listFirstRow<LearningHistoryDocument>(COLLECTIONS.LEARNING_HISTORY, [
+  // There is no unique index on (userId, learningMaterialId), so nothing at the
+  // database level stops a second row for the same material. Looking one up
+  // before creating is what keeps a member from ending up with two progress
+  // records that disagree.
+  return listFirstRow("learning_history", [
     Query.equal("userId", userId),
     Query.equal("learningMaterialId", learningMaterialId),
     Query.orderDesc("$updatedAt"),
-    Query.limit(1),
   ])
 }
 
@@ -84,12 +84,7 @@ async function updateExistingLearningHistory(
     completedAt: nextCompletedAt,
   }
 
-  await tablesDB.updateRow({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.LEARNING_HISTORY,
-    rowId: existing.$id,
-    data,
-  })
+  await updateRow("learning_history", existing.$id, data)
 
   return {
     row: { ...existing, ...data },
@@ -106,7 +101,7 @@ async function insertNewLearningHistory(
     params.userId,
     params.learningMaterialId,
   ])
-  const newRow = {
+  const newRow: Parameters<typeof createRow<"learning_history">>[1] = {
     userId: params.userId,
     subjectId: params.subjectId,
     topicId: params.topicId,
@@ -117,19 +112,17 @@ async function insertNewLearningHistory(
     startedAt: nowIso,
     lastAccessedAt: nowIso,
     createdAt: nowIso,
-    completedAt: params.status === "completed" ? (params.completedAt ?? nowIso) : null,
+    completedAt:
+      params.status === "completed" ? (params.completedAt ?? nowIso) : undefined,
   }
 
-  await tablesDB.createRow({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.LEARNING_HISTORY,
+  const created = await createRow("learning_history", newRow, {
     rowId,
-    data: newRow,
-    permissions: getUserOwnedPermissions(params.userId),
+    ownerId: params.userId,
   })
 
   return {
-    row: { ...newRow, $id: rowId },
+    row: created,
     wasPreviouslyCompleted: false,
     nowIso,
   }
@@ -185,24 +178,25 @@ export async function listRecentLearningHistory(
   }
 
   queries.push(Query.orderDesc("lastAccessedAt"))
-  queries.push(Query.limit(Math.min(historyLimit, HISTORY_QUERY_LIMIT)))
 
-  const { rows, total } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.LEARNING_HISTORY,
+  const { rows, total } = await listPage(
+    "learning_history",
     queries,
-  })
+    Math.min(historyLimit, HISTORY_QUERY_LIMIT)
+  )
 
-  const historyRows = rows as unknown as LearningHistoryDocument[]
+  const historyRows: LearningHistoryDocument[] = rows
   const displayHistoryRows = historyRows.slice(0, historyLimit)
   // Server-side `total` rather than page length — see getUserActivityFeed.
   const hasMore = (total ?? historyRows.length) > displayHistoryRows.length
 
 
   const materialTitleMap = await fetchEntityTitleMap({
-    collectionId: COLLECTIONS.LEARNING_MATERIALS,
-    entityIds: uniqueStrings(displayHistoryRows.map((row) => row.learningMaterialId)),
-    fallbackPrefix: "Material"
+    tableKey: "learning_materials",
+    entityIds: uniqueStrings(
+      displayHistoryRows.map((row) => row.learningMaterialId)
+    ),
+    fallbackPrefix: "Material",
   })
 
   return {
@@ -232,18 +226,16 @@ export async function getLearningMaterialStatus(
 export async function listLearningMaterialStatusesByTopic(
   payload: { userId: string, topicId: string }
 ): Promise<Record<string, LearningMaterialStatusSnapshot>> {
-  const { rows } = await tablesDB.listRows({
-    databaseId: DB_ID,
-    tableId: COLLECTIONS.LEARNING_HISTORY,
-    queries: [
+  const historyRows = await listAll(
+    "learning_history",
+    [
       Query.equal("userId", payload.userId),
       Query.equal("topicId", payload.topicId),
       Query.orderDesc("$updatedAt"),
-      Query.limit(500),
     ],
-  })
+    { label: "material statuses", maxRows: 500 }
+  )
 
-  const historyRows = rows as unknown as LearningHistoryDocument[]
   const statusByMaterialId: Record<string, LearningMaterialStatusSnapshot> = {}
 
   for (const row of historyRows) {
@@ -421,8 +413,8 @@ export async function trackLearningMaterialCompleted(
       }),
       upsertUserProgress({
         userId: payload.userId,
-        subjectId: "__global__",
-        topicId: "__activity__",
+        subjectId: GLOBAL_PROGRESS_CATEGORY_ID,
+        topicId: GLOBAL_PROGRESS_TOPIC_ID,
         nowIso,
         achievementsCountDelta: unlockedAchievements,
       }),

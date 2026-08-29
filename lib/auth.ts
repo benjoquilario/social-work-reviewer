@@ -23,6 +23,17 @@ import {
   storage,
   tablesDB,
 } from "./appwrite"
+import {
+  toMemberProfile,
+  type MemberProfile,
+  type MemberProfileEdit,
+} from "./member/profile"
+import {
+  isMemberType,
+  ownedRowPermissions,
+  type UserProfileDocument,
+} from "./schema"
+import { upsertPublicProfile } from "./member/public-profile"
 
 const REQUEST_TIMEOUT_MS = 12_000
 const RETRY_COUNT = 2
@@ -32,24 +43,24 @@ const RETRY_BASE_DELAY_MS = 800
 
 export type AuthUser = Models.User<Models.Preferences>
 
-export type UserProfile = {
-  $id: string
-  userId: string
-  fullName: string
-  email: string
-  avatarUrl: string | null
-  schoolName: string | null
-  reviewType: string | null
-  isPremium: boolean
-  createdAt: string
-}
+/**
+ * The signed-in member.
+ *
+ * Shaped by `lib/member/profile.ts` from the `user_profiles` row, which is
+ * where the schema rules live: `memberType` / `schoolOrEmployer` /
+ * `licenseNumber` are the member's own answers and grant nothing, while
+ * `isPremium`, `premiumUntil`, `planName` and `subscriptionStatus` are the
+ * server's and are read-only here (section 6).
+ */
+export type UserProfile = MemberProfile
 
-export type UpdateProfileInput = {
-  fullName: string
-  schoolName?: string | null
-  reviewType?: string | null
-  avatarUrl?: string | null
-}
+/**
+ * What the app may change.
+ *
+ * Deliberately not the four membership fields — a client that can write those
+ * can grant itself access.
+ */
+export type UpdateProfileInput = MemberProfileEdit
 
 export type UpdateEmailInput = {
   email: string
@@ -200,14 +211,16 @@ async function withRetry<T>(
   throw lastError
 }
 
+/**
+ * Read, update and delete for one member — the permissions every create on a
+ * row-security table has to carry (gotcha 1).
+ *
+ * `user_profiles` is `member_public`, so the table already grants read to
+ * every signed-in member (that is what lets a forum thread show its author's
+ * name). These row permissions are what keep update and delete to the owner.
+ */
 function getUserOwnedPermissions(userId: string) {
-  const userRole = Role.user(userId)
-
-  return [
-    Permission.read(userRole),
-    Permission.update(userRole),
-    Permission.delete(userRole),
-  ]
+  return ownedRowPermissions(userId)
 }
 
 function getUserAvatarPermissions(userId: string) {
@@ -235,9 +248,15 @@ function getUserProfilePayload(
     userId: user.$id,
     fullName: fullName ?? user.name ?? "Reviewer",
     email: email ?? user.email,
-    avatarUrl: null,
-    schoolName: null,
-    reviewType: null,
+    avatarUrl: "",
+    memberType: "",
+    schoolOrEmployer: "",
+    licenseNumber: "",
+    // The one time the app sends `isPremium`. It is `readOnly` in the schema
+    // *and* required, and Appwrite will not hold a default on a required
+    // column — so bootstrap has to supply the "no" that every profile starts
+    // at. Nothing else in the app ever writes it; access is granted by the
+    // server from verified Play data (section 6).
     isPremium: false,
     createdAt: new Date().toISOString(),
   }
@@ -248,7 +267,7 @@ async function createUserProfileDocument(
   fullName?: string,
   email?: string
 ) {
-  return withRetry("Profile creation", () =>
+  const created = await withRetry("Profile creation", () =>
     tablesDB.createRow({
       databaseId: DB_ID,
       tableId: COLLECTIONS.USER_PROFILES,
@@ -257,25 +276,39 @@ async function createUserProfileDocument(
       permissions: getUserOwnedPermissions(user.$id),
     })
   )
+
+  // Signing up writes **two** rows as of v4 (section 20). `user_profiles` is
+  // private now — it holds an email address and a licence number — and what
+  // other members are allowed to see lives in `user_public_profiles`.
+  //
+  // A member with the first row and not the second is invisible in the forum:
+  // their posts render under a neutral name with no picture. So this is part of
+  // account creation rather than something the profile screen fixes later.
+  await upsertPublicProfile({
+    userId: user.$id,
+    displayName: fullName?.trim() || user.name || "Reviewer",
+    avatarUrl: null,
+    memberType: null,
+  })
+
+  return created
 }
 
-async function createUserRoleDocument(userId: string) {
-  return withRetry("Role creation", () =>
-    tablesDB.createRow({
-      databaseId: DB_ID,
-      tableId: COLLECTIONS.USER_ROLES,
-      rowId: userId,
-      data: {
-        userId,
-        role: "student",
-      },
-      permissions: getUserOwnedPermissions(userId),
-    })
-  )
-}
+/**
+ * There is deliberately no role bootstrap here.
+ *
+ * `user_roles` is `server_only` — Appwrite grants a client nothing on it, in
+ * either direction, so a create from the app is a guaranteed 401. It is also
+ * unnecessary: "no row" and "a `student` row" mean exactly the same thing, both
+ * rank 0 with no permissions, and the app must never branch on either
+ * (section 14).
+ *
+ * Roles are the dashboard's. The team grants one there when somebody joins the
+ * team; everybody else needs no row at all.
+ */
 
 function getBootstrapFailureMessage() {
-  return "Your account was created, but Appwrite blocked the app from creating your user profile. In Appwrite Console, allow collection-level create access for signed-in users on user_profiles and user_roles, then keep document read/update/delete restricted to the owner. Do not send create as a document permission. Best practice: move this bootstrap into an Appwrite Function so profile creation is handled server-side."
+  return "Your account was created, but Appwrite blocked the app from creating your profile row. In the Appwrite console, user_profiles needs the member_private access model: document security on, with create granted to the users role and each row carrying its owner's permissions. See section 11 of MOBILE-SCHEMA-NOTES-v4.md."
 }
 
 async function fetchExistingProfile(user: AuthUser): Promise<UserProfile | null> {
@@ -288,7 +321,7 @@ async function fetchExistingProfile(user: AuthUser): Promise<UserProfile | null>
       })
     )
 
-    return profile as unknown as UserProfile
+    return toMemberProfile(profile as unknown as UserProfileDocument)
   } catch (error) {
     if (isAppwriteUnauthorizedError(error)) {
       throw new Error(getBootstrapFailureMessage())
@@ -315,18 +348,6 @@ function handleProfileCreationError(error: unknown) {
   }
 }
 
-function handleRoleCreationError(error: unknown) {
-  if (getAppwriteErrorCode(error) !== null && !isAppwriteConflictError(error)) {
-    if (isAppwriteUnauthorizedError(error)) {
-      throw new Error(getBootstrapFailureMessage())
-    }
-    console.warn(
-      "[Auth] Unable to create default user role:",
-      toErrorMessage(error, "Unknown Appwrite error.")
-    )
-  }
-}
-
 export async function ensureUserProfileSetup(
   user: AuthUser,
   fullName?: string,
@@ -337,17 +358,10 @@ export async function ensureUserProfileSetup(
     return existingProfile
   }
 
-  const [profileResult, roleResult] = await Promise.allSettled([
-    createUserProfileDocument(user, fullName, email),
-    createUserRoleDocument(user.$id),
-  ])
-
-  if (profileResult.status === "rejected") {
-    handleProfileCreationError(profileResult.reason)
-  }
-
-  if (roleResult.status === "rejected") {
-    handleRoleCreationError(roleResult.reason)
+  try {
+    await createUserProfileDocument(user, fullName, email)
+  } catch (error) {
+    handleProfileCreationError(error)
   }
 
   return getUserProfile(user.$id)
@@ -431,9 +445,13 @@ export async function updateCurrentProfile(
   }
 
   const currentUser = await withRetry("Session lookup", () => account.get())
-  const schoolName = normalizeOptionalString(input.schoolName)
-  const reviewType = normalizeOptionalString(input.reviewType)
+  const schoolOrEmployer = normalizeOptionalString(input.schoolOrEmployer)
+  const licenseNumber = normalizeOptionalString(input.licenseNumber)
   const avatarUrl = normalizeOptionalString(input.avatarUrl)
+  // Validated before it is trusted, the same way a stored role goes through
+  // `toCmsRole` — an unrecognised value is stored as blank, which reads as
+  // "not said".
+  const memberType = isMemberType(input.memberType) ? input.memberType : ""
 
   const updatedUser =
     fullName === (currentUser.name ?? "")
@@ -460,16 +478,31 @@ export async function updateCurrentProfile(
       data: {
         fullName,
         email: updatedUser.email,
-        schoolName,
-        reviewType,
-        avatarUrl,
+        memberType,
+        schoolOrEmployer: schoolOrEmployer ?? "",
+        licenseNumber: licenseNumber ?? "",
+        avatarUrl: avatarUrl ?? "",
       },
     })
   )
 
+  // The public half, when the edit touched something other members can see.
+  // Not fatal: a private profile that saved and a byline that did not is worth
+  // far less noise than losing the whole edit.
+  try {
+    await upsertPublicProfile({
+      userId: updatedUser.$id,
+      displayName: fullName,
+      avatarUrl,
+      memberType,
+    })
+  } catch (error) {
+    console.warn("[auth] Public profile was not updated.", error)
+  }
+
   return {
     user: updatedUser,
-    profile: updatedProfile as unknown as UserProfile,
+    profile: toMemberProfile(updatedProfile as unknown as UserProfileDocument),
   }
 }
 
@@ -516,7 +549,7 @@ export async function updateCurrentEmail(
 
   return {
     user: updatedUser,
-    profile: updatedProfile as unknown as UserProfile,
+    profile: toMemberProfile(updatedProfile as unknown as UserProfileDocument),
   }
 }
 
@@ -701,7 +734,7 @@ export async function getUserProfile(
         })
       )
 
-      return profile as unknown as UserProfile
+      return toMemberProfile(profile as unknown as UserProfileDocument)
     } catch (error) {
       if (isAppwriteUnauthorizedError(error)) {
         throw error
@@ -711,7 +744,7 @@ export async function getUserProfile(
         tablesDB.listRows({
           databaseId: DB_ID,
           tableId: COLLECTIONS.USER_PROFILES,
-          queries: [Query.equal("userId", userId)],
+          queries: [Query.equal("userId", userId), Query.limit(1)],
         })
       )
 
@@ -719,7 +752,7 @@ export async function getUserProfile(
         return null
       }
 
-      return rows[0] as unknown as UserProfile
+      return toMemberProfile(rows[0] as unknown as UserProfileDocument)
     }
   } catch (error) {
     if (isAppwriteUnauthorizedError(error)) {

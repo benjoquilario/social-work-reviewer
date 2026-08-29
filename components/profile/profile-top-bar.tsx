@@ -32,7 +32,7 @@ export const ProfileTopBar = memo(function ProfileTopBar({
         pointerEvents="none"
         className="absolute inset-0 items-center justify-center"
       >
-        <BrandLogo size="sm" variant="lockup" />
+        <BrandLogo size="sm" />
       </View>
 
       <IconButton label="Open menu" variant="ghost" onPress={onPressMenu}>

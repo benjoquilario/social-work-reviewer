@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 import { AppShellHeader } from "@/components/app-shell-header"
 import { SubjectCard } from "@/components/learn"
+import { useIsPremium } from "@/hooks/use-membership"
 
 const SubjectSeparator = () => <View className="h-2.5" />
 
@@ -50,7 +51,9 @@ export default function LearningLibraryScreen() {
   const isAuthenticated = useAuth((state) => state.isAuthenticated)
   const profile = useAuth((state) => state.profile)
   const refreshProfile = useAuth((state) => state.refreshProfile)
-  const isPremiumUser = profile?.isPremium === true
+  // Flag *and* date — the cached flag alone keeps a lapsed member premium
+  // until a server sweep catches up (section 6).
+  const isPremiumUser = useIsPremium()
 
   const [query, setQuery] = useState("")
   const deferredQuery = useDeferredValue(query)

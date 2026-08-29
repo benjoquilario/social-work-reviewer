@@ -30,6 +30,7 @@ import { SectionHeader } from "@/components/ui/section-header"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 import { TopicCard } from "@/components/learn"
+import { useIsPremium } from "@/hooks/use-membership"
 
 const TopicSeparator = () => <View className="h-2.5" />
 
@@ -39,7 +40,9 @@ export default function ReviewCategoryScreen() {
   const { isAuthenticated, profile, refreshProfile, user } = useAuth()
   const params = useLocalSearchParams<{ categoryId?: string }>()
   const categoryId = params.categoryId ?? ""
-  const isPremiumUser = profile?.isPremium === true
+  // Flag *and* date — the cached flag alone keeps a lapsed member premium
+  // until a server sweep catches up (section 6).
+  const isPremiumUser = useIsPremium()
 
   const [query, setQuery] = useState("")
   const deferredQuery = useDeferredValue(query)

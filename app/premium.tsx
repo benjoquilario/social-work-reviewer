@@ -1,5 +1,6 @@
 import { useMemo } from "react"
 import { useAuth } from "@/contexts/auth-context"
+import { useQuery } from "@tanstack/react-query"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import {
   BookOpenCheck,
@@ -12,12 +13,20 @@ import {
 import { View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
+import { getMembership } from "@/lib/member/membership"
+import {
+  getYearlySavingPercent,
+  listSubscriptionPlans,
+} from "@/lib/member/plans"
 import { THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
+import { PlanCard } from "@/components/member/plan-card"
 import { ScreenHeader } from "@/components/screen-header"
 
 function readFirstParam(value?: string | string[]) {
@@ -64,13 +73,26 @@ export default function PremiumSubscriptionScreen() {
   const colorScheme = useColorScheme()
   const isDark = colorScheme === "dark"
   const theme = isDark ? THEME.dark : THEME.light
-  const isPremiumUser = profile?.isPremium === true
-  const monthlyPricePhp = 300
-  const yearlyBasePhp = monthlyPricePhp * 12
-  const yearlyDiscountRate = 0.2
-  const yearlyDiscountPhp = yearlyBasePhp * yearlyDiscountRate
-  const yearlyPricePhp = yearlyBasePhp - yearlyDiscountPhp
-  const effectiveMonthlyPhp = yearlyPricePhp / 12
+  // The paywall answer, date included — not the cached flag on its own, or a
+  // membership that lapsed an hour ago still opens the content (section 6).
+  const membership = useMemo(() => getMembership(profile), [profile])
+  const isPremiumUser = membership.isPremium
+
+  /**
+   * Real plans, from `subscription_plans`.
+   *
+   * This screen used to hardcode ₱300 a month and a 20% annual discount, both
+   * invented in the client. `subscription_plans` is `app_readonly` — every
+   * signed-in member can read it — so the prices come from the CMS, and a
+   * change in the dashboard reaches members without an app release.
+   */
+  const plansQuery = useQuery({
+    queryKey: ["subscription-plans"],
+    queryFn: listSubscriptionPlans,
+    staleTime: 10 * 60 * 1000,
+  })
+
+  const plans = useMemo(() => plansQuery.data ?? [], [plansQuery.data])
 
   const lockedTitle = readFirstParam(params.title) || "premium content"
   const source = readFirstParam(params.source)
@@ -96,26 +118,6 @@ export default function PremiumSubscriptionScreen() {
       },
     ],
     [theme.primary]
-  )
-
-  const pricingOptions = useMemo(
-    () => [
-      {
-        id: "monthly",
-        badge: "Monthly",
-        headline: `PHP ${monthlyPricePhp}`,
-        subheadline: "per month",
-        detail: "Flexible access for one billing cycle at a time.",
-      },
-      {
-        id: "yearly",
-        badge: "Annual",
-        headline: `PHP ${yearlyPricePhp}`,
-        subheadline: "per year",
-        detail: `20% off. Save PHP ${yearlyDiscountPhp} and average PHP ${effectiveMonthlyPhp}/month.`,
-      },
-    ],
-    [effectiveMonthlyPhp, monthlyPricePhp, yearlyDiscountPhp, yearlyPricePhp]
   )
 
   function handleBackToContext() {
@@ -198,57 +200,41 @@ export default function PremiumSubscriptionScreen() {
           </CardContent>
         </Card>
 
-        <View className="gap-3">
-          {pricingOptions.map((option) => (
-            <Card key={option.id} className="rounded-lg">
-              <CardContent className="gap-3">
-                <View className="flex-row items-start justify-between gap-3">
-                  <View className="gap-1">
-                    <View
-                      className="self-start rounded-full px-2.5 py-1"
-                      style={{
-                        backgroundColor: withOpacity(
-                          option.id === "yearly" ? theme.primary : theme.accent,
-                          0.12
-                        ),
-                      }}
-                    >
-                      <Text
-                        className="text-2xs font-bold uppercase tracking-[1px]"
-                        style={{
-                          color:
-                            option.id === "yearly"
-                              ? theme.primary
-                              : theme.accent,
-                        }}
-                      >
-                        {option.badge}
-                      </Text>
-                    </View>
-                    <Text className="text-xl font-black text-card-foreground">
-                      {option.headline}
-                    </Text>
-                    <Text className="text-xs font-semibold text-muted-foreground">
-                      {option.subheadline}
-                    </Text>
-                  </View>
+        {isPremiumUser ? (
+          <Card className="rounded-lg">
+            <CardContent className="gap-1">
+              <Text variant="label">Your membership</Text>
+              <Text variant="callout">{membership.detail}</Text>
+            </CardContent>
+          </Card>
+        ) : plansQuery.isLoading ? (
+          <View className="gap-3">
+            <Skeleton className="h-36 rounded-xl" />
+            <Skeleton className="h-36 rounded-xl" />
+          </View>
+        ) : plans.length === 0 ? (
+          <EmptyState
+            title="Plans unavailable"
+            description="We could not load the membership options right now. Please try again shortly."
+          />
+        ) : (
+          <View className="gap-3">
+            {plans.map((plan) => (
+              <PlanCard
+                key={plan.id}
+                plan={plan}
+                savingPercent={getYearlySavingPercent(plan, plans)}
+              />
+            ))}
 
-                  {option.id === "yearly" ? (
-                    <View className="rounded-full bg-primary/10 px-2.5 py-1">
-                      <Text variant="eyebrow">
-                        Best value
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-
-                <Text className="text-sm leading-5 text-muted-foreground">
-                  {option.detail}
-                </Text>
-              </CardContent>
-            </Card>
-          ))}
-        </View>
+            {/* Play sets the price that is actually charged — localized, and
+                subject to regional pricing — so the figures above are the
+                stored ones until Billing answers at checkout. */}
+            <Text variant="caption" className="px-1">
+              Google Play confirms the final price and currency at checkout.
+            </Text>
+          </View>
+        )}
 
         <Card className="rounded-lg">
           <CardContent className="gap-3">
@@ -271,26 +257,28 @@ export default function PremiumSubscriptionScreen() {
 
         {!isPremiumUser ? (
           <View className="gap-2.5">
-            <Button
-              className="h-11 rounded-md"
-              onPress={() => router.push("/(tabs)/profile")}
-            >
+            <Button className="h-11 rounded-md" disabled>
               <Crown
                 size={16}
                 color={theme.primaryForeground}
                 strokeWidth={2.2}
               />
               <Text className="font-bold text-primary-foreground">
-                Continue to Upgrade
+                Checkout coming soon
               </Text>
             </Button>
+
+            <Text variant="caption" className="px-1 text-center">
+              Memberships are purchased through Google Play. We are finishing
+              that step — nothing is charged from this screen.
+            </Text>
 
             <Button
               variant="outline"
               className="h-11 rounded-md"
               onPress={handleBackToContext}
             >
-              <Text className="font-bold">Not now</Text>
+              <Text className="font-bold">Keep browsing</Text>
             </Button>
           </View>
         ) : (

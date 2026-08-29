@@ -1,194 +1,157 @@
-import { useMemo } from "react"
+import { useCallback, useMemo } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list"
 import { useQuery } from "@tanstack/react-query"
-import { Stack, useRouter } from "expo-router"
-import { ChevronRight, FileQuestion, ListChecks } from "lucide-react-native"
-import { Pressable, View } from "react-native"
+import { Stack, useLocalSearchParams, useRouter } from "expo-router"
+import { View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
+import { toContentViewer } from "@/lib/content/access"
+import type { QuestionnaireMode } from "@/lib/schema"
 import {
-  listBoardExamCategories,
-  type BoardExamCategorySummary,
-} from "@/lib/board-exams"
-import { THEME, withOpacity } from "@/lib/theme"
-import { useColorScheme } from "@/hooks/use-color-scheme"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
+  listExamCategories,
+  type ExamCategory,
+} from "@/lib/content/exam-categories"
+import { queryKeys } from "@/lib/query-keys"
+import { ExamCategoryCard } from "@/components/exam/category-card"
+import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 
+/**
+ * Every published exam category, straight from `exam_categories`.
+ *
+ * The counts on each card are the CMS's rollups, which is also what decides
+ * where a tap goes — a category with sets opens a picker, one without opens
+ * its questions (section 2). No query is needed to find that out.
+ */
+
 const LIST_CONTENT_STYLE = { paddingHorizontal: 16, paddingVertical: 16 }
 
-function BoardExamCategoryCard({
-  category,
-  onPress,
-  theme,
-}: {
-  category: BoardExamCategorySummary
-  onPress: () => void
-  theme: (typeof THEME)["light"] | (typeof THEME)["dark"]
-}) {
+function CategoriesSkeleton() {
   return (
-    <Pressable onPress={onPress}>
-      <Card
-        className="rounded-xl"
-        style={{
-          borderWidth: 1,
-          borderColor: theme.border,
-          backgroundColor: category.isLocked
-            ? withOpacity(theme.accent, 0.06)
-            : theme.card,
-        }}
-      >
-        <CardContent className="gap-2.5">
-          <View className="flex-row items-start justify-between gap-3">
-            <View className="flex-1 gap-1.5">
-              <View className="flex-row flex-wrap items-center gap-2">
-                <Text className="text-base font-black text-card-foreground">
-                  {category.title}
-                </Text>
-                <Badge tone={category.isLocked ? "accent" : "primary"}>
-                  <Text className="text-2xs font-bold uppercase tracking-[1px]">
-                    {category.code ?? "Category"}
-                  </Text>
-                </Badge>
-              </View>
-              <Text className="text-xs leading-5 text-muted-foreground">
-                {category.description ||
-                  "Practice questions and review sets for board exam preparation."}
-              </Text>
-            </View>
-
-            <ChevronRight size={18} color={theme.mutedForeground} />
-          </View>
-
-          <View className="flex-row flex-wrap items-center gap-3">
-            <View className="flex-row items-center gap-1.5">
-              <ListChecks size={13} color={theme.primary} />
-              <Text variant="eyebrow">
-                {category.setCount} sets
-              </Text>
-            </View>
-            <View className="flex-row items-center gap-1.5">
-              <FileQuestion size={13} color={theme.accent} />
-              <Text
-                className="text-2xs font-bold uppercase tracking-[1px]"
-                style={{ color: theme.accent }}
-              >
-                {category.availableQuestionCount} visible
-              </Text>
-            </View>
-            {category.premiumQuestionCount > 0 ? (
-              <Text variant="label">
-                {category.premiumQuestionCount} premium
-              </Text>
-            ) : null}
-          </View>
-
-          {/* {category.premiumQuestionCount > 0 ? (
-            <View
-              className="flex-row items-center gap-1.5 self-start rounded-full px-3 py-1"
-              style={{ backgroundColor: withOpacity(theme.accent, 0.12) }}
-            >
-              <LockKeyhole size={12} color={theme.accent} />
-              <Text
-                className="text-2xs font-bold uppercase tracking-[1px]"
-                style={{ color: theme.accent }}
-              >
-                {category.freeQuestionCount} free · {category.premiumQuestionCount} premium
-              </Text>
-            </View>
-          ) : null} */}
-        </CardContent>
-      </Card>
-    </Pressable>
+    <View className="gap-3">
+      <Skeleton className="h-28 rounded-xl" />
+      <Skeleton className="h-28 rounded-xl" />
+      <Skeleton className="h-28 rounded-xl" />
+    </View>
   )
 }
 
 export default function BoardExamCategoriesScreen() {
   const router = useRouter()
+  const params = useLocalSearchParams<{ mode?: string }>()
   const profile = useAuth((state) => state.profile)
-  const colorScheme = useColorScheme()
-  const theme = colorScheme === "dark" ? THEME.dark : THEME.light
-  const isPremiumUser = profile?.isPremium === true
+  const viewer = useMemo(() => toContentViewer(profile), [profile])
+
+  // Only the two values the schema allows. Anything else is a stale deep link
+  // and falls through to "everything".
+  const mode: QuestionnaireMode | undefined =
+    params.mode === "quiz" || params.mode === "board_exam"
+      ? params.mode
+      : undefined
 
   const categoriesQuery = useQuery({
-    queryKey: ["board-exam-categories", isPremiumUser],
-    queryFn: () => listBoardExamCategories({ viewerIsPremium: isPremiumUser }),
+    queryKey: queryKeys.exam.categories(mode, viewer.isPremium),
+    queryFn: () => listExamCategories({ viewer, mode }),
   })
 
-  const categories = useMemo(
-    () => categoriesQuery.data ?? [],
-    [categoriesQuery.data]
+  const categories = categoriesQuery.data ?? []
+
+  const openCategory = useCallback(
+    (categoryId: string) => {
+      router.push({
+        pathname: "/board-exams/[categoryId]",
+        params: { categoryId },
+      })
+    },
+    [router]
+  )
+
+  // Hoisted out of the list so FlashList is not handed a new function on every
+  // render — a fresh reference re-renders every visible row.
+  const renderCategory = useCallback(
+    ({ item }: ListRenderItemInfo<ExamCategory>) => (
+      <ExamCategoryCard
+        category={item}
+        onPress={() => openCategory(item.id)}
+      />
+    ),
+    [openCategory]
   )
 
   const errorMessage =
     categoriesQuery.error instanceof Error
       ? categoriesQuery.error.message
       : categoriesQuery.error
-        ? "Unable to load board exam categories. Please try again later."
+        ? "We could not load the exam categories. Please try again."
         : null
-
-  const renderCategory = ({
-    item,
-  }: ListRenderItemInfo<BoardExamCategorySummary>) => (
-    <BoardExamCategoryCard
-      category={item}
-      theme={theme}
-      onPress={() =>
-        router.push({
-          pathname: "/board-exams/[categoryId]",
-          params: { categoryId: item.id },
-        })
-      }
-    />
-  )
 
   return (
     <SafeAreaView
       edges={["left", "right", "bottom"]}
       className="flex-1 bg-background"
     >
-      <Stack.Screen options={{ title: "Board Exams" }} />
+      <Stack.Screen
+        options={{
+          title:
+            mode === "quiz"
+              ? "Quick quiz"
+              : mode === "board_exam"
+                ? "Board exams"
+                : "All categories",
+        }}
+      />
+
       <FlashList
         data={categories}
-        extraData={theme}
         keyExtractor={(item) => item.id}
         renderItem={renderCategory}
         contentContainerStyle={LIST_CONTENT_STYLE}
         showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View className="h-3" />}
+        ItemSeparatorComponent={ListSeparator}
         ListHeaderComponent={
-          <View className="pb-3">
-            {categoriesQuery.isLoading ? (
-              <View className="gap-3 px-4">
-                <Skeleton className="h-24 rounded-xl" />
-                <Skeleton className="h-24 rounded-xl" />
-              </View>
-            ) : null}
+          categoriesQuery.isLoading || errorMessage ? (
+            <View className="pb-3">
+              {categoriesQuery.isLoading ? <CategoriesSkeleton /> : null}
 
-            {errorMessage ? (
-              <View className="px-4">
+              {errorMessage ? (
                 <EmptyState
                   tone="destructive"
-                  title="Board exam categories unavailable"
+                  title="Categories unavailable"
                   description={errorMessage}
+                  action={
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onPress={() => categoriesQuery.refetch()}
+                    >
+                      <Text>Try again</Text>
+                    </Button>
+                  }
                 />
-              </View>
-            ) : null}
-          </View>
+              ) : null}
+            </View>
+          ) : null
         }
         ListEmptyComponent={
           !categoriesQuery.isLoading && !errorMessage ? (
             <EmptyState
-              title="No board exam categories yet"
-              description="No board exam categories are available right now. Check back later for updates."
+              title={mode ? "Nothing in this mode yet" : "No categories yet"}
+              description={
+                mode
+                  ? "No categories are published for this mode. Try the other one."
+                  : "Nothing has been published for review yet. Check back soon."
+              }
             />
           ) : null
         }
       />
     </SafeAreaView>
   )
+}
+
+function ListSeparator() {
+  return <View className="h-3" />
 }

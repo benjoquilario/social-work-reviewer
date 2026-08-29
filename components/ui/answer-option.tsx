@@ -6,7 +6,17 @@ import { cn } from "@/lib/utils"
 import { useThemePalette } from "@/hooks/use-theme"
 import { Text } from "@/components/ui/text"
 
-const CHOICE_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H"]
+import { toChoiceLabel } from "@/lib/schema"
+
+/**
+ * The label is passed in, not looked up.
+ *
+ * This used to index a fixed `["A"..."H"]` array, which quietly rendered an
+ * empty badge on the ninth option. `toChoiceLabel` runs A…Z then AA, AB,
+ * without a ceiling — the same alphabet the schema uses for set codes — and
+ * the caller passes the label it already computed, because under a shuffle the
+ * row's letter and the choice's stored letter are deliberately different.
+ */
 
 /**
  * What this option is, at this moment, for this learner.
@@ -88,7 +98,10 @@ const STATE_CAPTION: Partial<Record<AnswerOptionState, string>> = {
 
 interface AnswerOptionProps extends Omit<PressableProps, "onPress"> {
   state: AnswerOptionState
+  /** Position on screen. Only used when no explicit `label` is given. */
   index?: number
+  /** The letter to draw — pass `PresentedChoice.displayLabel`. */
+  label?: string
   showPrefix?: boolean
   colors?: Partial<AnswerOptionColors>
   /** Locks the option once the question has been graded. */
@@ -100,6 +113,7 @@ interface AnswerOptionProps extends Omit<PressableProps, "onPress"> {
 export function AnswerOption({
   state,
   index,
+  label,
   showPrefix = true,
   colors,
   disabled = false,
@@ -116,8 +130,9 @@ export function AnswerOption({
   const isEmphasised = isGraded || state === "selected"
   const accentColor = getAccentColor(state, palette)
   const caption = STATE_CAPTION[state]
-  const letter =
-    showPrefix && typeof index === "number" ? (CHOICE_LETTERS[index] ?? "") : ""
+  const letter = !showPrefix
+    ? ""
+    : (label ?? (typeof index === "number" ? toChoiceLabel(index) : ""))
 
   // `missed` stays quieter than `correct`: the learner did not choose it, so
   // it is information rather than a result, and shouting it competes with the

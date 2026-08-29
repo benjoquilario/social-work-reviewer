@@ -9,7 +9,7 @@ import {
   getLearningTopicDetail,
   type LearningMaterial,
 } from "@/lib/learning-content"
-import { getMaterialContentPreview } from "@/lib/learning-material-content"
+import { describeMaterialType } from "@/lib/learning-content"
 import { listLearningMaterialStatusesByTopic } from "@/lib/progress"
 import { useThemePalette } from "@/hooks/use-theme"
 import { Button } from "@/components/ui/button"
@@ -20,6 +20,7 @@ import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 import { MaterialRow } from "@/components/learn"
 import { ScreenHeader } from "@/components/screen-header"
+import { useIsPremium } from "@/hooks/use-membership"
 
 export default function TopicDetailScreen() {
   const router = useRouter()
@@ -31,7 +32,9 @@ export default function TopicDetailScreen() {
   const params = useLocalSearchParams<{ topicId?: string }>()
 
   const topicId = params.topicId ?? ""
-  const isPremiumUser = profile?.isPremium === true
+  // Flag *and* date — the cached flag alone keeps a lapsed member premium
+  // until a server sweep catches up (section 6).
+  const isPremiumUser = useIsPremium()
 
   useEffect(() => {
     if (isAuthenticated && !profile) {
@@ -199,12 +202,10 @@ export default function TopicDetailScreen() {
                   key={material.id}
                   material={material}
                   position={index + 1}
-                  preview={
-                    material.isLocked
-                      ? "Premium content is locked for free users."
-                      : getMaterialContentPreview(material.content) ||
-                        "No content preview added yet."
-                  }
+                  // Not a body preview any more. A list read no longer asks
+                  // the server for `content`, so a premium lesson's text never
+                  // reaches a device that has not paid for it.
+                  preview={describeMaterialType(material)}
                   status={materialStatusById[material.id]}
                   showStatus={showStatus}
                   isFirst={index === 0}

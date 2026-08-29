@@ -3,128 +3,158 @@ import { View, type ViewProps } from "react-native"
 
 import { cn } from "@/lib/utils"
 
-const MARK = require("@/assets/images/logo-mark.png")
-const LOCKUP = require("@/assets/images/sure-win-image-text.png")
+/**
+ * ─── The brand marks ──────────────────────────────────────────────────────
+ *
+ * Every one of these artworks sits in a **square canvas with its ink floating
+ * in the middle**, and the amount of empty space differs wildly between them:
+ * the wordmark's type occupies 47px of a 192px canvas — 24% of the height —
+ * while the mark takes 64% and the lockup 63%.
+ *
+ * That is why `contentFit="contain"` cannot be used directly. Contain fits the
+ * whole *canvas* into the box, so asking for a 20pt-tall wordmark renders the
+ * canvas at 20×20 and the type inside it at 5pt: a blue smudge. Which is
+ * exactly what shipped, and exactly what this file now exists to prevent.
+ *
+ * So each artwork declares the rectangle its ink actually occupies, measured
+ * off the file rather than eyeballed, and `InkImage` maps that rectangle onto
+ * the requested box. Sizes below are therefore **the height of the visible
+ * ink**, which is the only number a layout cares about.
+ */
+
+const MARK = require("@/assets/images/sure-win-image.png")
+const WORDMARK = require("@/assets/images/sure-win-image-text.png")
+const LOCKUP = require("@/assets/images/logo-512x512.png")
 
 type BrandLogoSize = "sm" | "md" | "lg" | "xl"
+type BrandLogoVariant = "mark" | "wordmark" | "lockup"
 
 /**
- * Two artworks, drawn for opposite backdrops.
+ * Where the ink lives inside each square canvas, as fractions of it.
  *
- * `mark` is the 512×512 symbol as neon on near-black. It needs the ink tile —
- * that is the surface it was drawn for.
+ * Measured by scanning each file for pixels with alpha > 20:
+ *   mark      192px canvas, ink 170×122 at (11, 35)
+ *   wordmark  192px canvas, ink 176×47  at (7, 73)
+ *   lockup    512px canvas, ink 386×320 at (62, 96)
  *
- * `lockup` is the "Social Work Sure Win!" wordmark, transparent, and it is
- * drawn straight onto whatever is behind it in both schemes — no tile. Its
- * "Sure" is set in the deep brand navy, so on the dark theme that word reads
- * as a dark silhouette rather than as type; "Social Work", "Win!" and the
- * exclamation dot carry the mark there.
- *
- * The full 1536×1024 `logo.png` is deliberately not used here. Its wordmark is
- * embossed low-contrast and turns to texture below about 80px, and at 1.3MB it
- * decodes to roughly 6MB of RGBA for what is a 40pt header element.
+ * If an artwork is ever re-exported, re-measure. A changed crop shows up as a
+ * logo that is subtly off-centre, which is the kind of thing everyone sees and
+ * nobody reports.
  */
-type BrandLogoVariant = "mark" | "lockup"
-
-const SIZE_CLASS: Record<BrandLogoSize, string> = {
-  sm: "h-10 w-10 rounded-sm",
-  md: "h-16 w-16 rounded-md",
-  lg: "h-24 w-24 rounded-lg",
-  xl: "h-40 w-40 rounded-2xl",
+const ARTWORK: Record<
+  BrandLogoVariant,
+  { src: number; x: number; y: number; w: number; h: number }
+> = {
+  mark: { src: MARK, x: 11 / 192, y: 35 / 192, w: 170 / 192, h: 122 / 192 },
+  wordmark: { src: WORDMARK, x: 7 / 192, y: 73 / 192, w: 176 / 192, h: 47 / 192 },
+  lockup: { src: LOCKUP, x: 62 / 512, y: 96 / 512, w: 386 / 512, h: 320 / 512 },
 }
 
-/** Height of the wordmark's ink, in pt. Width follows from LOCKUP_ASPECT. */
-const LOCKUP_HEIGHT: Record<BrandLogoSize, number> = {
-  sm: 26,
-  md: 34,
-  lg: 48,
-  xl: 72,
+/** Height of the visible ink, in pt. Width follows from the artwork's ratio. */
+const INK_HEIGHT: Record<BrandLogoVariant, Record<BrandLogoSize, number>> = {
+  // Ratio 1.39:1 — wider than tall, so 24pt of ink is 33pt across.
+  mark: { sm: 24, md: 44, lg: 66, xl: 110 },
+  // Two lines of type. Below about 22pt "Social Work" stops being letterforms
+  // and becomes texture, so `sm` is only for a caption-height slot.
+  wordmark: { sm: 18, md: 24, lg: 34, xl: 48 },
+  lockup: { sm: 44, md: 76, lg: 112, xl: 168 },
 }
 
-/*
- * The lockup file centres a 176×47 wordmark inside a 192×192 canvas, so three
- * quarters of it is empty. Letterboxing that padding would draw the type at a
- * quarter of the box height — the reason the header mark used to read as a
- * speck. Instead the box is cut to the ink's own ratio and the artwork is
- * scaled past it and clipped, which is the same trick the mark uses to sit
- * tight to its glow.
+const RADIUS_CLASS: Record<BrandLogoSize, string> = {
+  sm: "rounded-sm",
+  md: "rounded-md",
+  lg: "rounded-lg",
+  xl: "rounded-2xl",
+}
+
+/**
+ * Draws an artwork so its *ink* fills the box exactly.
+ *
+ * The canvas is scaled up until the ink rectangle matches the box, then offset
+ * so the ink's top-left lands on the box's, with the overflow clipped away.
  */
-const LOCKUP_ASPECT = 176 / 47
-/** 192/47 ≈ 4.09 fills the box exactly; 4 leaves the antialiased edge intact. */
-const LOCKUP_OVERSCAN = 4
+function InkImage({
+  art,
+  height,
+}: {
+  art: (typeof ARTWORK)[BrandLogoVariant]
+  height: number
+}) {
+  const width = height * (art.w / art.h)
+  // How big the whole canvas has to be drawn for `art.w` of it to span `width`.
+  const canvas = width / art.w
+
+  return (
+    <View style={{ width, height, overflow: "hidden" }}>
+      <Image
+        source={art.src}
+        contentFit="fill"
+        style={{
+          position: "absolute",
+          left: -art.x * canvas,
+          top: -art.y * canvas,
+          width: canvas,
+          height: canvas,
+        }}
+      />
+    </View>
+  )
+}
 
 type BrandLogoProps = ViewProps & {
   size?: BrandLogoSize
   variant?: BrandLogoVariant
   /**
-   * Drop the tile and render the bare artwork. `mark` only — the lockup is
-   * always bare.
+   * Paint the brand ink tile behind the mark, and square the box off.
+   *
+   * Off by default: the artwork is drawn for a light ground — its book cover is
+   * the deep brand navy — so on near-black the outer rim merges into the
+   * backdrop. Use it only where the mark has to sit on a busy surface.
    */
-  bare?: boolean
+  tile?: boolean
 }
 
-/**
- * The app logo.
- *
- * The mark's tile keeps its backdrop constant across colour schemes, the way a
- * printed logo does, rather than being recoloured per theme. Screens
- * previously stood in a generic `BookOpenText` lucide glyph on a primary
- * square wherever the brand belonged.
- */
 export function BrandLogo({
   size = "md",
   variant = "mark",
-  bare = false,
+  tile = false,
   className,
   style,
   ...props
 }: BrandLogoProps) {
-  if (variant === "lockup") {
-    const height = LOCKUP_HEIGHT[size]
+  const art = ARTWORK[variant]
+  const height = INK_HEIGHT[variant][size]
+
+  if (tile && variant === "mark") {
+    // A square tile with the mark inset, rather than the ink's own 1.39:1 box.
+    const box = height * 1.9
 
     return (
       <View
         className={cn(
-          "items-center justify-center overflow-hidden",
+          "items-center justify-center overflow-hidden bg-brand-ink",
+          RADIUS_CLASS[size],
           className
         )}
         accessibilityRole="image"
         accessibilityLabel="Social Work Sure Win"
         {...props}
-        style={[{ height, width: height * LOCKUP_ASPECT }, style]}
+        style={[{ width: box, height: box }, style]}
       >
-        <Image
-          source={LOCKUP}
-          contentFit="contain"
-          style={{
-            width: height * LOCKUP_OVERSCAN,
-            height: height * LOCKUP_OVERSCAN,
-          }}
-        />
+        <InkImage art={art} height={height} />
       </View>
     )
   }
 
   return (
     <View
-      className={cn(
-        "items-center justify-center overflow-hidden",
-        SIZE_CLASS[size],
-        !bare && "bg-brand-ink",
-        className
-      )}
+      className={cn("items-center justify-center", className)}
       accessibilityRole="image"
       accessibilityLabel="Social Work Sure Win"
-      style={style}
       {...props}
+      style={style}
     >
-      <Image
-        source={MARK}
-        contentFit="contain"
-        // The mark ships tight to its glow, so nudging past the tile edge keeps
-        // the artwork optically filling it.
-        style={{ width: "112%", height: "112%" }}
-      />
+      <InkImage art={art} height={height} />
     </View>
   )
 }

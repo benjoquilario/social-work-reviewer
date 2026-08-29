@@ -2,8 +2,8 @@ import { memo, useCallback, useMemo, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useCommunity } from "@/contexts/community-context"
 import { Image } from "expo-image"
-import { useLocalSearchParams } from "expo-router"
-import { Heart, MessageSquare, Send, Share2 } from "lucide-react-native"
+import { useLocalSearchParams, useRouter } from "expo-router"
+import { Flag, Heart, MessageSquare, Send } from "lucide-react-native"
 import {
   KeyboardAvoidingView,
   Platform,
@@ -17,6 +17,13 @@ import {
   type CommunityCommentItem,
   type CommunityReplyItem,
 } from "@/lib/community"
+import { ReportDialog } from "@/components/report"
+import { useCommunityModeration } from "@/hooks/use-community-moderation"
+import { useReport } from "@/hooks/use-report"
+import {
+  PostActionsMenu,
+  type PostAction,
+} from "@/components/community/post-actions-menu"
 import { getCommunityCategoryColor, THEME, withOpacity } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 import { useKeyboardInset } from "@/hooks/use-keyboard-inset"
@@ -24,6 +31,7 @@ import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 import { CommunityAvatar } from "@/components/community/avatar"
 import { ScreenHeader } from "@/components/screen-header"
+import { getMemberByline } from "@/lib/member/profile"
 
 type ThemePalette = (typeof THEME)["light"] | (typeof THEME)["dark"]
 
@@ -195,6 +203,46 @@ export default function CommunityDiscussionScreen() {
   )
 
   const [commentText, setCommentText] = useState("")
+  const router = useRouter()
+
+  /** The one thing the app may do with `flagged_content`: write to it. */
+  const report = useReport()
+
+  // The same three actions the feed offers, so the two screens do not disagree
+  // about what a member may do with a post.
+  const [isActionsOpen, setIsActionsOpen] = useState(false)
+  const moderation = useCommunityModeration({
+    onChanged: () => {
+      // The post is gone from the feed now, so there is nothing left to show.
+      router.back()
+    },
+  })
+
+  const handleAction = useCallback(
+    (action: PostAction) => {
+      setIsActionsOpen(false)
+
+      if (!post) {
+        return
+      }
+
+      if (action === "report") {
+        report.open({ contentType: "post", contentId: postId })
+        return
+      }
+
+      if (action === "block") {
+        moderation.confirmBlock({
+          userId: post.userId,
+          name: post.author.name,
+        })
+        return
+      }
+
+      moderation.confirmDelete({ table: "posts", rowId: postId })
+    },
+    [moderation, post, postId, report]
+  )
 
   const currentAvatarSeed = useMemo(
     () => toAvatarSeed(profile?.fullName ?? user?.name ?? "RV"),
@@ -208,11 +256,7 @@ export default function CommunityDiscussionScreen() {
     return {
       id: user.$id,
       name,
-      subtitle:
-        profile?.reviewType ??
-        profile?.email ??
-        user.email ??
-        "Community member",
+      subtitle: getMemberByline(profile, user.email ?? "Community member"),
       avatarSeed: toAvatarSeed(name),
       avatarUrl: profile?.avatarUrl?.trim() || null,
     }
@@ -421,10 +465,15 @@ export default function CommunityDiscussionScreen() {
                     Comment
                   </Text>
                 </Pressable>
-                <Pressable className="flex-1 flex-row items-center justify-center gap-2 py-1.5">
-                  <Share2 size={18} color={theme.mutedForeground} />
+                <Pressable
+                  className="flex-1 flex-row items-center justify-center gap-2 py-1.5"
+                  onPress={() => setIsActionsOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="More actions for this post"
+                >
+                  <Flag size={18} color={theme.mutedForeground} />
                   <Text className="text-sm font-semibold text-muted-foreground">
-                    Share
+                    Report
                   </Text>
                 </Pressable>
               </View>
@@ -489,6 +538,25 @@ export default function CommunityDiscussionScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      <PostActionsMenu
+        open={isActionsOpen}
+        onOpenChange={setIsActionsOpen}
+        isOwn={moderation.isOwn(post?.userId ?? "")}
+        authorName={post?.author.name ?? "This member"}
+        onSelect={handleAction}
+      />
+
+      <ReportDialog
+        open={report.isOpen}
+        contentType={report.contentType}
+        onOpenChange={(open) => {
+          if (!open) {
+            report.close()
+          }
+        }}
+        onSubmit={report.submit}
+      />
     </SafeAreaView>
   )
 }

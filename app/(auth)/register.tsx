@@ -53,7 +53,8 @@ export default function RegisterScreen() {
 
     try {
       await register(email.trim(), password, fullName.trim())
-      router.replace("/(tabs)")
+      // One optional question before the app opens — see app/welcome.tsx.
+      router.replace("/welcome")
     } catch (err) {
       const message =
         err instanceof Error
@@ -87,9 +88,10 @@ export default function RegisterScreen() {
         >
           {/* Brand + heading */}
           <View className="gap-5">
-            <BrandLogo size="md" />
+            {/* The full signature: this is the one screen where the brand is
+                the point, so it gets the mark and the wordmark together. */}
+            <BrandLogo size="lg" variant="lockup" className="self-start" />
             <View className="gap-1.5">
-              <Text variant="eyebrow">Social Work Sure Win</Text>
               <Text className="text-3xl font-black leading-10 text-foreground">
                 Create your account
               </Text>

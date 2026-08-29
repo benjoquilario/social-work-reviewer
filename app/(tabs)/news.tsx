@@ -1,115 +1,130 @@
-import { useCallback, useEffect } from "react"
-import { NEWS_ITEMS, type NewsItemType } from "@/data/news-data"
+import { useCallback, useEffect, useMemo } from "react"
 import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list"
 import { View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import { useAppPreferences } from "@/lib/app-preferences"
-import { getAllNewsIds } from "@/lib/news-unread"
-import { THEME, withOpacity } from "@/lib/theme"
-import { useColorScheme } from "@/hooks/use-color-scheme"
-import { Badge } from "@/components/ui/badge"
+import type { Announcement } from "@/lib/announcements"
+import { useAnnouncements } from "@/hooks/use-announcements"
 import { Card, CardContent } from "@/components/ui/card"
-import { Text } from "@/components/ui/text"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Skeleton } from "@/components/ui/skeleton"
+import { AnnouncementCard } from "@/components/announcement-card"
 import { AppShellHeader } from "@/components/app-shell-header"
 
-const TYPE_LABELS: Record<NewsItemType, string> = {
-  update: "Product Update",
-  learning: "Learning Material",
-  questionnaire: "Questionnaire",
-}
+/**
+ * ─── Updates ──────────────────────────────────────────────────────────────
+ *
+ * Read from `announcements` as of v3. It used to render six items hardcoded in
+ * `data/news-data.ts`, permanently dated "Today" and "Mar 19, 2026", which
+ * nobody could change without shipping a build.
+ *
+ * There may well be nothing here: the table is live and empty until somebody
+ * writes the first announcement in the dashboard. That case gets a real empty
+ * state rather than filler, because inventing news to fill a screen is how a
+ * feed stops being worth opening.
+ */
 
-function getNewsTone(
-  type: NewsItemType,
-  theme: (typeof THEME)["light"] | (typeof THEME)["dark"]
-) {
-  switch (type) {
-    case "learning":
-      return theme.chart2
-    case "questionnaire":
-      return theme.chart4
-    default:
-      return theme.accent
-  }
-}
+const AnnouncementSkeleton = () => (
+  <Card>
+    <CardContent className="gap-3">
+      <Skeleton className="h-3 w-24 rounded-xs" />
+      <Skeleton className="h-4 w-52 rounded-xs" />
+      <Skeleton className="h-3 w-full rounded-xs" />
+      <Skeleton className="h-3 w-2/3 rounded-xs" />
+    </CardContent>
+  </Card>
+)
 
 export default function NewsScreen() {
-  const setPreference = useAppPreferences((state) => state.setPreference)
+  const { announcements, isLoading, error, unreadIds, markAllSeen } =
+    useAnnouncements()
+
+  // Captured on entry, before `markAllSeen` clears it — so the dots stay
+  // visible while they read instead of vanishing under them on mount.
+  const unreadOnEntry = useMemo(
+    () => new Set(unreadIds),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [announcements]
+  )
 
   // Opening this screen is what clears the Home bell badge. Without it the dot
   // would be permanent, and a badge that never turns off stops being read.
   useEffect(() => {
-    setPreference("seenNewsIds", getAllNewsIds())
-  }, [setPreference])
+    if (announcements.length > 0) {
+      markAllSeen()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [announcements.length])
 
-  const colorScheme = useColorScheme()
-  const theme = colorScheme === "dark" ? THEME.dark : THEME.light
-
-  const renderNewsItem = useCallback(
-    ({ item }: ListRenderItemInfo<(typeof NEWS_ITEMS)[number]>) => {
-      const tone = getNewsTone(item.type, theme)
-
-      return (
-        <Card style={{ borderColor: withOpacity(tone, 0.18) }}>
-          <CardContent className="gap-3">
-            <View className="flex-row items-center justify-between gap-2">
-              <Badge
-                tone="default"
-                className="border-transparent"
-                style={{ backgroundColor: withOpacity(tone, 0.12) }}
-              >
-                <Text
-                  className="text-xs font-bold uppercase tracking-[1px]"
-                  style={{ color: tone }}
-                >
-                  {TYPE_LABELS[item.type]}
-                </Text>
-              </Badge>
-              <Text className="text-xs font-semibold text-muted-foreground">
-                {item.dateLabel}
-              </Text>
-            </View>
-
-            <View className="gap-2">
-              <Text className="text-base font-black leading-6 text-card-foreground">
-                {item.title}
-              </Text>
-              <Text className="text-sm leading-6 text-muted-foreground">
-                {item.description}
-              </Text>
-            </View>
-
-            {item.isNew ? (
-              <Badge tone="primary" className="mt-1">
-                <Text className="text-2xs font-bold uppercase tracking-[1px]">
-                  New
-                </Text>
-              </Badge>
-            ) : null}
-          </CardContent>
-        </Card>
-      )
-    },
-    [theme]
+  const renderItem = useCallback(
+    ({ item }: ListRenderItemInfo<Announcement>) => (
+      <AnnouncementCard announcement={item} isUnread={unreadOnEntry.has(item.id)} />
+    ),
+    [unreadOnEntry]
   )
+
+  const header = (
+    <View className="px-4 pb-4 pt-4">
+      <AppShellHeader
+        compact
+        eyebrow="What is new"
+        title="Updates"
+        subtitle="New question sets, learning material and changes to the app."
+      />
+    </View>
+  )
+
+  if (isLoading) {
+    return (
+      <SafeAreaView className="flex-1 bg-background">
+        {header}
+        <View className="gap-4 px-4">
+          <AnnouncementSkeleton />
+          <AnnouncementSkeleton />
+        </View>
+      </SafeAreaView>
+    )
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView className="flex-1 bg-background">
+        {header}
+        <View className="px-4">
+          <EmptyState
+            title="Could not load updates"
+            description={
+              error instanceof Error
+                ? error.message
+                : "Check your connection and try again."
+            }
+          />
+        </View>
+      </SafeAreaView>
+    )
+  }
+
+  if (announcements.length === 0) {
+    return (
+      <SafeAreaView className="flex-1 bg-background">
+        {header}
+        <View className="px-4">
+          <EmptyState
+            title="Nothing new yet"
+            description="Announcements about new question sets and learning material will show up here."
+          />
+        </View>
+      </SafeAreaView>
+    )
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-background">
       <FlashList
-        data={NEWS_ITEMS}
-        extraData={theme}
+        data={announcements}
         keyExtractor={(item) => item.id}
-        renderItem={renderNewsItem}
-        ListHeaderComponent={
-          <View className="px-4 pb-4 pt-4">
-            <AppShellHeader
-              compact
-              eyebrow="What Is New"
-              title="News and Releases"
-              subtitle="Stay updated with fresh reviewer content, learning materials, and question packs in a cleaner, easier-to-scan feed."
-            />
-          </View>
-        }
+        renderItem={renderItem}
+        ListHeaderComponent={header}
         ItemSeparatorComponent={() => <View className="h-4" />}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 128 }}
         showsVerticalScrollIndicator={false}

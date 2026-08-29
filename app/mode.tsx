@@ -1,20 +1,60 @@
+import { useCallback } from "react"
 import { useRouter } from "expo-router"
-import { CalendarDays, FileQuestion } from "lucide-react-native"
-import { View } from "react-native"
+import { ClipboardCheck, GraduationCap, type LucideIcon } from "lucide-react-native"
+import { Pressable, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import { THEME, withOpacity } from "@/lib/theme"
-import { useColorScheme } from "@/hooks/use-color-scheme"
-import { Button } from "@/components/ui/button"
+import type { QuestionnaireMode } from "@/lib/schema"
+import { withOpacity } from "@/lib/theme"
+import { useThemePalette } from "@/hooks/use-theme"
 import { Card, CardContent } from "@/components/ui/card"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 import { ScreenHeader } from "@/components/screen-header"
 
+/**
+ * ─── Pick a mode ──────────────────────────────────────────────────────────
+ *
+ * `exam_categories.mode` is `quiz` or `board_exam`, and it is the CMS's own
+ * statement about where a category belongs. This screen is that column, made
+ * tappable — it does not invent a third category of its own.
+ */
+
+type ModeOption = {
+  mode: QuestionnaireMode
+  Icon: LucideIcon
+  title: string
+  description: string
+  detail: string
+}
+
+const MODES: ModeOption[] = [
+  {
+    mode: "quiz",
+    Icon: ClipboardCheck,
+    title: "Quick quiz",
+    description: "Short, untimed, feedback as you go.",
+    detail: "Best for learning something new or drilling a weak area.",
+  },
+  {
+    mode: "board_exam",
+    Icon: GraduationCap,
+    title: "Board exam",
+    description: "Full lettered sets, timed, answers at the end.",
+    detail: "Closest to the real sitting. Use it to test where you stand.",
+  },
+]
+
 export default function ModeScreen() {
   const router = useRouter()
-  const colorScheme = useColorScheme()
-  const theme = colorScheme === "dark" ? THEME.dark : THEME.light
+  const theme = useThemePalette()
+
+  const openMode = useCallback(
+    (mode: QuestionnaireMode) => {
+      router.push({ pathname: "/board-exams", params: { mode } })
+    },
+    [router]
+  )
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -22,61 +62,47 @@ export default function ModeScreen() {
         contentInsetAdjustmentBehavior="automatic"
         contentContainerClassName="gap-4 px-4 pb-8 pt-1"
       >
-        <ScreenHeader title="Question Mode" />
+        <ScreenHeader title="Choose a mode" />
 
-        <Card style={{ borderWidth: 1, borderColor: theme.border }}>
-          <CardContent size="loose" className="gap-4">
-            <View
-              className="h-12 w-12 items-center justify-center rounded-md"
-              style={{ backgroundColor: withOpacity(theme.primary, 0.12) }}
-            >
-              <FileQuestion size={22} color={theme.primary} />
-            </View>
+        <Text variant="callout" className="px-1 text-muted-foreground">
+          Both draw from the same question bank. The difference is how you are
+          asked — and when you find out how you did.
+        </Text>
 
-            <View className="gap-1.5">
-              <Text variant="eyebrow">
-                Board Exams First
-              </Text>
-              <Text className="text-xl font-black leading-8 text-foreground">
-                Reviewer quizzes now run from board exam JSON sets
-              </Text>
-              <Text className="text-sm leading-6 text-muted-foreground">
-                The old subject exam mode has been retired. Use board exam
-                categories, set-based drills, progress tracking, achievements,
-                and dashboard reports from the new reviewer flow.
-              </Text>
-            </View>
+        {MODES.map((option) => (
+          <Pressable
+            key={option.mode}
+            onPress={() => openMode(option.mode)}
+            accessibilityRole="button"
+            accessibilityLabel={`${option.title}. ${option.description}`}
+            className="active:opacity-90"
+          >
+            <Card>
+              <CardContent size="loose" className="gap-3">
+                <View
+                  className="h-12 w-12 items-center justify-center rounded-lg"
+                  style={{ backgroundColor: withOpacity(theme.primary, 0.12) }}
+                >
+                  <option.Icon size={22} color={theme.primary} />
+                </View>
 
-            <View className="gap-2.5">
-              <View
-                className="rounded-xl px-3.5 py-3"
-                style={{ backgroundColor: withOpacity(theme.primary, 0.08) }}
-              >
-                <View className="flex-row items-center gap-2">
-                  <CalendarDays size={15} color={theme.accent} />
-                  <Text className="text-xs font-bold text-foreground">
-                    What changed
+                <View className="gap-1">
+                  <Text variant="heading">{option.title}</Text>
+                  <Text variant="callout" className="text-muted-foreground">
+                    {option.description}
                   </Text>
                 </View>
-                <Text className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Your application now centers on board exam sets, learning
-                  materials, weekly activity, achievements, and performance
-                  reporting instead of the old `questions`, `exams`, and
-                  `exam_attempts` path.
-                </Text>
-              </View>
 
-              <Button
-                className="h-12 rounded-md"
-                onPress={() => router.push("/board-exams")}
-              >
-                <Text className="font-bold text-primary-foreground">
-                  Open Board Exams
-                </Text>
-              </Button>
-            </View>
-          </CardContent>
-        </Card>
+                <View
+                  className="rounded-md px-3 py-2.5"
+                  style={{ backgroundColor: withOpacity(theme.muted, 0.8) }}
+                >
+                  <Text variant="caption">{option.detail}</Text>
+                </View>
+              </CardContent>
+            </Card>
+          </Pressable>
+        ))}
       </ScrollView>
     </SafeAreaView>
   )

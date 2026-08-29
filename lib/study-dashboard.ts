@@ -142,20 +142,24 @@ export function buildStudyProgressSummary(
     { completed: 0, total: 0 }
   )
 
-  // Finished attempts only. `totalItems` is the size of the set, not how much
-  // of it was answered, so counting an ongoing attempt credits every question
-  // the learner has not reached yet — a 100-item mock opened once would add
-  // 100 to "Questions Solved".
-  const questionsSolved = (activityFeed?.quizAttempts ?? [])
-    .filter((attempt) => attempt.status === "done")
-    .reduce((sum, attempt) => sum + Math.max(attempt.totalItems, 0), 0)
+  // Finished sittings only, and `answeredCount` rather than `questionCount`:
+  // the latter is the size of the paper, not how much of it was answered, so
+  // an abandoned 100-item mock would credit every question never reached.
+  const completedSessions = (activityFeed?.sessions ?? []).filter(
+    (session) => session.status === "completed"
+  )
 
-  // Only finished attempts carry a meaningful `timeTaken`; an ongoing one is
-  // still accumulating. Quiz time only — nothing records reading time, so this
-  // deliberately under-reports rather than inventing a number.
-  const secondsStudied = (activityFeed?.quizAttempts ?? [])
-    .filter((attempt) => attempt.status === "done")
-    .reduce((sum, attempt) => sum + Math.max(attempt.timeTaken, 0), 0)
+  const questionsSolved = completedSessions.reduce(
+    (sum, session) => sum + Math.max(session.answeredCount, 0),
+    0
+  )
+
+  // Sitting time only — nothing records reading time, so this deliberately
+  // under-reports rather than inventing a number.
+  const secondsStudied = completedSessions.reduce(
+    (sum, session) => sum + Math.max(session.durationSeconds, 0),
+    0
+  )
 
   return {
     progressPercent:
@@ -163,7 +167,7 @@ export function buildStudyProgressSummary(
     topicsStudied: totals.completed,
     topicsTotal: totals.total,
     questionsSolved,
-    averageScore: Math.round(activityFeed?.averageQuizScore ?? 0),
+    averageScore: Math.round(activityFeed?.averageSessionScore ?? 0),
     dayStreak: activityFeed?.dayStreak ?? 0,
     hoursStudied: secondsStudied / 3600,
   }
@@ -245,23 +249,25 @@ export function buildRecentActivityEntries(
     return []
   }
 
-  const quizEntries: RecentActivityEntry[] = activityFeed.quizAttempts.map(
-    (attempt) => {
-      const isDone = attempt.status === "done"
-      const timestamp = attempt.finishedAt ?? attempt.startedAt
+  const quizEntries: RecentActivityEntry[] = activityFeed.sessions.map(
+    (session) => {
+      const isDone = session.status === "completed"
+      const timestamp = session.endedAt ?? session.startedAt
 
       return {
-        id: `quiz-${attempt.id}`,
+        id: `session-${session.id}`,
         Icon: isDone ? ClipboardCheck : GraduationCap,
+        // `title` was copied onto the session row when the sitting started,
+        // so a set renamed in the CMS since then does not rewrite history.
         title: isDone
-          ? `You scored ${attempt.percent}% on ${attempt.examTitle}`
-          : `Paused: ${attempt.examTitle}`,
+          ? `You scored ${session.percent}% on ${session.title}`
+          : `Paused: ${session.title}`,
         timeLabel: isDone
           ? formatRelativeTimeLabel(timestamp, now)
-          : `Question ${attempt.currentQuestionIndex + 1} · ${formatRelativeTimeLabel(timestamp, now)}`,
-        scoreLabel: isDone ? `${attempt.percent}%` : null,
-        tone: isDone ? getScoreTone(attempt.percent) : "primary",
-        resumeAttemptId: isDone ? null : attempt.id,
+          : `${session.answeredCount} of ${session.questionCount} answered · ${formatRelativeTimeLabel(timestamp, now)}`,
+        scoreLabel: isDone ? `${session.percent}%` : null,
+        tone: isDone ? getScoreTone(session.percent) : "primary",
+        resumeAttemptId: isDone ? null : session.sessionId,
         timestamp,
       }
     }
