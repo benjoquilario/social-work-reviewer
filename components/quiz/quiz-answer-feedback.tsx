@@ -1,6 +1,8 @@
 import { useEffect } from "react"
 import * as Haptics from "expo-haptics"
-import { Check, Lightbulb, X } from "lucide-react-native"
+import Check from "lucide-react-native/icons/check"
+import Lightbulb from "lucide-react-native/icons/lightbulb"
+import X from "lucide-react-native/icons/x"
 import { View } from "react-native"
 
 import { useAppPreferences } from "@/lib/app-preferences"

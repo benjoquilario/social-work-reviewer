@@ -6,8 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Text } from "@/components/ui/text"
 
-import { type LucideIcon } from "lucide-react-native"
-
+import type { LucideIcon } from "lucide-react-native"
 import { SectionLink } from "./section-link"
 import { SubjectProgressCard } from "./subject-progress-card"
 

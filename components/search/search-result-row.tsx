@@ -1,12 +1,10 @@
 import { memo } from "react"
-import {
-  BookOpen,
-  FileQuestion,
-  FolderOpen,
-  Layers,
-  Lock,
-  type LucideIcon,
-} from "lucide-react-native"
+import BookOpen from "lucide-react-native/icons/book-open"
+import FileQuestion from "lucide-react-native/icons/file-question-mark"
+import FolderOpen from "lucide-react-native/icons/folder-open"
+import Layers from "lucide-react-native/icons/layers"
+import Lock from "lucide-react-native/icons/lock"
+import type { LucideIcon } from "lucide-react-native"
 import { Pressable, View } from "react-native"
 
 import type { SearchResult, SearchResultKind } from "@/lib/content/search"

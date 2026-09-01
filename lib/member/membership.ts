@@ -262,16 +262,70 @@ export function describeSubscription(subscription: MemberSubscription): {
     }
   }
 
+  // ─── Play's payment-failure states (v5) ───────────────────────────────────
+  //
+  // Google does not cancel on a declined card. It retries for up to 30 days
+  // with the member still subscribed (`in_grace_period`), and only stops when
+  // it gives up (`on_hold`). `paused` is the member's own doing, from Play.
+  //
+  // Grace period is the one worth getting right: they have not cancelled, have
+  // done nothing wrong, and still have everything they paid for. Falling
+  // through to the "Renews on…" line below would be worse than useless — it
+  // would tell somebody whose card just expired that everything is fine, and
+  // the first they would hear of it is losing access a month later.
+
+  if (subscription.status === "in_grace_period") {
+    return {
+      headline: subscription.planName ?? "Premium",
+      detail: ends
+        ? `We could not charge your card. Access continues until ${ends} — update your payment method in Play.`
+        : "We could not charge your card. Update your payment method in Play.",
+      isEnding: true,
+    }
+  }
+
+  if (subscription.status === "on_hold") {
+    return {
+      headline: "On hold",
+      detail:
+        "Your subscription is on hold. Update your payment method in Play to restore access.",
+      isEnding: false,
+    }
+  }
+
+  if (subscription.status === "paused") {
+    return {
+      headline: "Paused",
+      detail: "Your subscription is paused. Resume it in Play.",
+      isEnding: false,
+    }
+  }
+
   const isEnding = !subscription.autoRenew
 
+  // `cancelled` belongs here with `active`, not with the lapsed states above:
+  // auto-renew is off, but the period is paid for and still running. Which of
+  // the two lines it gets is decided by `autoRenew`, not by the status.
+  if (subscription.status === "active" || subscription.status === "cancelled") {
+    return {
+      headline: subscription.planName ?? "Premium",
+      detail: [
+        ends ? (isEnding ? `Access ends ${ends}` : `Renews ${ends}`) : "Lifetime access",
+        source ? `via ${source}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      isEnding,
+    }
+  }
+
+  // A status this build has never heard of. Play adds notification types over
+  // time and the server maps them straight through, so this will happen to a
+  // shipped app eventually. State the date and stop — claiming "Renews" for an
+  // unknown state is how a lapsed membership ends up reassuring somebody.
   return {
-    headline: subscription.planName ?? "Premium",
-    detail: [
-      ends ? (isEnding ? `Access ends ${ends}` : `Renews ${ends}`) : "Lifetime access",
-      source ? `via ${source}` : null,
-    ]
-      .filter(Boolean)
-      .join(" · "),
-    isEnding,
+    headline: subscription.planName ?? "Membership",
+    detail: ends ? `Access through ${ends}.` : "Check your membership in Play.",
+    isEnding: false,
   }
 }

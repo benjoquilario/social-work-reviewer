@@ -1,5 +1,6 @@
 import { memo } from "react"
-import { Crown, ShieldCheck } from "lucide-react-native"
+import Crown from "lucide-react-native/icons/crown"
+import ShieldCheck from "lucide-react-native/icons/shield-check"
 import { View } from "react-native"
 
 import type { Membership } from "@/lib/member/membership"

@@ -1,5 +1,6 @@
 import { memo } from "react"
-import { Bookmark, Flag } from "lucide-react-native"
+import Bookmark from "lucide-react-native/icons/bookmark"
+import Flag from "lucide-react-native/icons/flag"
 import { Pressable, View } from "react-native"
 
 import { withOpacity } from "@/lib/theme"

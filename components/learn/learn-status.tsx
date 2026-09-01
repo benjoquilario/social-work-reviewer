@@ -1,11 +1,8 @@
-import {
-  BookOpenText,
-  CirclePlay,
-  FileText,
-  Link2,
-  NotebookPen,
-} from "lucide-react-native"
-
+import BookOpenText from "lucide-react-native/icons/book-open-text"
+import CirclePlay from "lucide-react-native/icons/circle-play"
+import FileText from "lucide-react-native/icons/file-text"
+import Link2 from "lucide-react-native/icons/link-2"
+import NotebookPen from "lucide-react-native/icons/notebook-pen"
 import type { LearningMaterialStatusSnapshot } from "@/lib/progress"
 import type { Tone } from "@/lib/tone"
 

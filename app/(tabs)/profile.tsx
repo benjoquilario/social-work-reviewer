@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { useAppPreferences } from "@/lib/app-preferences"
 import { getAvatarUrl, getInitials } from "@/lib/auth"
 import { buildExamCountdown } from "@/lib/exam-countdown"
+import { prepareImageForUpload } from "@/lib/image-upload"
 import { getOverallPerformanceStats } from "@/lib/performance-stats"
 import { getUserActivityFeed } from "@/lib/progress"
 import { listLearningSubjects } from "@/lib/learning-content"
@@ -259,33 +260,25 @@ function ProfileScreenContent() {
       mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
+      quality: 1,
       selectionLimit: 1,
     })
     if (result.canceled || result.assets.length === 0) return
 
     const asset = result.assets[0]
-    const fileSize = asset.fileSize ?? 0
-    const fileName =
-      asset.fileName ??
-      `profile-${Date.now()}.${asset.mimeType?.split("/")[1] ?? "jpg"}`
-
-    if (!fileSize) {
-      Alert.alert(
-        "Upload failed",
-        "The selected image did not include a readable file size."
-      )
-      return
-    }
 
     setIsUploadingAvatar(true)
     try {
-      const uploadedAvatarUrl = await uploadProfilePhoto({
-        uri: asset.uri,
-        name: fileName,
-        type: asset.mimeType ?? "image/jpeg",
-        size: fileSize,
+      // Avatars are served through a 512x512 preview, so anything larger is
+      // upload and storage paid for pixels nobody sees. Picked at quality 1
+      // because the single re-encode that matters happens here.
+      const prepared = await prepareImageForUpload(asset, {
+        maxEdge: 512,
+        compress: 0.8,
+        baseName: "profile",
       })
+
+      const uploadedAvatarUrl = await uploadProfilePhoto(prepared)
       setAvatarUrl(uploadedAvatarUrl)
       Alert.alert("Photo uploaded", "Your new profile photo is ready to save.")
     } catch (error) {
@@ -374,7 +367,7 @@ function ProfileScreenContent() {
   // ─── Render ─────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-background" edges={["top", "left", "right"]}>
       <ScrollView
         contentContainerClassName="gap-6 px-4 pb-6 pt-1"
         contentInsetAdjustmentBehavior="automatic"

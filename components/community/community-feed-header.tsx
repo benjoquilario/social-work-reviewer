@@ -1,4 +1,5 @@
-import { Plus, Search } from "lucide-react-native"
+import Plus from "lucide-react-native/icons/plus"
+import Search from "lucide-react-native/icons/search"
 import { Pressable, View } from "react-native"
 
 import { THEME, withOpacity } from "@/lib/theme"

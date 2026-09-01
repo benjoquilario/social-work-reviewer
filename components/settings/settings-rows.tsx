@@ -1,5 +1,6 @@
 import { memo, useCallback } from "react"
-import { Minus, Plus } from "lucide-react-native"
+import Minus from "lucide-react-native/icons/minus"
+import Plus from "lucide-react-native/icons/plus"
 import { Pressable, View } from "react-native"
 
 import { withOpacity } from "@/lib/theme"

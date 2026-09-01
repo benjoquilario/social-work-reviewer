@@ -1,5 +1,5 @@
 import { Link } from "expo-router"
-import { ArrowLeft } from "lucide-react-native"
+import ArrowLeft from "lucide-react-native/icons/arrow-left"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { THEME } from "@/lib/theme"

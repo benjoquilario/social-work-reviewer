@@ -1,14 +1,11 @@
 import { memo } from "react"
 import { Pressable, View } from "react-native"
-import {
-  BarChart3,
-  ChevronLeft,
-  ChevronRight,
-  Clock3,
-  Flame,
-  Trophy,
-} from "lucide-react-native"
-
+import BarChart3 from "lucide-react-native/icons/chart-column"
+import ChevronLeft from "lucide-react-native/icons/chevron-left"
+import ChevronRight from "lucide-react-native/icons/chevron-right"
+import Clock3 from "lucide-react-native/icons/clock-3"
+import Flame from "lucide-react-native/icons/flame"
+import Trophy from "lucide-react-native/icons/trophy"
 import type {
   DashboardReportMetrics,
   QuestionsAnsweredTimeline,

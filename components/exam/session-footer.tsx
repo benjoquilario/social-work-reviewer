@@ -1,9 +1,10 @@
 import { memo } from "react"
-import { ChevronLeft, ChevronRight } from "lucide-react-native"
-import { View } from "react-native"
+import ChevronLeft from "lucide-react-native/icons/chevron-left"
+import ChevronRight from "lucide-react-native/icons/chevron-right"
 
 import type { FeedbackTiming } from "@/lib/member/settings"
 import { useThemePalette } from "@/hooks/use-theme"
+import { BottomBar } from "@/components/ui/bottom-bar"
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"
 
@@ -57,24 +58,31 @@ export const SessionFooter = memo(function SessionFooter({
   const canAdvance = allowSkip || hasSelection
 
   return (
-    <View className="flex-row items-center gap-2 border-t border-border/70 bg-background px-4 pb-4 pt-3">
+    // `minInset` is generous here because this is the one bar a person taps
+    // dozens of times in a row: the primary action should never sit within a
+    // thumb's width of the system gesture pill.
+    <BottomBar minInset={16} className="flex-row items-center gap-3">
+      {/* Square rather than a text-sized button: an icon-only control in a
+          `lg` slot is mostly padding, and a 56dp target is comfortably above
+          the 44/48dp floor both platforms recommend. */}
       <Button
         variant="outline"
-        size="lg"
+        size="icon"
+        className="h-14 w-14 shrink-0"
         disabled={isFirst}
         onPress={onPrevious}
         accessibilityLabel="Previous question"
       >
-        <ChevronLeft size={17} color={theme.foreground} />
+        <ChevronLeft size={20} color={theme.foreground} />
       </Button>
 
       {needsConfirm ? (
-        <Button size="lg" className="flex-1" onPress={onConfirm}>
+        <Button size="xl" className="flex-1" onPress={onConfirm}>
           <Text>Check answer</Text>
         </Button>
       ) : isLast ? (
         <Button
-          size="lg"
+          size="xl"
           className="flex-1"
           disabled={isSubmitting}
           onPress={onSubmit}
@@ -83,15 +91,15 @@ export const SessionFooter = memo(function SessionFooter({
         </Button>
       ) : (
         <Button
-          size="lg"
+          size="xl"
           className="flex-1"
           disabled={!canAdvance}
           onPress={onNext}
         >
           <Text>Next</Text>
-          <ChevronRight size={17} color={theme.primaryForeground} />
+          <ChevronRight size={19} color={theme.primaryForeground} />
         </Button>
       )}
-    </View>
+    </BottomBar>
   )
 })

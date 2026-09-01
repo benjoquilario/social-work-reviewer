@@ -1,5 +1,8 @@
 import { memo } from "react"
-import { ChevronRight, FileQuestion, Layers, LockKeyhole } from "lucide-react-native"
+import ChevronRight from "lucide-react-native/icons/chevron-right"
+import FileQuestion from "lucide-react-native/icons/file-question-mark"
+import Layers from "lucide-react-native/icons/layers"
+import LockKeyhole from "lucide-react-native/icons/lock-keyhole"
 import { Pressable, View } from "react-native"
 
 import {

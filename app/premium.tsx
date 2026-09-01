@@ -2,14 +2,12 @@ import { useMemo } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useQuery } from "@tanstack/react-query"
 import { useLocalSearchParams, useRouter } from "expo-router"
-import {
-  BookOpenCheck,
-  Check,
-  Crown,
-  LockKeyhole,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react-native"
+import BookOpenCheck from "lucide-react-native/icons/book-open-check"
+import Check from "lucide-react-native/icons/check"
+import Crown from "lucide-react-native/icons/crown"
+import LockKeyhole from "lucide-react-native/icons/lock-keyhole"
+import ShieldCheck from "lucide-react-native/icons/shield-check"
+import Sparkles from "lucide-react-native/icons/sparkles"
 import { View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 

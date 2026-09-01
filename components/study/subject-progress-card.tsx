@@ -1,5 +1,6 @@
 import { memo } from "react"
-import { Lock, type LucideIcon } from "lucide-react-native"
+import Lock from "lucide-react-native/icons/lock"
+import type { LucideIcon } from "lucide-react-native"
 import { Pressable, View } from "react-native"
 
 import type { ThemePalette } from "@/lib/theme"

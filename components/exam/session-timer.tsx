@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react"
-import { Timer } from "lucide-react-native"
+import Timer from "lucide-react-native/icons/timer"
 import { AppState, View } from "react-native"
 
 import { withOpacity } from "@/lib/theme"

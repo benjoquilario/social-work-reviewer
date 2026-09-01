@@ -1,5 +1,6 @@
 import { memo } from "react"
-import { Crown, LockKeyhole } from "lucide-react-native"
+import Crown from "lucide-react-native/icons/crown"
+import LockKeyhole from "lucide-react-native/icons/lock-keyhole"
 import { View } from "react-native"
 
 import { withOpacity } from "@/lib/theme"

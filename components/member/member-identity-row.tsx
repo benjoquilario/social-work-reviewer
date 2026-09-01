@@ -1,5 +1,7 @@
 import { memo } from "react"
-import { Building2, IdCard, UserRound } from "lucide-react-native"
+import Building2 from "lucide-react-native/icons/building-2"
+import IdCard from "lucide-react-native/icons/id-card"
+import UserRound from "lucide-react-native/icons/user-round"
 import { View } from "react-native"
 
 import { getMemberTypeDisplay, type MemberProfile } from "@/lib/member/profile"

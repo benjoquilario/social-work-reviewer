@@ -4,8 +4,24 @@ import {
   NativeModules,
   TurboModuleRegistry,
   useColorScheme as useNativeColorScheme,
+  type ColorSchemeName,
 } from "react-native"
 import { create } from "zustand"
+
+/**
+ * React Native's `useColorScheme()` returns `ColorSchemeName`, which as of
+ * RN 0.86 includes `"unspecified"` alongside `"light"`, `"dark"` and `null`.
+ * Everything downstream indexes `THEME` by the result, and `THEME` has exactly
+ * two keys — so the widened union has to be collapsed once, here, rather than
+ * guarded at every call site.
+ *
+ * "unspecified" means the platform declined to say, which is the same practical
+ * answer as `null`: fall back to light.
+ */
+export function toColorScheme(value: ColorSchemeName): "light" | "dark" {
+  return value === "dark" ? "dark" : "light"
+}
+
 
 export type ThemeMode = "system" | "light" | "dark"
 
@@ -309,7 +325,7 @@ export const useAppPreferencesStore = create<AppPreferencesStore>(
 )
 
 export function AppPreferencesProvider({ children }: PropsWithChildren) {
-  const systemColorScheme = useNativeColorScheme() ?? "light"
+  const systemColorScheme = toColorScheme(useNativeColorScheme())
   const initialize = useAppPreferencesStore((state) => state.initialize)
   const setSystemColorScheme = useAppPreferencesStore(
     (state) => state.setSystemColorScheme

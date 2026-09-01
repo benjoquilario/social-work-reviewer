@@ -22,7 +22,13 @@ export async function configureNotifications() {
       importance: Notifications.AndroidImportance.DEFAULT,
       vibrationPattern: [0, 180, 120, 180],
       lightColor: "#38BDF8",
-      sound: "default",
+      // `sound` is deliberately absent. On a channel this field names a sound
+      // *file* that must be bundled through the expo-notifications config
+      // plugin - there is no magic "default" value. Omitting the key is what
+      // selects the system default; passing the string "default" sends Android
+      // looking for a resource by that name, which logs
+      // "Custom sound 'default' not found in native app" and leaves the channel
+      // without the sound it was asking for.
     })
   }
 }

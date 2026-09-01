@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from "react"
-import { Play } from "lucide-react-native"
+import Play from "lucide-react-native/icons/play"
 import { View } from "react-native"
 
 import type { ExamCategory } from "@/lib/content/exam-categories"

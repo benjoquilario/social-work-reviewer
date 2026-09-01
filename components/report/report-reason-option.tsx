@@ -1,5 +1,5 @@
 import { memo } from "react"
-import { Check } from "lucide-react-native"
+import Check from "lucide-react-native/icons/check"
 import { Pressable } from "react-native"
 
 import { withOpacity } from "@/lib/theme"

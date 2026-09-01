@@ -1,14 +1,12 @@
-import { useCallback } from "react"
-import type { BottomTabBarProps } from "@react-navigation/bottom-tabs"
+import { useCallback, type ComponentProps } from "react"
+import { Tabs } from "expo-router"
 import * as Haptics from "expo-haptics"
-import {
-  BookOpenText,
-  ClipboardCheck,
-  MessagesSquare,
-  Pencil,
-  User,
-  type LucideIcon,
-} from "lucide-react-native"
+import BookOpenText from "lucide-react-native/icons/book-open-text"
+import ClipboardCheck from "lucide-react-native/icons/clipboard-check"
+import MessagesSquare from "lucide-react-native/icons/messages-square"
+import Pencil from "lucide-react-native/icons/pencil"
+import User from "lucide-react-native/icons/user"
+import type { LucideIcon } from "lucide-react-native"
 import { Pressable, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
@@ -29,7 +27,18 @@ const TAB_META: Record<string, { Icon: LucideIcon; label: string }> = {
   profile: { Icon: User, label: "Profile" },
 }
 
-type StudyTabBarProps = BottomTabBarProps & {
+/**
+ * The props expo-router hands a custom `tabBar`, inferred from the component
+ * that calls it.
+ *
+ * Not imported from `@react-navigation/bottom-tabs`: expo-router 57 vendors its
+ * own copy of that package, so the two `BottomTabBarProps` are structurally
+ * incompatible and the assignment fails to typecheck. Inferring from `Tabs`
+ * always matches whichever copy the installed router actually uses.
+ */
+type TabBarRenderer = NonNullable<ComponentProps<typeof Tabs>["tabBar"]>
+
+type StudyTabBarProps = Parameters<TabBarRenderer>[0] & {
   /** Fired by the raised centre button. */
   onPressStudy: () => void
 }

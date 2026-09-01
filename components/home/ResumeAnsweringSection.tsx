@@ -1,5 +1,6 @@
 import { memo } from "react"
-import { ChevronRight, Play } from "lucide-react-native"
+import ChevronRight from "lucide-react-native/icons/chevron-right"
+import Play from "lucide-react-native/icons/play"
 import { View } from "react-native"
 
 import type { ResumeAttemptCard, ThemePalette } from "@/lib/home-types"

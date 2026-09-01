@@ -1,5 +1,7 @@
 import { memo } from "react"
-import { LogOut, Trash2, TriangleAlert } from "lucide-react-native"
+import LogOut from "lucide-react-native/icons/log-out"
+import Trash2 from "lucide-react-native/icons/trash-2"
+import TriangleAlert from "lucide-react-native/icons/triangle-alert"
 import { View } from "react-native"
 
 import { withOpacity } from "@/lib/theme"

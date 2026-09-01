@@ -1,6 +1,6 @@
 import { type ReactNode } from "react"
 import { useRouter } from "expo-router"
-import { ArrowLeft } from "lucide-react-native"
+import ArrowLeft from "lucide-react-native/icons/arrow-left"
 import { ScrollView, View } from "react-native"
 
 import { useThemePalette } from "@/hooks/use-theme"

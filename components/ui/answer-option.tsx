@@ -1,4 +1,5 @@
-import { Check, X } from "lucide-react-native"
+import Check from "lucide-react-native/icons/check"
+import X from "lucide-react-native/icons/x"
 import { Pressable, View, type PressableProps } from "react-native"
 
 import { withOpacity, type ThemePalette } from "@/lib/theme"

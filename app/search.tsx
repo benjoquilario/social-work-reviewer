@@ -1,6 +1,6 @@
 import { useCallback } from "react"
 import { Stack, useRouter } from "expo-router"
-import { Search as SearchIcon } from "lucide-react-native"
+import SearchIcon from "lucide-react-native/icons/search"
 import { ActivityIndicator, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 

@@ -1,14 +1,11 @@
-import {
-  BookOpen,
-  Calculator,
-  ClipboardCheck,
-  GraduationCap,
-  Layers,
-  Scale,
-  TrendingUp,
-  type LucideIcon,
-} from "lucide-react-native"
-
+import BookOpen from "lucide-react-native/icons/book-open"
+import Calculator from "lucide-react-native/icons/calculator"
+import ClipboardCheck from "lucide-react-native/icons/clipboard-check"
+import GraduationCap from "lucide-react-native/icons/graduation-cap"
+import Layers from "lucide-react-native/icons/layers"
+import Scale from "lucide-react-native/icons/scale"
+import TrendingUp from "lucide-react-native/icons/trending-up"
+import type { LucideIcon } from "lucide-react-native"
 import type { LearningSubject } from "@/lib/learning-content"
 import type { UserActivityFeed } from "@/lib/progress"
 import { getThemeChartPalette, type ThemePalette } from "@/lib/theme"

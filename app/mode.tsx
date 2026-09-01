@@ -1,6 +1,8 @@
 import { useCallback } from "react"
 import { useRouter } from "expo-router"
-import { ClipboardCheck, GraduationCap, type LucideIcon } from "lucide-react-native"
+import ClipboardCheck from "lucide-react-native/icons/clipboard-check"
+import GraduationCap from "lucide-react-native/icons/graduation-cap"
+import type { LucideIcon } from "lucide-react-native"
 import { Pressable, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 

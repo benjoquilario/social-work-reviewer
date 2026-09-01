@@ -1,5 +1,6 @@
 import { memo } from "react"
-import { LayoutGrid, X } from "lucide-react-native"
+import LayoutGrid from "lucide-react-native/icons/layout-grid"
+import X from "lucide-react-native/icons/x"
 import { View } from "react-native"
 
 import { useThemePalette } from "@/hooks/use-theme"

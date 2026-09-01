@@ -3,7 +3,10 @@ import { useAuth } from "@/contexts/auth-context"
 import { useCommunity } from "@/contexts/community-context"
 import { Image } from "expo-image"
 import { useLocalSearchParams, useRouter } from "expo-router"
-import { Flag, Heart, MessageSquare, Send } from "lucide-react-native"
+import Flag from "lucide-react-native/icons/flag"
+import Heart from "lucide-react-native/icons/heart"
+import MessageSquare from "lucide-react-native/icons/message-square"
+import Send from "lucide-react-native/icons/send"
 import {
   KeyboardAvoidingView,
   Platform,
@@ -30,6 +33,7 @@ import { useKeyboardInset } from "@/hooks/use-keyboard-inset"
 import { Text } from "@/components/ui/text"
 import { ScrollView } from "@/components/ui/virtualized-scroll-view"
 import { CommunityAvatar } from "@/components/community/avatar"
+import { BottomBar } from "@/components/ui/bottom-bar"
 import { ScreenHeader } from "@/components/screen-header"
 import { getMemberByline } from "@/lib/member/profile"
 
@@ -503,11 +507,12 @@ export default function CommunityDiscussionScreen() {
         </ScrollView>
 
         {/* Bottom comment input */}
-        <View
-          className="flex-row items-center gap-2 border-t border-border/40 px-4 py-2.5"
+        <BottomBar
+          minInset={10}
+          bordered={false}
+          className="flex-row items-center gap-2 border-t border-border/40 pt-2.5"
           style={{
             backgroundColor: theme.card,
-            paddingBottom: Math.max(insets.bottom, 10),
             marginBottom: keyboardInset,
           }}
         >
@@ -536,7 +541,7 @@ export default function CommunityDiscussionScreen() {
           >
             <Send size={14} color={theme.primaryForeground} />
           </Pressable>
-        </View>
+        </BottomBar>
       </KeyboardAvoidingView>
 
       <PostActionsMenu

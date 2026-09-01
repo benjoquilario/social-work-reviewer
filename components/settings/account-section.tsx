@@ -1,6 +1,7 @@
 import { memo } from "react"
-import { KeyRound, MailCheck, Stethoscope } from "lucide-react-native"
-
+import KeyRound from "lucide-react-native/icons/key-round"
+import MailCheck from "lucide-react-native/icons/mail-check"
+import Stethoscope from "lucide-react-native/icons/stethoscope"
 import { useThemePalette } from "@/hooks/use-theme"
 import { Button } from "@/components/ui/button"
 import { Text } from "@/components/ui/text"

@@ -1,7 +1,10 @@
 import { useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "expo-router"
-import { Eye, EyeOff, Lock, Mail } from "lucide-react-native"
+import Eye from "lucide-react-native/icons/eye"
+import EyeOff from "lucide-react-native/icons/eye-off"
+import Lock from "lucide-react-native/icons/lock"
+import Mail from "lucide-react-native/icons/mail"
 import {
   ActivityIndicator,
   KeyboardAvoidingView,

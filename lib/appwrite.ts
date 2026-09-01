@@ -17,8 +17,8 @@ import {
 import { reviewerCmsSchema } from "./schema"
 
 const FALLBACK_ENDPOINT = "https://sgp.cloud.appwrite.io/v1"
-const FALLBACK_ANDROID_PACKAGE = "com.horfi.socialwork"
-const FALLBACK_IOS_BUNDLE_ID = "com.horfi.socialwork"
+const FALLBACK_ANDROID_PACKAGE = "com.surewin.mobile"
+const FALLBACK_IOS_BUNDLE_ID = "com.surewin.mobile"
 const FALLBACK_WEB_PLATFORM = "localhost"
 
 export const APPWRITE_CONFIG = {

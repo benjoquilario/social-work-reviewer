@@ -1,6 +1,9 @@
 import { memo } from "react"
 import { Image } from "expo-image"
-import { BellRing, Flame, Play, Target } from "lucide-react-native"
+import BellRing from "lucide-react-native/icons/bell-ring"
+import Flame from "lucide-react-native/icons/flame"
+import Play from "lucide-react-native/icons/play"
+import Target from "lucide-react-native/icons/target"
 import { Pressable, View } from "react-native"
 
 import type { ThemePalette } from "@/lib/home-types"
@@ -9,7 +12,7 @@ import { BrandSurface } from "@/components/ui/brand-surface"
 import { Text } from "@/components/ui/text"
 import { CommunityAvatar } from "@/components/community/avatar"
 
-const MASCOT = require("@/assets/images/happy-graduation.png")
+const MASCOT = require("@/assets/images/happy-graduation.webp")
 
 /** One inline fact under the goal — icon, then a single line of copy. */
 function HeroFact({

@@ -1,6 +1,7 @@
 import { memo, useMemo, useState } from "react"
 import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list"
 import { View } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import type { PresentedQuestion } from "@/lib/session/question-pool"
 import { Button } from "@/components/ui/button"
@@ -37,7 +38,12 @@ type SessionResultsProps = {
 
 type ReviewFilter = "mistakes" | "all"
 
-const LIST_CONTENT_STYLE = { paddingHorizontal: 16, paddingBottom: 32 }
+/**
+ * The screen claims only the top and side edges so the list can scroll
+ * through the full height, which leaves the bottom inset for the list's own
+ * content padding. Without it the final row sits under the gesture pill.
+ */
+const LIST_BOTTOM_GAP = 32
 
 export const SessionResults = memo(function SessionResults({
   label,
@@ -59,6 +65,15 @@ export const SessionResults = memo(function SessionResults({
           answers.get(index) !== presented.question.answerIndex
       ),
     [answers, pool]
+  )
+
+  const insets = useSafeAreaInsets()
+  const listContentStyle = useMemo(
+    () => ({
+      paddingHorizontal: 16,
+      paddingBottom: insets.bottom + LIST_BOTTOM_GAP,
+    }),
+    [insets.bottom]
   )
 
   const [filter, setFilter] = useState<ReviewFilter>(
@@ -84,7 +99,7 @@ export const SessionResults = memo(function SessionResults({
       data={visible}
       keyExtractor={(item) => item.question.id}
       renderItem={renderRow}
-      contentContainerStyle={LIST_CONTENT_STYLE}
+      contentContainerStyle={listContentStyle}
       showsVerticalScrollIndicator={false}
       ItemSeparatorComponent={Separator}
       ListHeaderComponent={

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { RefreshCcw } from "lucide-react-native"
+import RefreshCcw from "lucide-react-native/icons/refresh-ccw"
 import { View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 

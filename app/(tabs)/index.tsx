@@ -2,13 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useQuery } from "@tanstack/react-query"
 import { useRouter } from "expo-router"
-import {
-  BookOpenText,
-  ClipboardCheck,
-  GraduationCap,
-  History,
-  Target,
-} from "lucide-react-native"
+import BookOpenText from "lucide-react-native/icons/book-open-text"
+import ClipboardCheck from "lucide-react-native/icons/clipboard-check"
+import GraduationCap from "lucide-react-native/icons/graduation-cap"
+import History from "lucide-react-native/icons/rotate-ccw-clock"
+import Target from "lucide-react-native/icons/target"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { useAppPreferences } from "@/lib/app-preferences"
@@ -283,7 +281,7 @@ export default function ReviewerHomeScreen() {
   // ─── Render ─────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-background" edges={["top", "left", "right"]}>
       <ScrollView
         contentContainerClassName="gap-6 px-4 pb-6 pt-1"
         contentInsetAdjustmentBehavior="automatic"

@@ -1,5 +1,8 @@
 import { memo } from "react"
-import { Award, Clock3, Flame, TrendingUp } from "lucide-react-native"
+import Award from "lucide-react-native/icons/award"
+import Clock3 from "lucide-react-native/icons/clock-3"
+import Flame from "lucide-react-native/icons/flame"
+import TrendingUp from "lucide-react-native/icons/trending-up"
 import { View } from "react-native"
 
 import type { UserActivityFeed } from "@/lib/progress"

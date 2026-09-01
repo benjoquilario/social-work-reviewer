@@ -16,6 +16,7 @@ import {
   uploadCommunityPostPhoto,
   type CommunityPostItem,
 } from "@/lib/community"
+import { prepareImageForUpload } from "@/lib/image-upload"
 import { listLearningSubjects } from "@/lib/learning-content"
 import { THEME } from "@/lib/theme"
 import { useColorScheme } from "@/hooks/use-color-scheme"
@@ -194,7 +195,7 @@ export default function CommunityScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
-      quality: 0.75,
+      quality: 1,
       selectionLimit: 1,
     })
 
@@ -203,28 +204,18 @@ export default function CommunityScreen() {
     }
 
     const asset = result.assets[0]
-    const fileSize = asset.fileSize ?? 0
-    const mimeType = asset.mimeType ?? "image/jpeg"
-    const fileName =
-      asset.fileName ??
-      `thread-${Date.now()}.${mimeType.split("/")[1] ?? "jpg"}`
-
-    if (!fileSize) {
-      Alert.alert(
-        "Upload failed",
-        "The selected image does not include a readable file size."
-      )
-      return
-    }
 
     setIsUploadingPhoto(true)
     try {
-      const uploadedUrl = await uploadCommunityPostPhoto({
-        uri: asset.uri,
-        name: fileName,
-        type: mimeType,
-        size: fileSize,
+      // Wider than an avatar because thread images are read full-width, but
+      // still far below the camera roll original.
+      const prepared = await prepareImageForUpload(asset, {
+        maxEdge: 1440,
+        compress: 0.8,
+        baseName: "thread",
       })
+
+      const uploadedUrl = await uploadCommunityPostPhoto(prepared)
       setPhotoUrlDraft(uploadedUrl)
     } catch (error) {
       Alert.alert(
@@ -367,7 +358,7 @@ export default function CommunityScreen() {
   }, [activeFeedFilter, hasMoreFeed, isLoadingMore, theme.primary])
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-background" edges={["top", "left", "right"]}>
       {isLoading && !feed ? (
         <ScrollView
           contentContainerClassName="gap-4 px-4 pb-8 pt-5"

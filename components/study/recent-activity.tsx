@@ -1,5 +1,6 @@
 import { memo } from "react"
-import { ChevronRight, type LucideIcon } from "lucide-react-native"
+import ChevronRight from "lucide-react-native/icons/chevron-right"
+import type { LucideIcon } from "lucide-react-native"
 import { Pressable, View } from "react-native"
 
 import { withOpacity, type ThemePalette } from "@/lib/theme"

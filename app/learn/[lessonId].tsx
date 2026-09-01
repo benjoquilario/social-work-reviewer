@@ -3,13 +3,11 @@ import { useAuth } from "@/contexts/auth-context"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { openBrowserAsync, WebBrowserPresentationStyle } from "expo-web-browser"
-import {
-  ArrowRight,
-  ArrowUpRight,
-  Check,
-  CheckCircle2,
-  Info,
-} from "lucide-react-native"
+import ArrowRight from "lucide-react-native/icons/arrow-right"
+import ArrowUpRight from "lucide-react-native/icons/arrow-up-right"
+import Check from "lucide-react-native/icons/check"
+import CheckCircle2 from "lucide-react-native/icons/circle-check"
+import Info from "lucide-react-native/icons/info"
 import { View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 

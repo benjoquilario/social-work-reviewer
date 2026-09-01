@@ -7,21 +7,21 @@ export type CmsFieldKind =
   | "boolean"
   | "datetime"
   | "enum"
-  | "string[]";
+  | "string[]"
 
 export type CmsFieldDefinition = {
-  key: string;
-  label: string;
-  kind: CmsFieldKind;
-  required?: boolean;
-  description?: string;
-  placeholder?: string;
-  size?: number;
-  min?: number;
-  max?: number;
-  array?: boolean;
-  options?: readonly string[];
-  defaultValue?: string | number | boolean;
+  key: string
+  label: string
+  kind: CmsFieldKind
+  required?: boolean
+  description?: string
+  placeholder?: string
+  size?: number
+  min?: number
+  max?: number
+  array?: boolean
+  options?: readonly string[]
+  defaultValue?: string | number | boolean
   /**
    * Maintained by the system, not by a person.
    *
@@ -29,31 +29,31 @@ export type CmsFieldDefinition = {
    * an editor can type into is a field an editor will type into - and a
    * hand-edited question count is worse than no question count.
    */
-  readOnly?: boolean;
+  readOnly?: boolean
   /**
    * Plain-language labels for enum values, keyed by the stored value.
    *
    * The stored value is a machine word (`board_exam`); the person picking it
    * should read "Board exam".
    */
-  optionLabels?: Readonly<Record<string, string>>;
-};
+  optionLabels?: Readonly<Record<string, string>>
+}
 
-export type CmsIndexType = "key" | "unique" | "fulltext";
+export type CmsIndexType = "key" | "unique" | "fulltext"
 
 export type CmsIndexDefinition = {
-  key: string;
-  type: CmsIndexType;
+  key: string
+  type: CmsIndexType
   /** Column keys, in order. Order matters for multi-column indexes. */
-  columns: readonly string[];
-  orders?: readonly ("ASC" | "DESC")[];
-  description?: string;
-};
+  columns: readonly string[]
+  orders?: readonly ("ASC" | "DESC")[]
+  description?: string
+}
 
 export type CmsTableDefinition = {
-  tableId: string;
-  name: string;
-  description: string;
+  tableId: string
+  name: string
+  description: string
   group:
     | "auth"
     | "billing"
@@ -62,7 +62,7 @@ export type CmsTableDefinition = {
     | "progress"
     | "achievements"
     | "community"
-    | "cms";
+    | "cms"
   /**
    * Who writes this table, and therefore what the dashboard offers.
    *
@@ -81,7 +81,7 @@ export type CmsTableDefinition = {
    * `domain`, which decides *who* may do it. A table permits an action only
    * when both agree.
    */
-  access?: CmsTableAccess;
+  access?: CmsTableAccess
   /**
    * What Appwrite permits the mobile app to do, enforced server-side.
    *
@@ -91,15 +91,15 @@ export type CmsTableDefinition = {
    * and every member can read every other member's rows. Naming one is the
    * cheapest moment to think about it.
    */
-  accessModel: CmsAccessModel;
+  accessModel: CmsAccessModel
   /**
    * Which area of the product this table belongs to, for permission checks.
    *
    * Roles are granted per domain rather than per table, so adding a table to
    * an area everyone already has access to needs no role change anywhere.
    */
-  domain: CmsPermissionDomain;
-  fields: readonly CmsFieldDefinition[];
+  domain: CmsPermissionDomain
+  fields: readonly CmsFieldDefinition[]
   /**
    * Indexes this table needs to function.
    *
@@ -107,11 +107,11 @@ export type CmsTableDefinition = {
    * create them and so a missing one is a diff, not something you discover
    * from a slow query months later.
    */
-  indexes?: readonly CmsIndexDefinition[];
-};
+  indexes?: readonly CmsIndexDefinition[]
+}
 
 function defineTable<const T extends CmsTableDefinition>(definition: T) {
-  return definition;
+  return definition
 }
 
 /* -------------------------------------------------------------------------- *
@@ -138,7 +138,7 @@ export type CmsPermissionDomain =
   | "members"
   | "billing"
   | "community"
-  | "staff";
+  | "staff"
 
 /**
  * Everything a person can be allowed to do in the dashboard.
@@ -166,8 +166,7 @@ export const cmsPermissionCatalog = {
   "questions.import": "Upload a filled-in Excel or CSV of questions",
   "questions.publish": "Publish or unpublish exam content",
 
-  "members.view":
-    "See member accounts and the activity collected from them",
+  "members.view": "See member accounts and the activity collected from them",
   "members.delete": "Permanently delete collected member records",
 
   "billing.view": "See plans, subscriptions, and Google Play purchases",
@@ -183,13 +182,13 @@ export const cmsPermissionCatalog = {
 
   "staff.view": "See who has dashboard access",
   "staff.manage": "Grant and revoke dashboard access",
-} as const;
+} as const
 
-export type CmsPermission = keyof typeof cmsPermissionCatalog;
+export type CmsPermission = keyof typeof cmsPermissionCatalog
 
 export const cmsPermissionKeys = Object.keys(
-  cmsPermissionCatalog,
-) as CmsPermission[];
+  cmsPermissionCatalog
+) as CmsPermission[]
 
 /**
  * A role someone can hold.
@@ -211,12 +210,7 @@ export const cmsPermissionKeys = Object.keys(
  * rung on a ladder.
  */
 export type CmsRole =
-  | "student"
-  | "member"
-  | "encoder"
-  | "moderator"
-  | "admin"
-  | "super_admin";
+  "student" | "member" | "encoder" | "moderator" | "admin" | "super_admin"
 
 const encoderPermissions: readonly CmsPermission[] = [
   "dashboard.view",
@@ -228,7 +222,7 @@ const encoderPermissions: readonly CmsPermission[] = [
   "questions.edit",
   "questions.import",
   "media.upload",
-];
+]
 
 const moderatorPermissions: readonly CmsPermission[] = [
   ...encoderPermissions,
@@ -242,7 +236,7 @@ const moderatorPermissions: readonly CmsPermission[] = [
   "community.moderate",
   "media.delete",
   "staff.view",
-];
+]
 
 /**
  * Everything except erasing the records we have collected about members.
@@ -252,8 +246,8 @@ const moderatorPermissions: readonly CmsPermission[] = [
  * recreate.
  */
 const adminPermissions: readonly CmsPermission[] = cmsPermissionKeys.filter(
-  (permission) => permission !== "members.delete",
-);
+  (permission) => permission !== "members.delete"
+)
 
 /**
  * The roles, in order of rank.
@@ -306,7 +300,7 @@ export const cmsRoleDefinitions = {
       "The owner. The only role that can appoint admins or erase collected member records.",
     permissions: cmsPermissionKeys as readonly CmsPermission[],
   },
-} as const;
+} as const
 
 /** Lowest rank first, so a picker reads as a ladder. */
 export const cmsRoleOrder: readonly CmsRole[] = [
@@ -316,10 +310,10 @@ export const cmsRoleOrder: readonly CmsRole[] = [
   "moderator",
   "admin",
   "super_admin",
-];
+]
 
 export function isCmsRole(value: unknown): value is CmsRole {
-  return typeof value === "string" && value in cmsRoleDefinitions;
+  return typeof value === "string" && value in cmsRoleDefinitions
 }
 
 /**
@@ -329,7 +323,7 @@ export function isCmsRole(value: unknown): value is CmsRole {
  * a role nobody recognises must never be treated as a role somebody does.
  */
 export function toCmsRole(value: unknown): CmsRole {
-  return isCmsRole(value) ? value : "student";
+  return isCmsRole(value) ? value : "student"
 }
 
 /**
@@ -347,7 +341,7 @@ export type MemberType =
   | "professional"
   | "instructor"
   | "institution"
-  | "other";
+  | "other"
 
 export const memberTypeLabels: Record<MemberType, string> = {
   student: "Student",
@@ -357,7 +351,7 @@ export const memberTypeLabels: Record<MemberType, string> = {
   instructor: "Instructor",
   institution: "School or review centre",
   other: "Other",
-};
+}
 
 export const memberTypeOrder: readonly MemberType[] = [
   "student",
@@ -367,40 +361,40 @@ export const memberTypeOrder: readonly MemberType[] = [
   "instructor",
   "institution",
   "other",
-];
+]
 
 export function isMemberType(value: unknown): value is MemberType {
-  return typeof value === "string" && value in memberTypeLabels;
+  return typeof value === "string" && value in memberTypeLabels
 }
 
 /** Blank is the common case, so it reads as "not said" rather than "other". */
 export function getMemberTypeLabel(value: unknown) {
-  return isMemberType(value) ? memberTypeLabels[value] : "Not said";
+  return isMemberType(value) ? memberTypeLabels[value] : "Not said"
 }
 
 export function getRoleDefinition(role: CmsRole) {
-  return cmsRoleDefinitions[role];
+  return cmsRoleDefinitions[role]
 }
 
 export function getRoleLabel(role: CmsRole) {
-  return cmsRoleDefinitions[role].label;
+  return cmsRoleDefinitions[role].label
 }
 
 export function getRoleRank(role: CmsRole) {
-  return cmsRoleDefinitions[role].rank;
+  return cmsRoleDefinitions[role].rank
 }
 
 export function getRolePermissions(role: CmsRole): readonly CmsPermission[] {
-  return cmsRoleDefinitions[role].permissions;
+  return cmsRoleDefinitions[role].permissions
 }
 
 export function roleHasPermission(role: CmsRole, permission: CmsPermission) {
-  return cmsRoleDefinitions[role].permissions.includes(permission);
+  return cmsRoleDefinitions[role].permissions.includes(permission)
 }
 
 /** Anyone who belongs in the dashboard at all. */
 export function isStaffRole(role: CmsRole) {
-  return roleHasPermission(role, "dashboard.view");
+  return roleHasPermission(role, "dashboard.view")
 }
 
 /**
@@ -411,15 +405,15 @@ export function isStaffRole(role: CmsRole) {
  * counted as staff.
  */
 export function isAudienceRole(role: CmsRole) {
-  return !isStaffRole(role);
+  return !isStaffRole(role)
 }
 
 export const audienceRoles: readonly CmsRole[] = cmsRoleOrder.filter(
-  (role) => !cmsRoleDefinitions[role].permissions.length,
-);
+  (role) => !cmsRoleDefinitions[role].permissions.length
+)
 
 /** What a revoked staff member goes back to being. */
-export const DEFAULT_ROLE: CmsRole = "student";
+export const DEFAULT_ROLE: CmsRole = "student"
 
 /**
  * May `actor` set someone's role to `target`?
@@ -431,14 +425,14 @@ export const DEFAULT_ROLE: CmsRole = "student";
  */
 export function canGrantRole(actor: CmsRole, target: CmsRole) {
   if (!roleHasPermission(actor, "staff.manage")) {
-    return false;
+    return false
   }
 
   if (actor === "super_admin") {
-    return true;
+    return true
   }
 
-  return getRoleRank(target) < getRoleRank(actor);
+  return getRoleRank(target) < getRoleRank(actor)
 }
 
 /**
@@ -450,14 +444,14 @@ export function canGrantRole(actor: CmsRole, target: CmsRole) {
  */
 export function canManageStaffMember(actor: CmsRole, subject: CmsRole) {
   if (!roleHasPermission(actor, "staff.manage")) {
-    return false;
+    return false
   }
 
   if (actor === "super_admin") {
-    return true;
+    return true
   }
 
-  return getRoleRank(subject) < getRoleRank(actor);
+  return getRoleRank(subject) < getRoleRank(actor)
 }
 
 /** What each domain's four table actions require. `null` means nobody may. */
@@ -511,9 +505,9 @@ const domainTablePermissions: Record<
     edit: "staff.manage",
     delete: "staff.manage",
   },
-};
+}
 
-export type CmsTableAccess = "manage" | "review" | "readonly" | "hidden";
+export type CmsTableAccess = "manage" | "review" | "readonly" | "hidden"
 
 /**
  * Who Appwrite itself lets touch a table, as opposed to `access`, which only
@@ -542,7 +536,7 @@ export type CmsTableAccess = "manage" | "review" | "readonly" | "hidden";
  *
  * Row-security models (`member_*` except `member_submit`, and `server_private`)
  * require the writer to attach row permissions at create time. See
- * MOBILE-SCHEMA-NOTES-v4.md section 11.
+ * MOBILE-SCHEMA-NOTES-v5.md section 11.
  */
 export type CmsAccessModel =
   | "server_only"
@@ -551,7 +545,7 @@ export type CmsAccessModel =
   | "member_public"
   | "member_shared"
   | "member_submit"
-  | "server_private";
+  | "server_private"
 
 /** Literal Appwrite permission strings, so nothing here needs the SDK. */
 export const cmsAccessModelPermissions = {
@@ -571,13 +565,13 @@ export const cmsAccessModelPermissions = {
 } as const satisfies Record<
   CmsAccessModel,
   { rowSecurity: boolean; permissions: readonly string[] }
->;
+>
 
 export function getAccessModelPermissions(model: CmsAccessModel) {
-  return cmsAccessModelPermissions[model];
+  return cmsAccessModelPermissions[model]
 }
 
-export type CmsTableAction = "view" | "create" | "edit" | "delete";
+export type CmsTableAction = "view" | "create" | "edit" | "delete"
 
 export const reviewerCmsSchema = {
   user_profiles: defineTable({
@@ -1165,7 +1159,8 @@ export const reviewerCmsSchema = {
         required: false,
         size: 64,
         defaultValue: "Asia/Manila",
-        description: "IANA name, so the reminder fires at the right local hour.",
+        description:
+          "IANA name, so the reminder fires at the right local hour.",
       },
       {
         key: "notifyAnnouncements",
@@ -1330,6 +1325,17 @@ export const reviewerCmsSchema = {
         placeholder: "Optional - only if the product has several base plans",
       },
       {
+        key: "googleOfferId",
+        label: "Offer ID",
+        kind: "string",
+        required: false,
+        size: 128,
+        placeholder:
+          "Optional - an intro or promotional offer on the base plan",
+        description:
+          "Only if this card is meant to launch a specific offer. Leave blank and Play picks the best offer the member is eligible for, which is usually what you want.",
+      },
+      {
         key: "price",
         label: "Price",
         kind: "integer",
@@ -1474,7 +1480,8 @@ export const reviewerCmsSchema = {
         required: false,
         readOnly: true,
         size: 120,
-        description: "Copied from the plan so a redeemed code reads on its own.",
+        description:
+          "Copied from the plan so a redeemed code reads on its own.",
       },
       {
         key: "batchLabel",
@@ -1582,15 +1589,31 @@ export const reviewerCmsSchema = {
         label: "Status",
         kind: "enum",
         required: true,
-        options: ["pending", "active", "expired", "cancelled", "refunded"],
+        options: [
+          "pending",
+          "active",
+          "in_grace_period",
+          "on_hold",
+          "paused",
+          "expired",
+          "cancelled",
+          "refunded",
+        ],
         optionLabels: {
           pending: "Pending - waiting for payment",
           active: "Active - member has access",
+          in_grace_period:
+            "Grace period - payment failed, Play is retrying, access continues",
+          on_hold:
+            "On hold - payment failed, Play suspended it, access stopped",
+          paused: "Paused - member paused it, access stopped",
           expired: "Expired - period ended",
           cancelled: "Cancelled - stopped early",
           refunded: "Refunded - money returned",
         },
         defaultValue: "pending",
+        description:
+          "Three of these come only from Play. Grace period still grants access - the member paid and the card failed, and Play keeps them subscribed while it retries. On hold and paused do not.",
       },
       {
         key: "startsAt",
@@ -1664,6 +1687,40 @@ export const reviewerCmsSchema = {
           "What Play gives the app and what the server verifies against the Play Developer API. It is also the identity of the purchase - see the unique index.",
       },
       {
+        // Appwrite refuses an index whose key is longer than 767, and a Play
+        // token needs 1024 to be stored without truncation. Both are real
+        // constraints, so the column that is stored and the column that is
+        // indexed cannot be the same one - see `purchaseTokenHash`.
+        key: "purchaseTokenHash",
+        label: "Purchase token fingerprint",
+        kind: "string",
+        required: false,
+        size: 64,
+        readOnly: true,
+        description:
+          "SHA-256 of the purchase token, and the column every lookup actually queries. It exists because the token itself is too long to index: 1024 characters against a 767 limit. Fixed length, so it indexes cleanly, and unique, so one purchase can only ever be one row.",
+      },
+      {
+        key: "linkedPurchaseToken",
+        label: "Replaces purchase token",
+        kind: "string",
+        required: false,
+        size: 1024,
+        readOnly: true,
+        description:
+          "An upgrade, downgrade, or resubscribe arrives as a NEW token pointing back at the old one. Without this the old subscription is never closed and the member holds two.",
+      },
+      {
+        key: "linkedPurchaseTokenHash",
+        label: "Replaced token fingerprint",
+        kind: "string",
+        required: false,
+        size: 64,
+        readOnly: true,
+        description:
+          "SHA-256 of `linkedPurchaseToken`, for the same reason. This is what finds the subscription an upgrade replaced.",
+      },
+      {
         key: "orderId",
         label: "Play order ID",
         kind: "string",
@@ -1680,6 +1737,36 @@ export const reviewerCmsSchema = {
         size: 128,
         readOnly: true,
         description: "Copied from the purchase, so it survives a plan rename.",
+      },
+      {
+        key: "basePlanId",
+        label: "Play base plan ID",
+        kind: "string",
+        required: false,
+        size: 128,
+        readOnly: true,
+        description:
+          "Which base plan of the product was bought. One product can carry monthly and yearly, and the product ID alone does not say which.",
+      },
+      {
+        key: "offerId",
+        label: "Play offer ID",
+        kind: "string",
+        required: false,
+        size: 128,
+        readOnly: true,
+        description:
+          "The intro or promotional offer taken, if any. Blank means the base plan at full price.",
+      },
+      {
+        key: "obfuscatedAccountId",
+        label: "Obfuscated account ID",
+        kind: "string",
+        required: false,
+        size: 128,
+        readOnly: true,
+        description:
+          "What the app attached to the purchase to name the buyer. Verification compares it against the account in the JWT, so a token lifted from another member's device grants nothing.",
       },
       {
         key: "autoRenewing",
@@ -1702,6 +1789,15 @@ export const reviewerCmsSchema = {
           "Google REFUNDS any purchase not acknowledged within three days. This is the flag that says the server did it.",
       },
       {
+        key: "acknowledgedAt",
+        label: "Acknowledged at",
+        kind: "datetime",
+        required: false,
+        readOnly: true,
+        description:
+          "When the server called acknowledge. Compare against Created At to see how close to the three-day deadline it ran.",
+      },
+      {
         key: "latestNotificationType",
         label: "Last Play notification",
         kind: "integer",
@@ -1711,6 +1807,15 @@ export const reviewerCmsSchema = {
         max: 100,
         description:
           "The last RTDN subscription notification type applied, so a replayed message can be recognised.",
+      },
+      {
+        key: "latestNotificationAt",
+        label: "Last Play notification at",
+        kind: "datetime",
+        required: false,
+        readOnly: true,
+        description:
+          "When it was applied. A subscription that should be renewing and has heard nothing for weeks is the symptom of a broken webhook.",
       },
       {
         key: "cancelledAt",
@@ -1755,6 +1860,32 @@ export const reviewerCmsSchema = {
         columns: ["orderId"],
         description:
           "Play notifications arrive carrying an order ID; this is how the row they refer to is found.",
+      },
+      {
+        // On the hash, not the token. A unique index over the token itself is
+        // refused outright - `Index length is longer than the maximum: 767` -
+        // and because the bootstrap logs a rejected index and carries on, the
+        // failure is a line in a log rather than an error. That is how this
+        // was missed the first time.
+        key: "idx_subscription_token",
+        type: "unique",
+        columns: ["purchaseTokenHash"],
+        description:
+          "The purchase token IS the purchase. Every RTDN and every re-report from the app arrives carrying nothing else, so this is the one lookup billing cannot work without - and unique is what makes applying the same purchase twice update one row instead of granting two. Rows bought with a code or granted by hand leave it blank, and blanks do not collide.",
+      },
+      {
+        key: "idx_subscription_linked_token",
+        type: "key",
+        columns: ["linkedPurchaseTokenHash"],
+        description:
+          "Finds the row an upgrade replaced, so the old subscription is closed instead of running alongside the new one.",
+      },
+      {
+        key: "idx_subscription_acknowledged",
+        type: "key",
+        columns: ["status", "isAcknowledged"],
+        description:
+          "Backs the alarm that matters most: active subscriptions Google has not been told about. Every one of them is a refund three days after purchase, and this makes finding them a single query.",
       },
     ],
   }),
@@ -1848,6 +1979,16 @@ export const reviewerCmsSchema = {
         readOnly: true,
       },
       {
+        key: "purchaseTokenHash",
+        label: "Purchase token fingerprint",
+        kind: "string",
+        required: false,
+        size: 64,
+        readOnly: true,
+        description:
+          "SHA-256 of the token. The token is 1024 characters and the index limit is 767, so this is the column a refund lookup queries.",
+      },
+      {
         key: "productId",
         label: "Play product ID",
         kind: "string",
@@ -1860,6 +2001,15 @@ export const reviewerCmsSchema = {
         label: "Paid at",
         kind: "datetime",
         required: false,
+      },
+      {
+        key: "refundedAt",
+        label: "Refunded at",
+        kind: "datetime",
+        required: false,
+        readOnly: true,
+        description:
+          "Set when Play reports the charge was given back. The row stays - a refunded charge is a thing that happened, and deleting it would make the month it was collected in disagree with itself.",
       },
       {
         key: "note",
@@ -1896,6 +2046,227 @@ export const reviewerCmsSchema = {
         type: "key",
         columns: ["status", "createdAt"],
         orders: ["ASC", "DESC"],
+      },
+      {
+        key: "idx_payment_token",
+        type: "key",
+        columns: ["purchaseTokenHash"],
+        description:
+          "A refund notification names a purchase token, not an order. This is how the charges to mark refunded are found - on the hash, because the token itself is past the 767 index limit.",
+      },
+    ],
+  }),
+  // Google's side of the conversation, written down.
+  //
+  // Pub/Sub delivers **at least once**: the same renewal arrives twice, the
+  // same refund arrives an hour later, and a message that fails is redelivered
+  // for seven days. `payments.orderId` already stops a charge being counted
+  // twice, but most notifications carry no charge at all - a cancellation, an
+  // expiry, a grace period - and those had nothing stopping them from being
+  // applied again and again.
+  //
+  // The unique index on `messageId` is that stop. Every message is written
+  // here first; a second copy of one already recorded is dropped without
+  // reaching the subscription.
+  //
+  // The second reason is duller and comes up more often: when a member says
+  // "I paid and I do not have access", the first question is whether Google
+  // ever told us. Without this table the honest answer is that nobody knows.
+  billing_notifications: defineTable({
+    tableId: "billing_notifications",
+    accessModel: "server_only",
+    domain: "billing",
+    access: "readonly",
+    name: "Play Notifications",
+    description:
+      "Every message Google Play sent about a purchase. Written by the webhook, never by hand - this is the record of what Google said, and an edited one is worth nothing.",
+    group: "billing",
+    fields: [
+      {
+        key: "messageId",
+        label: "Pub/Sub message ID",
+        kind: "string",
+        required: true,
+        size: 128,
+        readOnly: true,
+        description:
+          "Google's ID for this delivery. Uniquely indexed, and that is what makes a redelivered message a no-op instead of a second cancellation.",
+      },
+      {
+        key: "notificationType",
+        label: "Notification type",
+        kind: "integer",
+        required: false,
+        readOnly: true,
+        min: 0,
+        max: 100,
+        description:
+          "Play's numeric type: 2 renewed, 3 cancelled, 12 revoked, 13 expired, and so on.",
+      },
+      {
+        key: "notificationKind",
+        label: "Kind",
+        kind: "enum",
+        required: false,
+        readOnly: true,
+        options: ["subscription", "one_time", "voided", "test"],
+        optionLabels: {
+          subscription: "Subscription",
+          one_time: "One-time purchase",
+          voided: "Voided purchase",
+          test: "Test message",
+        },
+        defaultValue: "subscription",
+        description:
+          "Which envelope it arrived in. A test message is what the Play Console sends to prove the topic is wired up; it names no purchase and must change nothing.",
+      },
+      {
+        key: "purchaseToken",
+        label: "Play purchase token",
+        kind: "string",
+        required: false,
+        size: 1024,
+        readOnly: true,
+      },
+      {
+        key: "purchaseTokenHash",
+        label: "Purchase token fingerprint",
+        kind: "string",
+        required: false,
+        size: 64,
+        readOnly: true,
+        description:
+          "SHA-256 of the token, so 'everything Google said about this purchase' is an indexed query rather than a scan.",
+      },
+      {
+        key: "productId",
+        label: "Play product ID",
+        kind: "string",
+        required: false,
+        size: 128,
+        readOnly: true,
+      },
+      {
+        key: "orderId",
+        label: "Play order ID",
+        kind: "string",
+        required: false,
+        size: 128,
+        readOnly: true,
+      },
+      {
+        key: "packageName",
+        label: "Package name",
+        kind: "string",
+        required: false,
+        size: 128,
+        readOnly: true,
+        placeholder: "com.surewin.mobile",
+        description:
+          "Which app the message is about. A message naming a different package is not ours and must be rejected.",
+      },
+      {
+        key: "subscriptionId",
+        label: "Subscription",
+        kind: "string",
+        required: false,
+        size: 64,
+        readOnly: true,
+        description: "The row this was applied to, once it was matched.",
+      },
+      {
+        key: "userId",
+        label: "Member",
+        kind: "string",
+        required: false,
+        size: 64,
+        readOnly: true,
+        description:
+          "Blank until the token is matched to a subscription - Google's message does not name a member.",
+      },
+      {
+        key: "status",
+        label: "Status",
+        kind: "enum",
+        required: true,
+        readOnly: true,
+        options: ["received", "applied", "duplicate", "ignored", "failed"],
+        optionLabels: {
+          received: "Received - not applied yet",
+          applied: "Applied to the subscription",
+          duplicate: "Duplicate - already handled",
+          ignored: "Ignored - nothing to do",
+          failed: "Failed - needs looking at",
+        },
+        defaultValue: "received",
+        description:
+          "Anything sitting on failed is a member whose membership does not match what they paid for.",
+      },
+      {
+        key: "error",
+        label: "Why it failed",
+        kind: "text",
+        required: false,
+        size: 2000,
+        readOnly: true,
+      },
+      {
+        key: "payload",
+        label: "Raw message",
+        kind: "text",
+        required: false,
+        size: 8000,
+        readOnly: true,
+        description:
+          "The decoded JSON exactly as Google sent it. Kept because the first thing anybody needs when billing misbehaves is what actually arrived, not our reading of it.",
+      },
+      {
+        key: "publishedAt",
+        label: "Sent by Google",
+        kind: "datetime",
+        required: false,
+        readOnly: true,
+        description:
+          "Google's own timestamp. Notifications do not necessarily arrive in the order they were sent, and this is the only field that says what really happened first.",
+      },
+      {
+        key: "receivedAt",
+        label: "Received",
+        kind: "datetime",
+        required: false,
+        readOnly: true,
+      },
+      {
+        key: "createdAt",
+        label: "Created At",
+        kind: "datetime",
+        required: false,
+        readOnly: true,
+      },
+    ],
+    indexes: [
+      {
+        key: "idx_notification_message",
+        type: "unique",
+        columns: ["messageId"],
+        description:
+          "Exactly-once handling, enforced by the database. Pub/Sub is at-least-once, so this constraint is the only thing between one cancellation and five.",
+      },
+      {
+        key: "idx_notification_token",
+        type: "key",
+        columns: ["purchaseTokenHash", "publishedAt"],
+        orders: ["ASC", "DESC"],
+        description:
+          "Everything Google said about one purchase, in the order it said it. This is the query a billing support ticket starts with.",
+      },
+      {
+        key: "idx_notification_status",
+        type: "key",
+        columns: ["status", "createdAt"],
+        orders: ["ASC", "DESC"],
+        description:
+          "Backs the queue of messages that failed to apply, oldest first.",
       },
     ],
   }),
@@ -2872,6 +3243,7 @@ export const reviewerCmsSchema = {
           "subscription_started",
           "subscription_renewed",
           "subscription_expired",
+          "subscription_refunded",
           "payment_submitted",
           "payment_confirmed",
           "code_redeemed",
@@ -4473,7 +4845,8 @@ export const reviewerCmsSchema = {
         type: "key",
         columns: ["commentId", "createdAt"],
         orders: ["ASC", "ASC"],
-        description: "Backs a comment's replies in the order they were written.",
+        description:
+          "Backs a comment's replies in the order they were written.",
       },
       {
         key: "idx_replies_member",
@@ -4797,32 +5170,97 @@ export const reviewerCmsSchema = {
       },
     ],
   }),
-} as const;
+} as const
 
-export type ReviewerTableKey = keyof typeof reviewerCmsSchema;
+export type ReviewerTableKey = keyof typeof reviewerCmsSchema
 
 export const reviewerTableEntries = Object.entries(reviewerCmsSchema) as [
   ReviewerTableKey,
   (typeof reviewerCmsSchema)[ReviewerTableKey],
-][];
+][]
 
 export function isReviewerTableKey(value: string): value is ReviewerTableKey {
-  return value in reviewerCmsSchema;
+  return value in reviewerCmsSchema
+}
+
+/**
+ * The longest string column Appwrite will let an index cover.
+ *
+ * Ask for more and it answers `Index length is longer than the maximum: 767`.
+ */
+export const MAX_INDEXED_COLUMN_SIZE = 767
+
+/**
+ * Indexes this file declares that the database will refuse to create.
+ *
+ * This exists because of a bug it would have caught. A unique index was added
+ * over `subscriptions.purchaseToken`, a 1024-character column, and it was the
+ * single index billing could not work without. Appwrite rejected it; the
+ * bootstrap script logs a rejected index and carries on, deliberately, so that
+ * one bad index does not abandon the rest of a migration. The result was a
+ * migration that reported success, a schema file that looked right, and a
+ * missing index that nothing would have surfaced until the first purchase.
+ *
+ * A column too long to index is not a data problem to be discovered at
+ * runtime - it is a schema mistake, knowable from this file alone. So it is
+ * checked here, and the bootstrap refuses to run rather than logging past it.
+ *
+ * The fix, where it comes up, is a fixed-length fingerprint column beside the
+ * long one: see `purchaseTokenHash`.
+ */
+export function findOversizedIndexes() {
+  const problems: {
+    tableId: string
+    index: string
+    column: string
+    size: number
+  }[] = []
+
+  for (const [, definition] of Object.entries(reviewerCmsSchema) as [
+    string,
+    CmsTableDefinition,
+  ][]) {
+    const sizes = new Map(
+      definition.fields
+        .filter((field) => field.size !== undefined)
+        .map((field) => [field.key, field.size as number])
+    )
+
+    for (const index of definition.indexes ?? []) {
+      // Fulltext indexes are built over the text, not over a key prefix, so
+      // the limit does not apply to them.
+      if (index.type === "fulltext") {
+        continue
+      }
+
+      for (const column of index.columns) {
+        const size = sizes.get(column)
+
+        if (size !== undefined && size > MAX_INDEXED_COLUMN_SIZE) {
+          problems.push({
+            tableId: definition.tableId,
+            index: index.key,
+            column,
+            size,
+          })
+        }
+      }
+    }
+  }
+
+  return problems
 }
 
 export function getReviewerTableDefinition(tableKey: ReviewerTableKey) {
-  return reviewerCmsSchema[tableKey];
+  return reviewerCmsSchema[tableKey]
 }
 
 type Prettify<T> = {
-  [K in keyof T]: T[K];
-} & {};
+  [K in keyof T]: T[K]
+} & {}
 
 type CmsFieldValue<F extends CmsFieldDefinition> = F["kind"] extends
-  | "string"
-  | "text"
-  | "richtext"
-  | "datetime"
+  "string" | "text" | "richtext" | "datetime"
   ? string
   : F["kind"] extends "integer" | "float"
     ? number
@@ -4834,72 +5272,72 @@ type CmsFieldValue<F extends CmsFieldDefinition> = F["kind"] extends
           ? F["options"] extends readonly string[]
             ? F["options"][number]
             : string
-          : never;
+          : never
 
 type RequiredCmsFields<T extends CmsTableDefinition> = Extract<
   T["fields"][number],
   { required: true }
->;
+>
 
 type OptionalCmsFields<T extends CmsTableDefinition> = Exclude<
   T["fields"][number],
   { required: true }
->;
+>
 
 export type AppwriteMeta = {
-  $id: string;
-  $createdAt: string;
-  $updatedAt: string;
-};
+  $id: string
+  $createdAt: string
+  $updatedAt: string
+}
 
 export type ReviewerTableData<K extends ReviewerTableKey> = Prettify<
   {
-    [F in RequiredCmsFields<
-      (typeof reviewerCmsSchema)[K]
-    > as F["key"]]: CmsFieldValue<F>;
+    [
+      F in RequiredCmsFields<(typeof reviewerCmsSchema)[K]> as F["key"]
+    ]: CmsFieldValue<F>
   } & {
-    [F in OptionalCmsFields<
-      (typeof reviewerCmsSchema)[K]
-    > as F["key"]]?: CmsFieldValue<F> | null;
+    [
+      F in OptionalCmsFields<(typeof reviewerCmsSchema)[K]> as F["key"]
+    ]?: CmsFieldValue<F> | null
   }
->;
+>
 
 export type ReviewerTableDocument<K extends ReviewerTableKey> = AppwriteMeta &
-  ReviewerTableData<K>;
+  ReviewerTableData<K>
 
 export type ReviewerCreateInput<K extends ReviewerTableKey> =
-  ReviewerTableData<K>;
+  ReviewerTableData<K>
 
 export type ReviewerUpdateInput<K extends ReviewerTableKey> = Partial<
   ReviewerCreateInput<K>
->;
+>
 
-export type UserProfileDocument = ReviewerTableDocument<"user_profiles">;
-export type UserRoleDocument = ReviewerTableDocument<"user_roles">;
-export type SubjectDocument = ReviewerTableDocument<"subjects">;
-export type TopicDocument = ReviewerTableDocument<"topics">;
+export type UserProfileDocument = ReviewerTableDocument<"user_profiles">
+export type UserRoleDocument = ReviewerTableDocument<"user_roles">
+export type SubjectDocument = ReviewerTableDocument<"subjects">
+export type TopicDocument = ReviewerTableDocument<"topics">
 export type LearningMaterialDocument =
-  ReviewerTableDocument<"learning_materials">;
-export type ExamCategoryDocument = ReviewerTableDocument<"exam_categories">;
-export type QuestionnaireRowDocument = ReviewerTableDocument<"questionnaires">;
-export type QuestionDocument = ReviewerTableDocument<"questions">;
-export type UserAnswerDocument = ReviewerTableDocument<"user_answers">;
-export type UserProgressDocument = ReviewerTableDocument<"user_progress">;
+  ReviewerTableDocument<"learning_materials">
+export type ExamCategoryDocument = ReviewerTableDocument<"exam_categories">
+export type QuestionnaireRowDocument = ReviewerTableDocument<"questionnaires">
+export type QuestionDocument = ReviewerTableDocument<"questions">
+export type UserAnswerDocument = ReviewerTableDocument<"user_answers">
+export type UserProgressDocument = ReviewerTableDocument<"user_progress">
 export type UserDailyActivityDocument =
-  ReviewerTableDocument<"user_daily_activity">;
+  ReviewerTableDocument<"user_daily_activity">
 export type UserWeeklyReportDocument =
-  ReviewerTableDocument<"user_weekly_reports">;
-export type LearningHistoryDocument = ReviewerTableDocument<"learning_history">;
-export type PostDocument = ReviewerTableDocument<"posts">;
-export type CommentDocument = ReviewerTableDocument<"comments">;
-export type ReplyDocument = ReviewerTableDocument<"replies">;
-export type PostLikeDocument = ReviewerTableDocument<"post_likes">;
-export type CommentLikeDocument = ReviewerTableDocument<"comment_likes">;
+  ReviewerTableDocument<"user_weekly_reports">
+export type LearningHistoryDocument = ReviewerTableDocument<"learning_history">
+export type PostDocument = ReviewerTableDocument<"posts">
+export type CommentDocument = ReviewerTableDocument<"comments">
+export type ReplyDocument = ReviewerTableDocument<"replies">
+export type PostLikeDocument = ReviewerTableDocument<"post_likes">
+export type CommentLikeDocument = ReviewerTableDocument<"comment_likes">
 export type LearningAchievementDocument =
-  ReviewerTableDocument<"learning_achievements">;
-export type AnnouncementDocument = ReviewerTableDocument<"announcements">;
-export type UserSettingsDocument = ReviewerTableDocument<"user_settings">;
-export type UserSettings = ReviewerTableData<"user_settings">;
+  ReviewerTableDocument<"learning_achievements">
+export type AnnouncementDocument = ReviewerTableDocument<"announcements">
+export type UserSettingsDocument = ReviewerTableDocument<"user_settings">
+export type UserSettings = ReviewerTableData<"user_settings">
 
 /**
  * What a student gets before they have ever opened Settings.
@@ -4911,43 +5349,41 @@ export type UserSettings = ReviewerTableData<"user_settings">;
 export const DEFAULT_USER_SETTINGS = Object.fromEntries(
   (reviewerCmsSchema.user_settings.fields as readonly CmsFieldDefinition[])
     .filter((field) => field.defaultValue !== undefined)
-    .map((field) => [field.key, field.defaultValue]),
-) as Record<string, string | number | boolean>;
+    .map((field) => [field.key, field.defaultValue])
+) as Record<string, string | number | boolean>
 
 /** Merges a stored settings row over the defaults, filling any gap. */
 export function resolveUserSettings(
-  row?: Partial<UserSettings> | null,
+  row?: Partial<UserSettings> | null
 ): Record<string, string | number | boolean> {
-  const resolved = { ...DEFAULT_USER_SETTINGS };
+  const resolved = { ...DEFAULT_USER_SETTINGS }
 
   for (const [key, value] of Object.entries(row ?? {})) {
     if (value !== null && value !== undefined && key in resolved) {
-      resolved[key] = value as string | number | boolean;
+      resolved[key] = value as string | number | boolean
     }
   }
 
-  return resolved;
+  return resolved
 }
 
 export type SubscriptionPlanDocument =
-  ReviewerTableDocument<"subscription_plans">;
-export type SubscriptionDocument = ReviewerTableDocument<"subscriptions">;
-export type PaymentDocument = ReviewerTableDocument<"payments">;
-export type AccessCodeDocument = ReviewerTableDocument<"access_codes">;
-export type StudySessionDocument = ReviewerTableDocument<"study_sessions">;
-export type UserActivityDocument = ReviewerTableDocument<"user_activity_log">;
+  ReviewerTableDocument<"subscription_plans">
+export type SubscriptionDocument = ReviewerTableDocument<"subscriptions">
+export type PaymentDocument = ReviewerTableDocument<"payments">
+export type AccessCodeDocument = ReviewerTableDocument<"access_codes">
+export type StudySessionDocument = ReviewerTableDocument<"study_sessions">
+export type UserActivityDocument = ReviewerTableDocument<"user_activity_log">
 
 /** "pending" | "active" | "expired" | "cancelled" | "refunded" */
 export type SubscriptionStatus = NonNullable<
   ReviewerTableData<"subscriptions">["status"]
->;
+>
 /** "pending" | "paid" | "failed" | "refunded" */
-export type PaymentStatus = NonNullable<
-  ReviewerTableData<"payments">["status"]
->;
+export type PaymentStatus = NonNullable<ReviewerTableData<"payments">["status"]>
 export type ActivityType = NonNullable<
   ReviewerTableData<"user_activity_log">["type"]
->;
+>
 
 /**
  * Whole pesos to a readable amount: 299 -> "PHP 299".
@@ -4958,7 +5394,7 @@ export type ActivityType = NonNullable<
  * mattered.
  */
 export function formatMoney(amount: number, currency = "PHP") {
-  return `${currency} ${(Number(amount) || 0).toLocaleString()}`;
+  return `${currency} ${(Number(amount) || 0).toLocaleString()}`
 }
 
 /**
@@ -4970,36 +5406,36 @@ export function formatMoney(amount: number, currency = "PHP") {
  */
 export function hasActivePremium(
   profile: { isPremium?: boolean | null; premiumUntil?: string | null },
-  now: Date = new Date(),
+  now: Date = new Date()
 ) {
   if (!profile.isPremium) {
-    return false;
+    return false
   }
 
   if (!profile.premiumUntil) {
-    return true;
+    return true
   }
 
-  const until = new Date(profile.premiumUntil);
+  const until = new Date(profile.premiumUntil)
 
-  return Number.isNaN(until.getTime()) ? false : until.getTime() > now.getTime();
+  return Number.isNaN(until.getTime()) ? false : until.getTime() > now.getTime()
 }
-export type FlaggedContentDocument = ReviewerTableDocument<"flagged_content">;
+export type FlaggedContentDocument = ReviewerTableDocument<"flagged_content">
 
 export type LearningMaterialType =
-  ReviewerTableData<"learning_materials">["type"];
+  ReviewerTableData<"learning_materials">["type"]
 
 /** "quiz" | "board_exam" — where a category surfaces in the app. */
 export type QuestionnaireMode = NonNullable<
   ReviewerTableData<"exam_categories">["mode"]
->;
+>
 /**
  * A set label: "A", "B", ... "Z", "AA", "AB", and so on without limit.
  *
  * A string rather than a union, because the set after Z has to be expressible
  * and no fixed list survives contact with a category that needs one more.
  */
-export type QuestionnaireSetCode = string;
+export type QuestionnaireSetCode = string
 
 /** Normalizes what someone typed into a set label: "set f" and "f" both give "F". */
 export function normalizeSetCode(value: string): string {
@@ -5007,9 +5443,9 @@ export function normalizeSetCode(value: string): string {
     .trim()
     .replace(/^set\s+/i, "")
     .toUpperCase()
-    .replace(/[^A-Z]/g, "");
+    .replace(/[^A-Z]/g, "")
 
-  return cleaned;
+  return cleaned
 }
 
 /**
@@ -5019,26 +5455,28 @@ export function normalizeSetCode(value: string): string {
  * left by a deleted set before moving on.
  */
 export function nextFreeSetCode(taken: readonly string[]): string {
-  const used = new Set(taken.map((code) => normalizeSetCode(code)).filter(Boolean));
+  const used = new Set(
+    taken.map((code) => normalizeSetCode(code)).filter(Boolean)
+  )
 
   for (let index = 0; index < 10000; index += 1) {
-    const candidate = toChoiceLabel(index);
+    const candidate = toChoiceLabel(index)
 
     if (!used.has(candidate)) {
-      return candidate;
+      return candidate
     }
   }
 
-  return toChoiceLabel(taken.length);
+  return toChoiceLabel(taken.length)
 }
 /** "multiple_choice" | "true_false" */
 export type QuestionType = NonNullable<
   ReviewerTableData<"questions">["questionType"]
->;
+>
 /** "easy" | "medium" | "hard" */
 export type QuestionDifficulty = NonNullable<
   ReviewerTableData<"questions">["difficulty"]
->;
+>
 /**
  * Display label for a choice at a given position: 0 -> A, 25 -> Z, 26 -> AA.
  *
@@ -5048,35 +5486,35 @@ export type QuestionDifficulty = NonNullable<
  */
 export function toChoiceLabel(index: number): string {
   if (!Number.isFinite(index) || index < 0) {
-    return "";
+    return ""
   }
 
-  let remaining = Math.floor(index);
-  let label = "";
+  let remaining = Math.floor(index)
+  let label = ""
 
   while (remaining >= 0) {
-    label = String.fromCharCode(65 + (remaining % 26)) + label;
-    remaining = Math.floor(remaining / 26) - 1;
+    label = String.fromCharCode(65 + (remaining % 26)) + label
+    remaining = Math.floor(remaining / 26) - 1
   }
 
-  return label;
+  return label
 }
 
 /** `"C"` -> 2, `"AA"` -> 26. Returns null for anything that is not a label. */
 export function fromChoiceLabel(label: string): number | null {
-  const normalized = label.trim().toUpperCase();
+  const normalized = label.trim().toUpperCase()
 
   if (!/^[A-Z]+$/.test(normalized)) {
-    return null;
+    return null
   }
 
-  let index = 0;
+  let index = 0
 
   for (const character of normalized) {
-    index = index * 26 + (character.charCodeAt(0) - 64);
+    index = index * 26 + (character.charCodeAt(0) - 64)
   }
 
-  return index - 1;
+  return index - 1
 }
 
 /**
@@ -5100,53 +5538,53 @@ export function fromChoiceLabel(label: string): number | null {
  * server maintains - rollup counts and the like - are left out.
  */
 export function newRowDefaults(
-  tableKey: ReviewerTableKey,
+  tableKey: ReviewerTableKey
 ): Record<string, string | number | boolean | string[]> {
-  const values: Record<string, string | number | boolean | string[]> = {};
+  const values: Record<string, string | number | boolean | string[]> = {}
 
   // Widened deliberately: `as const` narrows each entry to a literal type
   // that does not carry the optional keys.
   const fields = reviewerCmsSchema[tableKey]
-    .fields as readonly CmsFieldDefinition[];
+    .fields as readonly CmsFieldDefinition[]
 
   for (const field of fields) {
     if (field.readOnly) {
-      continue;
+      continue
     }
 
     if (field.defaultValue !== undefined) {
-      values[field.key] = field.defaultValue;
-      continue;
+      values[field.key] = field.defaultValue
+      continue
     }
 
     // Only required fields need inventing; an optional one may stay absent.
     if (!field.required) {
-      continue;
+      continue
     }
 
     switch (field.kind) {
       case "integer":
       case "float":
-        values[field.key] = field.min ?? 0;
-        break;
+        values[field.key] = field.min ?? 0
+        break
       case "boolean":
-        values[field.key] = false;
-        break;
+        values[field.key] = false
+        break
       case "datetime":
-        values[field.key] = new Date().toISOString();
-        break;
+        values[field.key] = new Date().toISOString()
+        break
       case "string[]":
-        values[field.key] = [];
-        break;
+        values[field.key] = []
+        break
       case "enum":
-        values[field.key] = String(field.options?.[0] ?? "");
-        break;
+        values[field.key] = String(field.options?.[0] ?? "")
+        break
       default:
-        values[field.key] = "";
+        values[field.key] = ""
     }
   }
 
-  return values;
+  return values
 }
 
 /**
@@ -5156,7 +5594,7 @@ export function newRowDefaults(
 export function requiredColumnsFor(tableKey: ReviewerTableKey) {
   return (reviewerCmsSchema[tableKey].fields as readonly CmsFieldDefinition[])
     .filter((field) => field.required)
-    .map((field) => field.key);
+    .map((field) => field.key)
 }
 
 /**
@@ -5173,14 +5611,14 @@ export function requiredColumnsFor(tableKey: ReviewerTableKey) {
  */
 export function ownedRowPermissions(userId: string): string[] {
   if (!userId) {
-    throw new Error("ownedRowPermissions needs a user id.");
+    throw new Error("ownedRowPermissions needs a user id.")
   }
 
   return [
     `read("user:${userId}")`,
     `update("user:${userId}")`,
     `delete("user:${userId}")`,
-  ];
+  ]
 }
 
 /**
@@ -5197,15 +5635,15 @@ export function ownedRowPermissions(userId: string): string[] {
  */
 export function serverOwnedRowPermissions(userId: string): string[] {
   if (!userId) {
-    throw new Error("serverOwnedRowPermissions needs a user id.");
+    throw new Error("serverOwnedRowPermissions needs a user id.")
   }
 
-  return [`read("user:${userId}")`];
+  return [`read("user:${userId}")`]
 }
 
 /** The access model a table was configured with. */
 export function getTableAccessModel(tableKey: ReviewerTableKey) {
-  return reviewerCmsSchema[tableKey].accessModel;
+  return reviewerCmsSchema[tableKey].accessModel
 }
 
 /**
@@ -5217,7 +5655,7 @@ export function getTableAccessModel(tableKey: ReviewerTableKey) {
  */
 export function tableNeedsRowPermissions(tableKey: ReviewerTableKey) {
   return getAccessModelPermissions(reviewerCmsSchema[tableKey].accessModel)
-    .rowSecurity;
+    .rowSecurity
 }
 
 export const dashboardGroups = [
@@ -5229,18 +5667,20 @@ export const dashboardGroups = [
   { key: "achievements", label: "Achievements" },
   { key: "community", label: "Community" },
   { key: "cms", label: "Moderation" },
-] as const;
+] as const
 
 /** What the dashboard lets *anyone* do with a table. Defaults to full control. */
 export function getTableAccess(tableKey: ReviewerTableKey): CmsTableAccess {
   return (
     (reviewerCmsSchema[tableKey] as { access?: CmsTableAccess }).access ??
     "manage"
-  );
+  )
 }
 
-export function getTableDomain(tableKey: ReviewerTableKey): CmsPermissionDomain {
-  return (reviewerCmsSchema[tableKey] as { domain: CmsPermissionDomain }).domain;
+export function getTableDomain(
+  tableKey: ReviewerTableKey
+): CmsPermissionDomain {
+  return (reviewerCmsSchema[tableKey] as { domain: CmsPermissionDomain }).domain
 }
 
 /**
@@ -5255,25 +5695,25 @@ export function getTableDomain(tableKey: ReviewerTableKey): CmsPermissionDomain 
  */
 export function getTablePermission(
   tableKey: ReviewerTableKey,
-  action: CmsTableAction,
+  action: CmsTableAction
 ): CmsPermission | null {
-  const access = getTableAccess(tableKey);
+  const access = getTableAccess(tableKey)
 
   if (access === "hidden") {
-    return null;
+    return null
   }
 
   if (action !== "view") {
     if (access === "readonly") {
-      return null;
+      return null
     }
 
     if (access === "review" && action !== "delete") {
-      return null;
+      return null
     }
   }
 
-  return domainTablePermissions[getTableDomain(tableKey)][action];
+  return domainTablePermissions[getTableDomain(tableKey)][action]
 }
 
 /**
@@ -5286,15 +5726,15 @@ export function getTablePermission(
 export function roleCanUseTable(
   role: CmsRole,
   tableKey: ReviewerTableKey,
-  action: CmsTableAction,
+  action: CmsTableAction
 ) {
-  const permission = getTablePermission(tableKey, action);
-  return permission !== null && roleHasPermission(role, permission);
+  const permission = getTablePermission(tableKey, action)
+  return permission !== null && roleHasPermission(role, permission)
 }
 
 /** Tables a role may open, in schema order. Drives the sidebar. */
 export function listTablesForRole(role: CmsRole) {
   return reviewerTableEntries
     .map(([tableKey]) => tableKey)
-    .filter((tableKey) => roleCanUseTable(role, tableKey, "view"));
+    .filter((tableKey) => roleCanUseTable(role, tableKey, "view"))
 }

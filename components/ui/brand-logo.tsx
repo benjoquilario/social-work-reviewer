@@ -22,8 +22,8 @@ import { cn } from "@/lib/utils"
  * ink**, which is the only number a layout cares about.
  */
 
-const MARK = require("@/assets/images/sure-win-image.png")
-const WORDMARK = require("@/assets/images/sure-win-image-text.png")
+const MARK = require("@/assets/images/sure-win-image.webp")
+const WORDMARK = require("@/assets/images/sure-win-image-text.webp")
 const LOCKUP = require("@/assets/images/logo-512x512.png")
 
 type BrandLogoSize = "sm" | "md" | "lg" | "xl"

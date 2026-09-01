@@ -1,12 +1,10 @@
 import { memo } from "react"
-import {
-  BadgeCheck,
-  CalendarDays,
-  CheckCircle2,
-  Flame,
-  ShieldCheck,
-  Trophy,
-} from "lucide-react-native"
+import BadgeCheck from "lucide-react-native/icons/badge-check"
+import CalendarDays from "lucide-react-native/icons/calendar-days"
+import CheckCircle2 from "lucide-react-native/icons/circle-check"
+import Flame from "lucide-react-native/icons/flame"
+import ShieldCheck from "lucide-react-native/icons/shield-check"
+import Trophy from "lucide-react-native/icons/trophy"
 import { Pressable, View } from "react-native"
 
 import { withOpacity, type ThemePalette } from "@/lib/theme"

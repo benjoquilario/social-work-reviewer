@@ -1,5 +1,7 @@
 import { memo } from "react"
-import { ChevronRight, FolderOpen, LockKeyhole } from "lucide-react-native"
+import ChevronRight from "lucide-react-native/icons/chevron-right"
+import FolderOpen from "lucide-react-native/icons/folder-open"
+import LockKeyhole from "lucide-react-native/icons/lock-keyhole"
 import { View } from "react-native"
 
 import type { ThemePalette } from "@/lib/home-types"

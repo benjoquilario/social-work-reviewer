@@ -1,5 +1,7 @@
 import { memo } from "react"
-import { CheckCircle2, Lightbulb, XCircle } from "lucide-react-native"
+import CheckCircle2 from "lucide-react-native/icons/circle-check"
+import Lightbulb from "lucide-react-native/icons/lightbulb"
+import XCircle from "lucide-react-native/icons/circle-x"
 import { View } from "react-native"
 
 import { withOpacity } from "@/lib/theme"

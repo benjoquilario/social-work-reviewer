@@ -1,5 +1,5 @@
 import { memo } from "react"
-import { Crown } from "lucide-react-native"
+import Crown from "lucide-react-native/icons/crown"
 import { View } from "react-native"
 
 import { withOpacity } from "@/lib/theme"

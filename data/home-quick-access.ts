@@ -1,10 +1,8 @@
-import {
-  BookOpenText,
-  ChartColumnIncreasing,
-  ListChecks,
-  MessagesSquare,
-  Newspaper,
-} from "lucide-react-native"
+import BookOpenText from "lucide-react-native/icons/book-open-text"
+import ChartColumnIncreasing from "lucide-react-native/icons/chart-column-increasing"
+import ListChecks from "lucide-react-native/icons/list-checks"
+import MessagesSquare from "lucide-react-native/icons/messages-square"
+import Newspaper from "lucide-react-native/icons/newspaper"
 import type { QuickAccessItem } from "@/lib/home-types"
 
 export const QUICK_ACCESS_ITEMS: QuickAccessItem[] = [

@@ -1,11 +1,9 @@
 import { memo } from "react"
-import {
-  BookOpenCheck,
-  ChevronRight,
-  Layers,
-  MessageSquareText,
-  Timer,
-} from "lucide-react-native"
+import BookOpenCheck from "lucide-react-native/icons/book-open-check"
+import ChevronRight from "lucide-react-native/icons/chevron-right"
+import Layers from "lucide-react-native/icons/layers"
+import MessageSquareText from "lucide-react-native/icons/message-square-text"
+import Timer from "lucide-react-native/icons/timer"
 import { View } from "react-native"
 
 import type { ThemePalette } from "@/lib/home-types"

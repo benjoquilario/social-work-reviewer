@@ -76,7 +76,7 @@ export default function NewsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-background">
+      <SafeAreaView className="flex-1 bg-background" edges={["top", "left", "right"]}>
         {header}
         <View className="gap-4 px-4">
           <AnnouncementSkeleton />
@@ -88,7 +88,7 @@ export default function NewsScreen() {
 
   if (error) {
     return (
-      <SafeAreaView className="flex-1 bg-background">
+      <SafeAreaView className="flex-1 bg-background" edges={["top", "left", "right"]}>
         {header}
         <View className="px-4">
           <EmptyState
@@ -106,7 +106,7 @@ export default function NewsScreen() {
 
   if (announcements.length === 0) {
     return (
-      <SafeAreaView className="flex-1 bg-background">
+      <SafeAreaView className="flex-1 bg-background" edges={["top", "left", "right"]}>
         {header}
         <View className="px-4">
           <EmptyState
@@ -119,14 +119,20 @@ export default function NewsScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-background" edges={["top", "left", "right"]}>
       <FlashList
         data={announcements}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         ListHeaderComponent={header}
         ItemSeparatorComponent={() => <View className="h-4" />}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 128 }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          // Clears the tab bar's raised Study button, which overhangs
+          // into this screen by 20px. The bar itself sits below the
+          // screen rather than over it, so its height needs no allowance.
+          paddingBottom: 32,
+        }}
         showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>

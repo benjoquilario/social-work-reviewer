@@ -1,5 +1,6 @@
 import { memo } from "react"
-import { ChevronRight, FileQuestion } from "lucide-react-native"
+import ChevronRight from "lucide-react-native/icons/chevron-right"
+import FileQuestion from "lucide-react-native/icons/file-question-mark"
 import { Pressable, View } from "react-native"
 
 import type { QuestionSet } from "@/lib/content/question-sets"

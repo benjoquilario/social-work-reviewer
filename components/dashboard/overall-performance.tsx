@@ -1,7 +1,9 @@
 import { memo } from "react"
 import { View } from "react-native"
-import { Clock, Info, Target, Zap } from "lucide-react-native"
-
+import Clock from "lucide-react-native/icons/clock"
+import Info from "lucide-react-native/icons/info"
+import Target from "lucide-react-native/icons/target"
+import Zap from "lucide-react-native/icons/zap"
 import type { OverallPerformanceStats } from "@/lib/performance-stats"
 import { THEME, getThemeChartPalette, withOpacity } from "@/lib/theme"
 import { Card, CardContent } from "@/components/ui/card"

@@ -1,5 +1,7 @@
 import { memo } from "react"
-import { Camera, Settings, UserRoundPen } from "lucide-react-native"
+import Camera from "lucide-react-native/icons/camera"
+import Settings from "lucide-react-native/icons/settings"
+import UserRoundPen from "lucide-react-native/icons/user-round-pen"
 import { Pressable, View } from "react-native"
 
 import { getBrandSurfacePalette, type ThemePalette } from "@/lib/theme"

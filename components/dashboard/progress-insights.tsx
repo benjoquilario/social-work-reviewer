@@ -1,13 +1,10 @@
 import { memo } from "react"
 import { View } from "react-native"
-import {
-  Award,
-  Flame,
-  ShieldAlert,
-  TrendingDown,
-  TrendingUp,
-} from "lucide-react-native"
-
+import Award from "lucide-react-native/icons/award"
+import Flame from "lucide-react-native/icons/flame"
+import ShieldAlert from "lucide-react-native/icons/shield-alert"
+import TrendingDown from "lucide-react-native/icons/trending-down"
+import TrendingUp from "lucide-react-native/icons/trending-up"
 import type {
   AchievementHighlight,
   DashboardInsights,

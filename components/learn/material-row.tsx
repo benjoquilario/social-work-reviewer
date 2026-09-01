@@ -1,5 +1,7 @@
 import { memo } from "react"
-import { Check, ChevronRight, LockKeyhole } from "lucide-react-native"
+import Check from "lucide-react-native/icons/check"
+import ChevronRight from "lucide-react-native/icons/chevron-right"
+import LockKeyhole from "lucide-react-native/icons/lock-keyhole"
 import { Pressable, View } from "react-native"
 
 import type { LearningMaterial } from "@/lib/learning-content"

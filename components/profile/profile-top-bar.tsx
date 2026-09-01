@@ -1,5 +1,6 @@
 import { memo } from "react"
-import { Menu, Settings } from "lucide-react-native"
+import Menu from "lucide-react-native/icons/menu"
+import Settings from "lucide-react-native/icons/settings"
 import { View } from "react-native"
 
 import type { ThemePalette } from "@/lib/theme"

@@ -1,13 +1,16 @@
 import { memo } from "react"
-import { CalendarDays, ChevronRight, Sparkles } from "lucide-react-native"
-import { Image, Pressable, View } from "react-native"
+import CalendarDays from "lucide-react-native/icons/calendar-days"
+import ChevronRight from "lucide-react-native/icons/chevron-right"
+import Sparkles from "lucide-react-native/icons/sparkles"
+import { Image } from "expo-image"
+import { Pressable, View } from "react-native"
 
 import type { ExamCountdown } from "@/lib/exam-countdown"
 import type { ThemePalette } from "@/lib/theme"
 import { toSvgColor, withOpacity } from "@/lib/theme"
 import { Text } from "@/components/ui/text"
 
-const GRADUATION_ART = require("../../assets/images/happy-graduation.png")
+const GRADUATION_ART = require("../../assets/images/happy-graduation.webp")
 
 type ExamCountdownCardProps = {
   theme: ThemePalette
@@ -129,9 +132,9 @@ export const ExamCountdownCard = memo(function ExamCountdownCard({
           />
           <Image
             source={GRADUATION_ART}
-            resizeMode="contain"
+            contentFit="contain"
             accessible={false}
-            className="h-[104px] w-[112px]"
+            style={{ width: 112, height: 104 }}
           />
         </View>
       </View>

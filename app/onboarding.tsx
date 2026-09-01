@@ -1,11 +1,9 @@
 import { useRef, useState } from "react"
 import { useLocalSearchParams, useRouter } from "expo-router"
-import {
-  BookOpenText,
-  ListChecks,
-  TrendingUp,
-  type LucideIcon,
-} from "lucide-react-native"
+import BookOpenText from "lucide-react-native/icons/book-open-text"
+import ListChecks from "lucide-react-native/icons/list-checks"
+import TrendingUp from "lucide-react-native/icons/trending-up"
+import type { LucideIcon } from "lucide-react-native"
 import {
   FlatList,
   Pressable,

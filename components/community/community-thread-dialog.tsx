@@ -1,11 +1,9 @@
 import { memo, useCallback, useState } from "react"
 import { Image } from "expo-image"
-import {
-  CornerDownRight,
-  Heart,
-  MessageSquare,
-  Send,
-} from "lucide-react-native"
+import CornerDownRight from "lucide-react-native/icons/corner-down-right"
+import Heart from "lucide-react-native/icons/heart"
+import MessageSquare from "lucide-react-native/icons/message-square"
+import Send from "lucide-react-native/icons/send"
 import { Pressable, TextInput, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 

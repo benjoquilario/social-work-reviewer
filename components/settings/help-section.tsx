@@ -1,5 +1,6 @@
 import { memo } from "react"
-import { ChevronRight, Compass } from "lucide-react-native"
+import ChevronRight from "lucide-react-native/icons/chevron-right"
+import Compass from "lucide-react-native/icons/compass"
 import { Pressable, View } from "react-native"
 
 import { withOpacity } from "@/lib/theme"

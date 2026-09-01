@@ -1,5 +1,5 @@
 import { memo } from "react"
-import { Camera } from "lucide-react-native"
+import Camera from "lucide-react-native/icons/camera"
 import { View } from "react-native"
 
 import type { MemberType } from "@/lib/schema"

@@ -1,6 +1,8 @@
 import { memo, useState } from "react"
 import { Image } from "expo-image"
-import { Heart, MessageSquare, MoreHorizontal } from "lucide-react-native"
+import Heart from "lucide-react-native/icons/heart"
+import MessageSquare from "lucide-react-native/icons/message-square"
+import MoreHorizontal from "lucide-react-native/icons/ellipsis"
 import { Pressable, View } from "react-native"
 
 import { type CommunityPostItem } from "@/lib/community"

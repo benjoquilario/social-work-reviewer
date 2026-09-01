@@ -1,5 +1,5 @@
 import { memo } from "react"
-import { ChevronRight } from "lucide-react-native"
+import ChevronRight from "lucide-react-native/icons/chevron-right"
 import { Pressable, View } from "react-native"
 
 import type { ThemePalette } from "@/lib/home-types"

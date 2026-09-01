@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useLocalSearchParams, useRouter } from "expo-router"
-import { BadgeCheck, CircleAlert, LoaderCircle } from "lucide-react-native"
+import BadgeCheck from "lucide-react-native/icons/badge-check"
+import CircleAlert from "lucide-react-native/icons/circle-alert"
+import LoaderCircle from "lucide-react-native/icons/loader-circle"
 import { View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 

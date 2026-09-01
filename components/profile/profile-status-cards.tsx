@@ -1,5 +1,5 @@
 import { memo } from "react"
-import { MailWarning } from "lucide-react-native"
+import MailWarning from "lucide-react-native/icons/mail-warning"
 import { View } from "react-native"
 
 import type { ThemePalette } from "@/lib/theme"

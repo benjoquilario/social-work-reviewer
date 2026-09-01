@@ -1,5 +1,8 @@
 import { Image } from "expo-image"
-import { ImagePlus, Send, Trash2, X } from "lucide-react-native"
+import ImagePlus from "lucide-react-native/icons/image-plus"
+import Send from "lucide-react-native/icons/send"
+import Trash2 from "lucide-react-native/icons/trash-2"
+import X from "lucide-react-native/icons/x"
 import {
   KeyboardAvoidingView,
   Platform,

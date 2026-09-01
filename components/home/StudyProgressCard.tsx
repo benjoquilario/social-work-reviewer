@@ -1,5 +1,8 @@
 import { memo } from "react"
-import { BookOpen, CheckCircle2, Flame, Trophy } from "lucide-react-native"
+import BookOpen from "lucide-react-native/icons/book-open"
+import CheckCircle2 from "lucide-react-native/icons/circle-check"
+import Flame from "lucide-react-native/icons/flame"
+import Trophy from "lucide-react-native/icons/trophy"
 import { View } from "react-native"
 
 import type { ThemePalette } from "@/lib/theme"

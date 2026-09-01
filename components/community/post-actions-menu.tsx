@@ -1,5 +1,7 @@
 import { memo } from "react"
-import { Flag, Trash2, UserX } from "lucide-react-native"
+import Flag from "lucide-react-native/icons/flag"
+import Trash2 from "lucide-react-native/icons/trash-2"
+import UserX from "lucide-react-native/icons/user-x"
 import { Pressable, View } from "react-native"
 
 import { withOpacity } from "@/lib/theme"

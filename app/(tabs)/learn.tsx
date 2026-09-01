@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list"
 import { useQuery } from "@tanstack/react-query"
 import { useRouter } from "expo-router"
-import { Search } from "lucide-react-native"
+import Search from "lucide-react-native/icons/search"
 import { View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
@@ -127,7 +127,7 @@ export default function LearningLibraryScreen() {
         : null
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-background" edges={["top", "left", "right"]}>
       {/* Search stays pinned rather than scrolling away inside the list
           header — in a library, the filter is the primary control. */}
       <View className="gap-3 px-4 pb-3 pt-3">
@@ -186,7 +186,13 @@ export default function LearningLibraryScreen() {
             </Text>
           ) : null
         }
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 112 }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          // Clears the tab bar's raised Study button, which overhangs
+          // into this screen by 20px. The bar itself sits below the
+          // screen rather than over it, so its height needs no allowance.
+          paddingBottom: 32,
+        }}
         showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>
